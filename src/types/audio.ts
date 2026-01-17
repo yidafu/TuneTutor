@@ -20,18 +20,3 @@ export const INSTRUMENTS: InstrumentConfig[] = [
   { type: 'flute', name: 'Flute', icon: '🎼', category: 'woodwind' },
   { type: 'trumpet', name: 'Trumpet', icon: '🎺', category: 'brass' },
 ] as const;
-
-export interface AudioState {
-  isReady: boolean;
-  isPlaying: boolean;
-  currentInstrument: InstrumentType;
-  tempo: number;
-  measureInterval: number; // beats between measures
-}
-
-export interface InstrumentFactory {
-  getInstrument(): unknown;
-  setInstrument(instrument: InstrumentType): void;
-  loadSamples(): Promise<void>;
-  playNote(noteName: string, duration: string, time: number): void;
-}

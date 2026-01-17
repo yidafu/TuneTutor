@@ -1,108 +1,40 @@
 /**
- * VexFlow helper utilities for music notation rendering
+ * VexFlow rendering utilities for music notation
  */
 
 import * as VexFlow from 'vexflow';
-import type { Measure, ParsedScore, NotePosition, Note } from '../../types/notation';
+import type { Measure, ParsedScore, Note } from '../../types/notation';
+import { calculateScoreLayout } from './layout';
+import {
+  STAVE_WIDTH,
+  STAVE_HEIGHT,
+  PADDING,
+  STAVE_PADDING,
+  COLORS,
+  noteBoundsCache,
+  rowConfigsCache,
+  clearCaches,
+} from './types';
 
 const VF = VexFlow;
 
 // Global store for note references (for bounding box access)
+// Note: This is cleared at the start of each renderScore call to prevent memory leaks
 let noteRefsStore: { measureIndex: number; noteIndex: number; note: VexFlow.StaveNote }[] = [];
 
-// Layout constants
-const STAVE_WIDTH = 100;
-const STAVE_HEIGHT = 80;
-const PADDING = 20;
-const STAVE_PADDING = 0;
-const ROW_SPACING = 30;
-const TOP_Y = 50;
-
 /**
- * Calculate score layout for automatic wrapping
+ * Helper to create a note with all required fields
  */
-export interface RowConfig {
-  startMeasure: number;
-  endMeasure: number;
-  rowIndex: number;
-  y: number;
-}
-
-export interface ScoreLayout {
-  measuresPerRow: number;
-  totalRows: number;
-  svgWidth: number;
-  svgHeight: number;
-  rowConfigs: RowConfig[];
-}
-
-export function calculateScoreLayout(
-  measureCount: number,
-  options: {
-    staveWidth?: number;
-    padding?: number;
-    stavePadding?: number;
-    rowSpacing?: number;
-    topY?: number;
-    measuresPerRow?: number;
-  } = {}
-): ScoreLayout {
-  const {
-    staveWidth = STAVE_WIDTH,
-    padding = PADDING,
-    stavePadding = STAVE_PADDING,
-    rowSpacing = ROW_SPACING,
-    topY = TOP_Y,
-    measuresPerRow = 4,
-  } = options;
-
-  // Total rows needed
-  const totalRows = Math.ceil(measureCount / measuresPerRow);
-
-  // SVG dimensions
-  const svgWidth = padding + measuresPerRow * staveWidth + (measuresPerRow - 1) * stavePadding;
-  const svgHeight = topY + totalRows * (STAVE_HEIGHT + rowSpacing) + 20;
-
-  // Generate row configurations
-  const rowConfigs: RowConfig[] = [];
-  for (let row = 0; row < totalRows; row++) {
-    const startMeasure = row * measuresPerRow;
-    const endMeasure = Math.min(startMeasure + measuresPerRow - 1, measureCount - 1);
-    rowConfigs.push({
-      startMeasure,
-      endMeasure,
-      rowIndex: row,
-      y: topY + row * (STAVE_HEIGHT + rowSpacing),
-    });
-  }
-
+function createNote(pitch: string, duration: string, octave: number): Note {
   return {
-    measuresPerRow,
-    totalRows,
-    svgWidth,
-    svgHeight,
-    rowConfigs,
+    pitch,
+    duration,
+    durationValue: 1,
+    octave,
+    isRest: false,
+    dots: 0,
   };
 }
-
-// Colors for measure states
-const COLORS = {
-  selected: '#dbeafe', // blue-100
-  playing: '#fef08a',  // yellow-200
-  default: '#ffffff',
-  border: '#e5e7eb',   // gray-200
-  hover: '#eff6ff',    // blue-50
-};
-
-// Helper to create a note with all required fields
-const createNote = (pitch: string, duration: string, octave: number): Note => ({
-  pitch,
-  duration,
-  durationValue: 1,
-  octave,
-  isRest: false,
-  dots: 0,
-});
 
 /**
  * Create a simple score for demonstration (Twinkle Twinkle Little Star)
@@ -140,13 +72,11 @@ export function renderScore(
     staveWidth?: number;
     onMeasureClick?: (measureIndex: number) => void;
     selectedMeasures?: number[];
-    currentMeasure?: number;
   } = {}
 ): void {
   const {
-    staveWidth = 100,
+    staveWidth = STAVE_WIDTH,
     selectedMeasures = [],
-    currentMeasure = -1,
   } = options;
 
   // Calculate layout for auto-wrapping
@@ -160,8 +90,11 @@ export function renderScore(
     container.className = 'vexflow-renderer';
   }
 
-  // Clear previous content
+  // Clear previous content and note references
   container.innerHTML = '';
+  noteRefsStore = [];
+  clearCaches();
+  rowConfigsCache.push(...layout.rowConfigs);
 
   // Create canvas element
   const canvas = document.createElement('canvas');
@@ -179,13 +112,6 @@ export function renderScore(
   // CanvasRenderingContext2D for background and text
   const ctx = canvas.getContext('2d')!;
 
-  // Helper function to get color for selection state
-  function getSelectionColor(isPlaying: boolean, isSelected: boolean): { fill: string; stroke: string } | null {
-    if (isPlaying) return { fill: COLORS.playing, stroke: '#eab308' };
-    if (isSelected) return { fill: COLORS.selected, stroke: '#3b82f6' };
-    return null;
-  }
-
   // Render each row
   layout.rowConfigs.forEach((rowConfig) => {
     // Render each measure in this row
@@ -195,18 +121,15 @@ export function renderScore(
       const x = PADDING + indexInRow * (staveWidth + STAVE_PADDING);
       const stave = new VF.Stave(x, rowConfig.y, staveWidth);
 
-      // Draw measure background first
+      // Draw measure background first (for selected measures only)
       const isSelected = selectedMeasures.includes(measureIndex);
-      const isPlaying = measureIndex === currentMeasure;
-      const selectionColor = getSelectionColor(isPlaying, isSelected);
-
-      if (selectionColor) {
-        ctx.fillStyle = selectionColor.fill;
+      if (isSelected) {
+        ctx.fillStyle = COLORS.selected;
         ctx.globalAlpha = 0.8;
         ctx.fillRect(x, rowConfig.y - 10, staveWidth, STAVE_HEIGHT + 20);
         ctx.globalAlpha = 1.0;
 
-        ctx.strokeStyle = selectionColor.stroke;
+        ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 2;
         ctx.strokeRect(x, rowConfig.y - 10, staveWidth, STAVE_HEIGHT + 20);
       }
@@ -255,6 +178,22 @@ export function renderScore(
         notes.forEach((staveNote, noteIndex) => {
           // Store note reference for bounding box access
           noteRefsStore.push({ measureIndex, noteIndex, note: staveNote });
+
+          // Populate noteBoundsCache for selection and playback
+          const box = staveNote.getBoundingBox();
+          noteBoundsCache.push({
+            measureIndex,
+            noteIndex,
+            x: box.getX(),
+            y: box.getY(),
+            width: box.getW(),
+            height: box.getH(),
+            staveX: x,
+            staveY: rowConfig.y,
+            staveWidth: staveWidth,
+            staveHeight: STAVE_HEIGHT,
+            rowIndex: rowConfig.rowIndex,
+          });
         });
       }
     }
@@ -269,52 +208,7 @@ export function clearNotationContainer(containerId: string): void {
   if (container) {
     container.innerHTML = '';
   }
-  // Clear the note positions store
+  // Clear the note positions store and caches
   noteRefsStore = [];
-}
-
-/**
- * Get the positions of all rendered notes
- * @returns Array of note positions with measure and note indices
- */
-export function getNotePositions(): NotePosition[] {
-  return noteRefsStore.map(({ measureIndex, noteIndex, note }) => {
-    const box = note.getBoundingBox();
-    return {
-      measureIndex,
-      noteIndex,
-      x: box.getX(),
-      y: box.getY(),
-      width: box.getW(),
-      height: box.getH(),
-    };
-  });
-}
-
-/**
- * Get the SVG element for a specific note
- * @param containerId The container ID
- * @param measureIndex The measure index
- * @param noteIndex The note index within the measure
- * @returns The SVG element for the note, or null if not found
- */
-export function getNoteElement(
-  containerId: string,
-  measureIndex: number,
-  noteIndex: number
-): Element | null {
-  const container = document.getElementById(containerId);
-  if (!container) return null;
-  return container.querySelector(`[data-measure="${measureIndex}"][data-note="${noteIndex}"]`);
-}
-
-/**
- * Get row configurations for a score
- * @param measureCount Number of measures
- * @param options Options including measuresPerRow and staveWidth
- * @returns Array of row configurations
- */
-export function getRowConfigs(measureCount: number, options?: { measuresPerRow?: number; staveWidth?: number }): RowConfig[] {
-  const layout = calculateScoreLayout(measureCount, options);
-  return layout.rowConfigs;
+  clearCaches();
 }

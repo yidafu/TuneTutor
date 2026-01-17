@@ -2,27 +2,48 @@
  * usePlayback Hook - Manage playback state and control
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ParsedScore } from '../types/notation';
+import type { PlaybackState, PlaybackActions, LoopRange } from '../types/playback';
+import { calculateTotalDuration as calculateDurationFromMeasures, noteDurationToSeconds, beatsToSeconds } from '../utils/audio/TempoConverter';
 
-interface PlaybackState {
-  isPlaying: boolean;
-  isPaused: boolean;
-  currentMeasure: number;
-  currentNoteIndex: number;
-  progress: number; // 0-100
-  currentTime: number; // seconds
-  totalDuration: number; // seconds
-  loopEnabled: boolean;
-}
+// Helper to calculate current note index and progress within note from time
+function calculateNotePosition(
+  score: ParsedScore,
+  currentTime: number,
+  tempo: number
+): { measureIndex: number; noteIndex: number; progressInNote: number } {
+  const [, beatValue] = score.timeSignature.split('/').map(Number);
+  let elapsedTime = 0;
 
-interface PlaybackActions {
-  play: () => void;
-  pause: () => void;
-  stop: () => void;
-  toggleLoop: () => void;
-  seek: (time: number) => void;
-  calculateTotalDuration: (score: ParsedScore, tempo: number) => number;
+  for (let m = 0; m < score.measures.length; m++) {
+    const measure = score.measures[m];
+    for (let n = 0; n < measure.notes.length; n++) {
+      const note = measure.notes[n];
+      const noteDuration = noteDurationToSeconds(note.duration, tempo, beatValue);
+
+      if (currentTime >= elapsedTime && currentTime < elapsedTime + noteDuration) {
+        return {
+          measureIndex: m,
+          noteIndex: n,
+          progressInNote: (currentTime - elapsedTime) / noteDuration,
+        };
+      }
+      elapsedTime += noteDuration;
+    }
+  }
+
+  // If time is beyond all notes, return last note
+  const lastMeasure = score.measures[score.measures.length - 1];
+  if (lastMeasure.notes.length > 0) {
+    return {
+      measureIndex: score.measures.length - 1,
+      noteIndex: lastMeasure.notes.length - 1,
+      progressInNote: 1,
+    };
+  }
+
+  return { measureIndex: 0, noteIndex: 0, progressInNote: 0 };
 }
 
 export function usePlayback(): [PlaybackState, PlaybackActions] {
@@ -35,32 +56,26 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
     currentTime: 0,
     totalDuration: 0,
     loopEnabled: false,
+    loopRange: null,
+    indicatorX: 0,
+    indicatorRowTop: 0,
+    indicatorRowBottom: 0,
   });
+
+  // Store score and tempo for position calculation
+  const scoreRef = useRef<ParsedScore | null>(null);
+  const tempoRef = useRef<number>(120);
 
   const intervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0);
+  const loopCycleStartRef = useRef<number>(0);  // Start time of current loop cycle
 
   // Calculate total duration of measures
   const calculateTotalDuration = useCallback((score: ParsedScore, tempo: number = 120): number => {
-    const secondsPerBeat = 60 / tempo;
-
-    let total = 0;
-    for (const measure of score.measures) {
-      for (const note of measure.notes) {
-        // Convert duration to beats
-        const durationMap: Record<string, number> = {
-          'w': 4,
-          'h': 2,
-          'q': 1,
-          '8': 0.5,
-          '16': 0.25,
-        };
-        const beats = durationMap[note.duration] || 1;
-        total += beats * secondsPerBeat;
-      }
-    }
-    return total;
+    scoreRef.current = score;
+    tempoRef.current = tempo;
+    return calculateDurationFromMeasures(score.measures, tempo, score.timeSignature);
   }, []);
 
   // Play
@@ -74,6 +89,7 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
     }));
     startTimeRef.current = Date.now();
     pauseTimeRef.current = 0;
+    loopCycleStartRef.current = Date.now();
   }, []);
 
   // Pause
@@ -107,9 +123,25 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
     }
   }, []);
 
-  // Toggle loop
-  const toggleLoop = useCallback(() => {
-    setState((prev) => ({ ...prev, loopEnabled: !prev.loopEnabled }));
+  // Toggle loop - optionally set loop range
+  const toggleLoop = useCallback((range?: LoopRange | null) => {
+    setState((prev) => {
+      const newLoopEnabled = range ? !prev.loopEnabled : !prev.loopEnabled;
+      return {
+        ...prev,
+        loopEnabled: newLoopEnabled,
+        loopRange: newLoopEnabled && range ? range : prev.loopRange,
+      };
+    });
+  }, []);
+
+  // Set loop range directly
+  const setLoopRange = useCallback((range: LoopRange | null) => {
+    setState((prev) => ({
+      ...prev,
+      loopRange: range,
+      loopEnabled: range !== null,
+    }));
   }, []);
 
   // Seek
@@ -134,9 +166,52 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
 
         const newProgress = (currentTime / prev.totalDuration) * 100;
 
+        // Check if we need to loop with skip (N play, M skip)
+        if (prev.loopEnabled && prev.loopRange && scoreRef.current) {
+          // playDuration from startBeat to endBeat
+          const playBeats = prev.loopRange.endBeat - prev.loopRange.startBeat;
+          // Convert beats directly to seconds
+          const playDuration = beatsToSeconds(playBeats, tempoRef.current, 4);
+          // Use skipBeats from loopRange
+          const skipBeats = prev.loopRange.skipBeats || playBeats;
+          const skipDuration = beatsToSeconds(skipBeats, tempoRef.current, 4);
+          const cycleDuration = playDuration + skipDuration;
+
+          // Calculate cycle position using modulo
+          const cycleTime = currentTime % cycleDuration;
+
+          if (cycleTime >= playDuration) {
+            // Skip phase - we're waiting, position indicator at the end of play range
+            const skipProgress = (playDuration / prev.totalDuration) * 100;
+            return {
+              ...prev,
+              progress: skipProgress,
+              currentTime: playDuration,
+              currentMeasure: prev.loopRange.endBeat,
+              currentNoteIndex: -1,
+            };
+          }
+
+          // Play phase - show current position
+          const startBeatOffset = beatsToSeconds(prev.loopRange.startBeat, tempoRef.current, 4);
+          const positionTime = cycleTime + startBeatOffset;
+          const { measureIndex, noteIndex } = calculateNotePosition(
+            scoreRef.current,
+            positionTime,
+            tempoRef.current
+          );
+          return {
+            ...prev,
+            progress: (cycleTime / prev.totalDuration) * 100,
+            currentTime: cycleTime,
+            currentMeasure: measureIndex,
+            currentNoteIndex: noteIndex,
+          };
+        }
+
         if (newProgress >= 100) {
           if (prev.loopEnabled) {
-            // Restart playback
+            // Restart playback from beginning
             startTimeRef.current = Date.now();
             return {
               ...prev,
@@ -144,6 +219,7 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
               currentTime: 0,
               currentMeasure: 0,
               currentNoteIndex: -1,
+              indicatorX: 0,
             };
           } else {
             // Stop playback
@@ -160,10 +236,17 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
           }
         }
 
+        // Calculate current note position for indicator
+        const { measureIndex, noteIndex } = scoreRef.current
+          ? calculateNotePosition(scoreRef.current, currentTime, tempoRef.current)
+          : { measureIndex: 0, noteIndex: 0 };
+
         return {
           ...prev,
           progress: newProgress,
           currentTime,
+          currentMeasure: measureIndex,
+          currentNoteIndex: noteIndex,
         };
       });
     }, 50);
@@ -173,7 +256,7 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
         clearInterval(intervalRef.current);
       }
     };
-  }, [state.isPlaying, state.loopEnabled, state.totalDuration]);
+  }, [state.isPlaying, state.loopEnabled, state.loopRange, state.totalDuration]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -184,14 +267,15 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
     };
   }, []);
 
-  const actions: PlaybackActions = {
+  const actions: PlaybackActions = useMemo(() => ({
     play,
     pause,
     stop,
     toggleLoop,
+    setLoopRange,
     seek,
     calculateTotalDuration,
-  };
+  }), [calculateTotalDuration, pause, play, seek, setLoopRange, stop, toggleLoop]);
 
   return [state, actions];
 }

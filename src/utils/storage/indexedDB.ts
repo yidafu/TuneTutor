@@ -13,7 +13,7 @@ let dbInstance: IDBDatabase | null = null;
 /**
  * Initialize the IndexedDB database
  */
-export function initDB(): Promise<IDBDatabase> {
+async function initDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (dbInstance) {
       resolve(dbInstance);
@@ -86,22 +86,6 @@ export async function getAllFiles(): Promise<StoredFile[]> {
       resolve(files);
     };
     request.onerror = () => reject(new Error('Failed to get files'));
-  });
-}
-
-/**
- * Get a single file by ID
- */
-export async function getFileById(id: string): Promise<StoredFile | null> {
-  const db = await getDB();
-
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(id);
-
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(new Error('Failed to get file'));
   });
 }
 

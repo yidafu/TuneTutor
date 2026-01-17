@@ -8,7 +8,7 @@ import { InstrumentFactory, getInstrumentFactory } from '../utils/audio/Instrume
 import { noteToFrequency, durationToTone } from '../utils/audio/NoteMapper';
 import type { InstrumentType } from '../types/audio';
 
-const STORAGE_KEY = 'tune-tutor-instrument';
+const STORAGE_KEY = 'note-slice-preferred-instrument';
 
 function getSavedInstrument(): InstrumentType {
   if (typeof window === 'undefined') return 'piano';

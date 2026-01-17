@@ -5,6 +5,7 @@
 
 import * as Tone from 'tone';
 import type { InstrumentType } from '../../types/audio';
+import { durationToTone } from './NoteMapper';
 
 // Import tonejs-instrument packages
 // @ts-ignore
@@ -132,7 +133,7 @@ export class InstrumentFactory {
       .replace('♭', 'b');
 
     // Convert duration to Tone.js format
-    const toneDuration = this.durationToTone(duration);
+    const toneDuration = durationToTone(duration);
 
     // Calculate trigger time
     const triggerTime = time !== undefined ? time : Tone.now();
@@ -197,22 +198,6 @@ export class InstrumentFactory {
       isLoaded: false,
       error: null,
     };
-  }
-
-  /**
-   * Convert VexFlow duration to Tone.js duration
-   */
-  private durationToTone(duration: string): string {
-    const durationMap: Record<string, string> = {
-      'w': '1n',
-      'h': '2n',
-      'q': '4n',
-      '8': '8n',
-      '16': '16n',
-      '32': '32n',
-    };
-
-    return durationMap[duration] || '4n';
   }
 }
 

@@ -3,10 +3,10 @@
  */
 
 import { useCallback, useState } from 'react';
-import { parseMusicXML, isMusicXMLFile, isValidXML } from '../../utils/notation/musicXMLParser';
+import { isMusicXMLFile, parseMusicXML } from '../../utils/notation/musicXMLParser';
+import { processMusicXMLFile } from '../../utils/parsing/processFile';
 import type { ParsedScore } from '../../types/notation';
 import type { StoredFile } from '../../types/storedFile';
-import { generateFileId, saveFile } from '../../utils/storage/indexedDB';
 import { FileHistoryList } from './FileHistoryList';
 
 interface FileLoaderProps {
@@ -37,29 +37,7 @@ export function FileLoader({ onScoreLoaded, onError }: FileLoaderProps) {
       setIsLoading(true);
 
       try {
-        const content = await file.text();
-
-        // Validate XML content
-        if (!isValidXML(content)) {
-          throw new Error('Invalid file format');
-        }
-
-        // Parse the MusicXML file
-        const score = parseMusicXML(content);
-
-        // Save to IndexedDB
-        const storedFile: StoredFile = {
-          id: generateFileId(),
-          fileName: file.name,
-          title: score.title,
-          composer: score.composer,
-          uploadedAt: Date.now(),
-          fileSize: file.size,
-          rawContent: content,
-          parsedScore: score,
-        };
-        await saveFile(storedFile);
-
+        const { score, storedFile } = await processMusicXMLFile(file);
         onScoreLoaded(score, storedFile);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to parse file';
@@ -101,29 +79,7 @@ export function FileLoader({ onScoreLoaded, onError }: FileLoaderProps) {
       setIsLoading(true);
 
       try {
-        const content = await file.text();
-
-        // Validate XML content
-        if (!isValidXML(content)) {
-          throw new Error('Invalid file format');
-        }
-
-        // Parse the MusicXML file
-        const score = parseMusicXML(content);
-
-        // Save to IndexedDB
-        const storedFile: StoredFile = {
-          id: generateFileId(),
-          fileName: file.name,
-          title: score.title,
-          composer: score.composer,
-          uploadedAt: Date.now(),
-          fileSize: file.size,
-          rawContent: content,
-          parsedScore: score,
-        };
-        await saveFile(storedFile);
-
+        const { score, storedFile } = await processMusicXMLFile(file);
         onScoreLoaded(score, storedFile);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Failed to parse file';

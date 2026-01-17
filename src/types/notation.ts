@@ -53,32 +53,26 @@ export interface SelectedNote {
 }
 
 /**
- * Selection rectangle for drag selection
- */
-export interface SelectionRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
  * Range-based selection with left/right handles
  */
 export interface SelectionRange {
   startX: number;
   endX: number;
+  startY?: number;  // Optional Y coordinate for row-aware selection
+  endY?: number;
+  startNote?: { measureIndex: number; noteIndex: number };  // Starting note for row-aware selection
+  endNote?: { measureIndex: number; noteIndex: number };    // Ending note for row-aware selection
 }
 
 /**
- * VexFlow-specific note duration mapping
+ * VexFlow duration to beats (quarter note = 1 beat)
  */
-export const VEXFLOW_DURATIONS = {
-  'w': '1n',   // whole note
-  'h': '2n',   // half note
-  'q': '4n',   // quarter note
-  '8': '8n',   // eighth note
-  '16': '16n', // sixteenth note
+export const DURATION_TO_BEATS: Readonly<Record<string, number>> = {
+  'w': 4,   // whole note = 4 beats
+  'h': 2,   // half note = 2 beats
+  'q': 1,   // quarter note = 1 beat
+  '8': 0.5, // eighth note = 0.5 beats
+  '16': 0.25, // sixteenth note = 0.25 beats
+  '32': 0.125,
+  '64': 0.0625,
 } as const;
-
-export type VexFlowDuration = keyof typeof VEXFLOW_DURATIONS;

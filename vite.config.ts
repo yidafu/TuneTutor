@@ -12,7 +12,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['musicxml-io'],
   },
 })
 

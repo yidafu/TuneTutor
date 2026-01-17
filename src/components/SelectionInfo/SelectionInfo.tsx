@@ -1,35 +1,29 @@
 import type { SelectedNote } from '../../types/notation';
+import { formatSelectionRange } from '../../utils/formatting';
 
 interface SelectionInfoProps {
-  selectedMeasures: number[];
   selectedNotes: SelectedNote[];
   onClearSelection: () => void;
 }
 
 export function SelectionInfo({
-  selectedMeasures,
   selectedNotes,
   onClearSelection,
 }: SelectionInfoProps) {
-  const getDisplayText = (): string => {
-    if (selectedMeasures.length === 0) {
-      return 'Click measures to select (Shift+Click for range)';
-    }
-    if (selectedMeasures.length === 1) {
-      return `Selected: Measure ${selectedMeasures[0] + 1}`;
-    }
-    return `Selected: Measures ${Math.min(...selectedMeasures) + 1}-${Math.max(...selectedMeasures) + 1}`;
-  };
+  const displayText = formatSelectionRange(selectedNotes, {
+    emptyText: 'Click notes to select',
+    prefix: 'Selected: ',
+  });
 
-  const hasSelection = selectedMeasures.length > 0 || selectedNotes.length > 0;
+  const hasSelection = selectedNotes.length > 0;
 
   return (
     <div className="mt-4 flex items-center justify-between">
       <div className="text-sm text-gray-600" aria-live="polite">
-        {getDisplayText()}
-        {selectedNotes.length > 0 && (
+        {displayText}
+        {hasSelection && (
           <span className="ml-2 text-blue-600">
-            ({selectedNotes.length} note{selectedNotes.length !== 1 ? 's' : ''} selected)
+            ({selectedNotes.length} note{selectedNotes.length !== 1 ? 's' : ''})
           </span>
         )}
       </div>
