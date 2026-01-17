@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 八分音符 -->
+  <ellipse cx="30" cy="70" rx="18" ry="14" fill="#2d3436"/>
+  <rect x="45" y="15" width="4" height="55" fill="#2d3436"/>
+  <path d="M49 15 Q 75 15, 75 35 Q 75 55, 49 50" fill="#2d3436"/>
+
+  <!-- 左眼 -->
+  <circle cx="23" cy="65" r="6" fill="white"/>
+  <circle cx="23" cy="65" r="3" fill="#2d3436"/>
+
+  <!-- 右眼 -->
+  <circle cx="37" cy="65" r="6" fill="white"/>
+  <circle cx="37" cy="65" r="3" fill="#2d3436"/>
+
+  <!-- 嘴巴 - 大笑 -->
+  <path d="M 20 76 Q 30 86, 40 76" stroke="#2d3436" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>
