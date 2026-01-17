@@ -1,5 +1,6 @@
 import type { SelectedNote } from '../../types/notation';
 import { formatSelectionRange } from '../../utils/formatting';
+import type { TranslationSet } from '../../locales';
 
 interface LoopConfig {
   skipBeats: number;
@@ -10,6 +11,7 @@ interface StatusBarProps {
   tempo: number;
   instrumentName: string;
   loopConfig?: LoopConfig;
+  t: TranslationSet;
 }
 
 export function StatusBar({
@@ -17,10 +19,12 @@ export function StatusBar({
   tempo,
   instrumentName,
   loopConfig = { skipBeats: 0 },
+  t,
 }: StatusBarProps) {
   const selectionText = formatSelectionRange(selectedNotes, {
-    emptyText: 'No selection',
-  });
+    emptyText: t.noSelection,
+    prefix: '',
+  }, t);
 
   return (
     <footer className="bg-gray-800 text-white py-3 px-6" role="contentinfo" aria-label="Status bar">
@@ -29,21 +33,20 @@ export function StatusBar({
           <span className="flex items-center" aria-label="Selected notes">
             <span className="mr-2" aria-hidden="true">🎵</span>
             <span>
-              Selected:{' '}
-              <span className="font-bold text-blue-400 ml-1">{selectionText}</span>
+              {selectionText}
             </span>
           </span>
         </div>
         <div className="flex items-center space-x-3 sm:space-x-4 text-gray-400">
           <span aria-label="Tempo setting">
-            Tempo: <span className="text-white font-bold">{tempo}</span> BPM
+            {t.tempoLabel} <span className="text-white font-bold">{tempo}</span> {t.bpm}
           </span>
           <span aria-label="Current instrument">
-            Instrument: <span className="text-white font-bold">{instrumentName}</span>
+            {t.instrument} <span className="text-white font-bold">{instrumentName}</span>
           </span>
           {loopConfig.skipBeats > 0 && (
             <span aria-label="Loop config" className="text-purple-400">
-              🔁 Skip: {loopConfig.skipBeats}
+              🔁 {t.loopConfigSkip.replace('{0}', String(loopConfig.skipBeats))}
             </span>
           )}
         </div>

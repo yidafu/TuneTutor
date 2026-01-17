@@ -18,9 +18,10 @@ import type { ParsedScore } from './types/notation';
 import { DURATION_TO_BEATS } from './types/notation';
 import type { StoredFile } from './types/storedFile';
 import type { InstrumentType } from './types/audio';
-import { INSTRUMENTS } from './types/audio';
+import { INSTRUMENTS, getInstrumentName } from './types/audio';
 import { createDemoScore, getRowConfigs, getPlaybackIndicatorX, getIndicatorRowBounds } from './utils/notation';
 import { createPlaybackIndicator, removePlaybackIndicator, getNotationContainerElement } from './components/NotationDisplay/NotationDisplay';
+import { useTranslation, useSetLanguage, type Language } from './locales/I18nContext';
 
 const STORAGE_KEY = 'note-slice-preferred-instrument';
 
@@ -40,6 +41,8 @@ function saveInstrument(instrument: InstrumentType): void {
 }
 
 function App() {
+  const { t, language } = useTranslation();
+  const setLanguage = useSetLanguage();
   const [score, setScore] = useState<ParsedScore>(createDemoScore());
   const [showFileLoader, setShowFileLoader] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +52,11 @@ function App() {
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>(getSavedInstrument);
   const [loopConfig, setLoopConfig] = useState({ skipBeats: 0 });
+
+  // Handle language change
+  const handleLanguageChange = useCallback((newLang: Language) => {
+    setLanguage(newLang);
+  }, [setLanguage]);
 
   // Use the unified note selection hook
   const totalMeasures = score?.measures.length || 8;
@@ -178,8 +186,12 @@ function App() {
   // Get instrument display name and icon
   const getInstrumentDisplay = useCallback(() => {
     const inst = INSTRUMENTS.find(i => i.type === audioState.currentInstrument);
-    return inst || { name: 'Piano', icon: '🎹' };
-  }, [audioState.currentInstrument]);
+    if (!inst) return { name: 'Piano', icon: '🎹' };
+    return {
+      name: getInstrumentName(inst.type, t),
+      icon: inst.icon,
+    };
+  }, [audioState.currentInstrument, t]);
 
   // Select instrument - saves to localStorage and loads the instrument
   const handleSelectInstrument = useCallback(async (instrument: InstrumentType) => {
@@ -470,9 +482,12 @@ function App() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <Header
+        language={language}
+        onLanguageChange={handleLanguageChange}
         selectedInstrument={selectedInstrument}
         onSelectInstrument={handleSelectInstrument}
         onOpenFileLoader={() => setShowFileLoader(true)}
+        t={t}
       />
 
       {/* Main Content - Scrollable container */}
@@ -484,6 +499,7 @@ function App() {
             composer={score?.composer}
             timeSignature={score?.timeSignature || '4/4'}
             tempo={score?.tempo || 120}
+            t={t}
           />
 
           {/* Notation Display */}
@@ -500,6 +516,7 @@ function App() {
           <SelectionInfo
             selectedNotes={selectedNotes}
             onClearSelection={selectionActions.clearSelection}
+            t={t}
           />
         </main>
       </div>
@@ -516,6 +533,7 @@ function App() {
           onTempoChange={setTempo}
           loopConfig={loopConfig}
           onLoopConfigChange={setLoopConfig}
+          t={t}
         />
       </div>
 
@@ -525,6 +543,7 @@ function App() {
         tempo={tempo}
         instrumentName={instrumentDisplay.name}
         loopConfig={loopConfig}
+        t={t}
       />
 
       {/* File Loader Modal */}
@@ -537,6 +556,7 @@ function App() {
         }}
         onScoreLoaded={handleScoreLoaded}
         onError={handleFileError}
+        t={t}
       />
     </div>
   );

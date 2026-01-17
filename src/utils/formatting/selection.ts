@@ -2,6 +2,7 @@
  * Selection formatting utilities
  */
 import type { SelectedNote } from '../../types/notation';
+import type { TranslationSet } from '../../locales';
 
 /**
  * Format selection range for display (supports both measure indices and selected notes)
@@ -11,7 +12,8 @@ export function formatSelectionRange(
   options?: {
     emptyText?: string;
     prefix?: string;
-  }
+  },
+  t?: TranslationSet
 ): string {
   const { emptyText = '', prefix = '' } = options || {};
 
@@ -33,8 +35,17 @@ export function formatSelectionRange(
   const uniqueMeasures = [...new Set(measureIndices)].sort((a, b) => a - b);
 
   if (uniqueMeasures.length === 1) {
-    return `${prefix}Measure ${uniqueMeasures[0] + 1}`;
+    const measureNum = uniqueMeasures[0] + 1;
+    if (t) {
+      return `${prefix}${t.measure.replace('{0}', String(measureNum))}`;
+    }
+    return `${prefix}Measure ${measureNum}`;
   }
 
-  return `${prefix}Measures ${Math.min(...uniqueMeasures) + 1}-${Math.max(...uniqueMeasures) + 1}`;
+  const startMeasure = Math.min(...uniqueMeasures) + 1;
+  const endMeasure = Math.max(...uniqueMeasures) + 1;
+  if (t) {
+    return `${prefix}${t.measures.replace('{0}', String(startMeasure)).replace('{1}', String(endMeasure))}`;
+  }
+  return `${prefix}Measures ${startMeasure}-${endMeasure}`;
 }

@@ -1,19 +1,22 @@
 import type { SelectedNote } from '../../types/notation';
 import { formatSelectionRange } from '../../utils/formatting';
+import type { TranslationSet } from '../../locales';
 
 interface SelectionInfoProps {
   selectedNotes: SelectedNote[];
   onClearSelection: () => void;
+  t: TranslationSet;
 }
 
 export function SelectionInfo({
   selectedNotes,
   onClearSelection,
+  t,
 }: SelectionInfoProps) {
   const displayText = formatSelectionRange(selectedNotes, {
-    emptyText: 'Click notes to select',
-    prefix: 'Selected: ',
-  });
+    emptyText: t.clickToSelect,
+    prefix: `${t.selected} `,
+  }, t);
 
   const hasSelection = selectedNotes.length > 0;
 
@@ -23,7 +26,7 @@ export function SelectionInfo({
         {displayText}
         {hasSelection && (
           <span className="ml-2 text-blue-600">
-            ({selectedNotes.length} note{selectedNotes.length !== 1 ? 's' : ''})
+            ({selectedNotes.length} {selectedNotes.length === 1 ? t.note : t.notes})
           </span>
         )}
       </div>
@@ -33,7 +36,7 @@ export function SelectionInfo({
           className="text-sm text-gray-500 hover:text-gray-700"
           aria-label="Clear selection"
         >
-          Clear Selection
+          {t.clearSelection}
         </button>
       )}
     </div>

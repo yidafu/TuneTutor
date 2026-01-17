@@ -1,17 +1,40 @@
 import type { InstrumentType } from '../../types/audio';
-import { INSTRUMENTS } from '../../types/audio';
+import { INSTRUMENTS, getInstrumentName } from '../../types/audio';
+import { languageNames, type Language, type TranslationSet } from '../../locales';
+import { useState, useRef, useEffect } from 'react';
 
 interface HeaderProps {
+  language: Language;
+  onLanguageChange: (lang: Language) => void;
   selectedInstrument: InstrumentType;
   onSelectInstrument: (instrument: InstrumentType) => void;
   onOpenFileLoader: () => void;
+  t: TranslationSet;
 }
 
+const LANGUAGES: Language[] = ['en-US', 'zh-CN', 'zh-TW', 'fr-FR'];
+
 export function Header({
+  language,
+  onLanguageChange,
   selectedInstrument,
   onSelectInstrument,
   onOpenFileLoader,
+  t,
 }: HeaderProps) {
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsLangMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm" role="banner">
@@ -19,11 +42,44 @@ export function Header({
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <h1 className="text-2xl font-bold text-gray-900">Tune Tutor</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t.appTitle}</h1>
           </div>
 
           {/* Toolbar */}
           <div className="flex items-center space-x-4">
+            {/* Language Switcher */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200"
+                aria-label={t.language}
+                aria-expanded={isLangMenuOpen}
+              >
+                <span aria-hidden="true">🌐</span>
+                {languageNames[language]}
+                <span className="ml-1 text-xs">▼</span>
+              </button>
+
+              {isLangMenuOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  {LANGUAGES.map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => {
+                        onLanguageChange(lang);
+                        setIsLangMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                        lang === language ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      {languageNames[lang]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Instrument Selector */}
             <div className="relative">
               <select
@@ -34,7 +90,7 @@ export function Header({
               >
                 {INSTRUMENTS.map(inst => (
                   <option key={inst.type} value={inst.type} className="text-gray-900 bg-white">
-                    {inst.icon} {inst.name}
+                    {inst.icon} {getInstrumentName(inst.type, t)}
                   </option>
                 ))}
               </select>
@@ -50,7 +106,7 @@ export function Header({
               aria-label="Load sheet music file"
             >
               <span aria-hidden="true">📁</span>
-              Load File
+              {t.loadFile}
             </button>
           </div>
         </div>

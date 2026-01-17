@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import type { TranslationSet } from '../../locales';
 
 interface LoopConfig {
   skipBeats: number;  // M: skip M beats
@@ -18,6 +19,7 @@ interface PlaybackControlsProps {
   onTempoChange: (tempo: number) => void;
   loopConfig: LoopConfig;
   onLoopConfigChange: (config: LoopConfig) => void;
+  t: TranslationSet;
 }
 
 export function PlaybackControls({
@@ -30,6 +32,7 @@ export function PlaybackControls({
   onTempoChange,
   loopConfig,
   onLoopConfigChange,
+  t,
 }: PlaybackControlsProps) {
   const [editingTempo, setEditingTempo] = useState<string>(String(tempo));
   const [isEditing, setIsEditing] = useState(false);
@@ -75,7 +78,7 @@ export function PlaybackControls({
           {/* Tempo Slider */}
           <div className="flex items-center gap-3 flex-1">
             <label htmlFor="tempo-slider" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-              Tempo
+              {t.tempo}
             </label>
             <div className="flex-1 flex items-center gap-2">
               <input
@@ -92,7 +95,7 @@ export function PlaybackControls({
                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                 aria-label="Tempo adjustment"
               />
-              <span className="text-sm font-bold text-gray-900 whitespace-nowrap">BPM</span>
+              <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{t.bpm}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -121,7 +124,7 @@ export function PlaybackControls({
               aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
             >
               <span aria-hidden="true">{isPlaying ? '⏸️' : '▶️'}</span>
-              {isPlaying ? 'Pause' : 'Play'}
+              {isPlaying ? t.pause : t.play}
             </button>
 
             <button
@@ -131,13 +134,13 @@ export function PlaybackControls({
               aria-label="Stop playback"
             >
               <span aria-hidden="true">⏹️</span>
-              Stop
+              {t.stop}
             </button>
           </div>
 
           {/* Loop Skip */}
           <div className="flex items-center gap-3 flex-1">
-            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Loop Skip</span>
+            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{t.loopSkip}</span>
             <div className="flex gap-1" role="group" aria-label="Select skip beats">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((beat) => (
                 <button
@@ -156,7 +159,7 @@ export function PlaybackControls({
               ))}
             </div>
             <output className="text-xs text-gray-500 w-12 text-right">
-              {loopConfig.skipBeats > 0 ? `${loopConfig.skipBeats}b` : 'Off'}
+              {loopConfig.skipBeats > 0 ? `${loopConfig.skipBeats}b` : t.off}
             </output>
           </div>
         </div>
