@@ -117,7 +117,7 @@ export function useNoteSelection(
     // 如果提供了起始行的 Y 坐标，只选择起始行的音符
     if (range.startY !== undefined) {
       // 五线谱行高约为 80px，计算起始行的大致 Y 范围
-      const rowHeight = 70;
+      const rowHeight = STAVE_HEIGHT;
 
       // 计算起始行的 Y 范围（以 startY 为中心）
       const startRowTop = range.startY;

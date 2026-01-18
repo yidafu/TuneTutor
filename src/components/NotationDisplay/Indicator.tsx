@@ -4,7 +4,7 @@
  */
 
 import styles from './NotationDisplay.module.css';
-import { STAVE_HEIGHT, TOP_Y, ROW_SPACING } from '../../utils/notation/types';
+import { STAVE_HEIGHT, TOP_Y, ROW_SPACING, VERTICAL_OFFSET } from '../../utils/notation/types';
 
 interface IndicatorProps {
   x: number;           // X 坐标（像素）
@@ -30,7 +30,7 @@ export function Indicator({
       className={styles.indicator}
       style={{
         left: x,
-        top,
+        top: top + VERTICAL_OFFSET,
         height: rowHeight,
       }}
     >

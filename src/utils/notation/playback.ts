@@ -3,7 +3,7 @@
  */
 
 import type { RowConfig } from './types';
-import { STAVE_HEIGHT, VERTICAL_OFFSET } from './types';
+import { PADDING, STAVE_HEIGHT, VERTICAL_OFFSET } from './types';
 import { getNotePositions } from './positions';
 import { rowConfigsCache } from './types';
 
@@ -23,10 +23,11 @@ export function getPlaybackIndicatorX(
 ): number {
   const positions = getNotePositions();
 
-  // Find the current note position
-  const currentNotePos = positions.find(
+  // Find the current note position and its index in the flat array
+  const currentNoteIndexInArray = positions.findIndex(
     n => n.measureIndex === currentMeasure && n.noteIndex === currentNoteIndex
   );
+  const currentNotePos = positions[currentNoteIndexInArray];
 
   if (!currentNotePos) {
     // If no specific note found, try to find any note in the current measure
@@ -36,11 +37,6 @@ export function getPlaybackIndicatorX(
     }
     return 0;
   }
-
-  // Find the current note index in the flat positions array
-  const currentNoteIndexInArray = positions.findIndex(
-    n => n.measureIndex === currentMeasure && n.noteIndex === currentNoteIndex
-  );
 
   const nextNote = positions[currentNoteIndexInArray + 1];
 
@@ -77,10 +73,9 @@ export function getIndicatorRowBounds(
 
   if (!row) return null;
 
-  const adjustedHeight = STAVE_HEIGHT - VERTICAL_OFFSET;
   return {
-    top: row.y + VERTICAL_OFFSET,
-    bottom: row.y + adjustedHeight,
+    top: row.y + VERTICAL_OFFSET + PADDING,
+    bottom: row.y + STAVE_HEIGHT + PADDING,
   };
 }
 

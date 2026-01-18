@@ -2,7 +2,8 @@
  * Selection calculation utilities for note selection
  */
 
-import type { NoteBounds, SelectionRect } from './types';
+import type { NoteBounds } from './types';
+import type { SelectionRect } from '../../types/selection';
 import { rowConfigsCache, noteBoundsCache, STAVE_HEIGHT } from './types';
 
 /**
@@ -55,9 +56,14 @@ export function getSelectionRects(
     let rowEndNote: NoteBounds;
 
     if (row === startRow && row === endRow) {
-      // Same row
-      rowStartNote = startNote.rowIndex === row ? startNote : endNote;
-      rowEndNote = startNote.rowIndex === row ? endNote : startNote;
+      // Same row - use actual X positions to determine start/end
+      if (startNote.x <= endNote.x) {
+        rowStartNote = startNote;
+        rowEndNote = endNote;
+      } else {
+        rowStartNote = endNote;
+        rowEndNote = startNote;
+      }
     } else if (row === startRow) {
       // Start row: from startNote to last note in row
       rowStartNote = startNote.rowIndex === row ? startNote : rowNotes[0];

@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import styles from './NotationDisplay.module.css';
 import type { ParsedScore, SelectedNote } from '../../types/notation';
-import type { SelectionRect } from '../../types/selection';
+import type { RowHighlight, RowSelection, SelectionRect } from '../../types/selection';
 import {
   renderScore,
   clearNotationContainer,
@@ -282,7 +282,6 @@ export function NotationDisplay({
         // Toggle selection: if already selected, deselect; otherwise select
         const mode: 'toggle' | 'replace' = isNoteSelected || event.ctrlKey || event.metaKey ? 'toggle' : 'replace';
         selectionActions.selectNote(clickedNote, mode, false);
-        console.log('Selected notes:', [clickedNote], 'mode:', mode);
         if (onNoteSelect) {
           if (mode === 'toggle' && isNoteSelected) {
             // Deselect: send empty array
@@ -307,7 +306,6 @@ export function NotationDisplay({
           startNote = nearestNote;
         }
       }
-      console.log('[handlePointerDown] x:', x, 'y:', y, 'startNote:', startNote);
       selectionActions.startRangeSelection(x, y, startNote);
     },
     [score, selectionActions, getEventCoords, isOnHandle, onNoteSelect, findNoteAtPosition, findNearestNote, selectionState.selectedNotes]
@@ -346,7 +344,6 @@ export function NotationDisplay({
             endNote = nearestNote;
           }
         }
-        console.log('[handlePointerMove] x:', x, 'y:', y, 'endNote:', endNote);
         selectionActions.updateRangeSelection(x, y, endNote);
       }
     },
@@ -385,14 +382,12 @@ export function NotationDisplay({
                 }
               }
               if (notesInRange.length > 0) {
-                console.log('Selected notes:', notesInRange);
                 onNoteSelect(notesInRange, 'replace');
               }
             }
           } else {
             const notes = selectionActions.getNotesInRange(selectionState.selectionRange, getNotePositions());
             if (notes.length > 0) {
-              console.log('Selected notes:', notes);
               onNoteSelect(notes, 'replace');
             }
           }
@@ -413,15 +408,7 @@ export function NotationDisplay({
 
   // Calculate row highlights for range selection
   const rowHighlights = useMemo(() => {
-    const result = calculateRowHighlights(selectionState.selectionRange);
-    if (selectionState.selectionRange) {
-      console.log('selectionRange:', selectionState.selectionRange);
-      console.log('rowHighlights:', result);
-    }
-    if (noteBoundsCache.length > 0) {
-      console.log('noteBoundsCache:', JSON.stringify(noteBoundsCache.slice(0, 3)));
-    }
-    return result;
+    return calculateRowHighlights(selectionState.selectionRange);
   }, [selectionState.selectionRange]);
 
   // Calculate row selections for selected notes
@@ -430,29 +417,25 @@ export function NotationDisplay({
     [selectedNotes, rowConfigs]
   );
 
-  // Convert RowHighlight to SelectionRect for SelectionCanvas
-  const rangeSelections = useMemo((): SelectionRect[] => {
-    const result = rowHighlights.map((item) => ({
+  // Helper to convert selection items to SelectionRect
+  const toSelectionRects = (items: RowHighlight[] | RowSelection[], type: 'range' | 'note'): SelectionRect[] =>
+    items.map((item) => ({
       rowIndex: item.row.rowIndex,
       rowY: item.row.y,
       rowHeight: STAVE_HEIGHT,
       startX: item.lineStartX,
       endX: item.lineEndX,
+      selectionType: type,
     }));
-    console.log('rangeSelections:', result);
-    return result;
-  }, [rowHighlights]);
 
-  // Convert RowSelection to SelectionRect for SelectionCanvas
-  const noteSelections = useMemo((): SelectionRect[] => {
-    return rowSelections.map((item) => ({
-      rowIndex: item.row.rowIndex,
-      rowY: item.row.y,
-      rowHeight: STAVE_HEIGHT,
-      startX: item.lineStartX,
-      endX: item.lineEndX,
-    }));
-  }, [rowSelections]);
+  // Convert to SelectionRect for SelectionCanvas
+  const rangeSelections = useMemo(() => toSelectionRects(rowHighlights, 'range'), [rowHighlights]);
+  const noteSelections = useMemo(() => toSelectionRects(rowSelections, 'note'), [rowSelections]);
+
+  // Merge all selections into a single array for the SelectionCanvas
+  const allSelections = useMemo((): SelectionRect[] => {
+    return [...rangeSelections, ...noteSelections];
+  }, [rangeSelections, noteSelections]);
 
   if (!score) {
     return (
@@ -476,13 +459,8 @@ export function NotationDisplay({
     >
       <div id={containerId} className="vexflow-container" />
 
-      {/* Range selection overlay */}
-      <SelectionCanvas selections={rangeSelections} />
-
-      {/* Selected notes overlay */}
-      {selectedNotes.length > 0 && (
-        <SelectionCanvas selections={noteSelections} />
-      )}
+      {/* Selection overlay - merged range and note selections */}
+      <SelectionCanvas selections={allSelections} />
 
       {/* Playback indicator */}
       <Indicator

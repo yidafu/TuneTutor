@@ -72,26 +72,30 @@ export function SelectionCanvas({ selections, visible = true }: SelectionCanvasP
             />
 
             {/* 左侧句柄圆点 - 垂直居中 */}
-            <div
-              className={styles.selectionHandle}
-              style={{
-                left: rect.startX,
-                top: rect.rowY + rect.rowHeight / 2 - 6,
-              }}
-              data-handle="start"
-              data-row={rect.rowIndex}
-            />
+            {rect.selectionType !== 'range' && (
+              <div
+                className={styles.selectionHandle}
+                style={{
+                  left: rect.startX,
+                  top: rect.rowY + rect.rowHeight / 2 - 6,
+                }}
+                data-handle="start"
+                data-row={rect.rowIndex}
+              />
+            )}
 
             {/* 右侧句柄圆点 - 垂直居中 */}
-            <div
-              className={styles.selectionHandle}
-              style={{
-                left: rect.endX,
-                top: rect.rowY + rect.rowHeight / 2 - 6,
-              }}
-              data-handle="end"
-              data-row={rect.rowIndex}
-            />
+            {rect.selectionType !== 'range' && (
+              <div
+                className={styles.selectionHandle}
+                style={{
+                  left: rect.endX,
+                  top: rect.rowY + rect.rowHeight / 2 - 6,
+                }}
+                data-handle="end"
+                data-row={rect.rowIndex}
+              />
+            )}
           </React.Fragment>
         );
       })}

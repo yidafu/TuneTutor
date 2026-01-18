@@ -58,17 +58,6 @@ export interface ScoreLayout {
   rowConfigs: RowConfig[];
 }
 
-/**
- * Selection rectangle for cross-row selection
- */
-export interface SelectionRect {
-  startX: number;
-  endX: number;
-  rowIndex: number;
-  rowY: number;
-  rowHeight: number;
-}
-
 // Global caches (exported for use across modules)
 export let noteBoundsCache: NoteBounds[] = [];
 export let rowConfigsCache: RowConfig[] = [];

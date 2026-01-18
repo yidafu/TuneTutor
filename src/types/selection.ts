@@ -8,27 +8,21 @@
 export interface RowConfig {
   startMeasure: number;
   endMeasure: number;
-  rowIndex: number;  // Add row index for easier identification
+  rowIndex: number;
   y: number;
 }
 
 /**
- * Highlight item for range selection across rows
+ * Unified selection item type for both highlights and selections
  */
-export interface RowHighlight {
+export interface RowSelectionItem {
   row: RowConfig;
   lineStartX: number;
   lineEndX: number;
 }
 
-/**
- * Selection item for selected notes across rows
- */
-export interface RowSelection {
-  row: RowConfig;
-  lineStartX: number;
-  lineEndX: number;
-}
+export type RowHighlight = RowSelectionItem;
+export type RowSelection = RowSelectionItem;
 
 /**
  * Selection rectangle for SelectionCanvas component
@@ -39,4 +33,5 @@ export interface SelectionRect {
   rowHeight: number;
   startX: number;
   endX: number;
+  selectionType?: 'range' | 'note';
 }
