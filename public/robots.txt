@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://yidafu.github.io/TuneTutor/sitemap.xml
