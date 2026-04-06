@@ -1,12 +1,15 @@
 /**
- * useAudioEngine Hook - Web Audio API wrapper for Tone.js
+ * useAudioEngine Hook - Web Audio API for immediate note playback
+ * Uses SoundfontPlayer for realistic instrument sounds
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import * as Tone from 'tone';
-import { InstrumentFactory, getInstrumentFactory } from '../utils/audio/InstrumentFactory';
-import { noteToFrequency, durationToTone } from '../utils/audio/NoteMapper';
+import { AudioContext } from 'standardized-audio-context';
+import type { IAudioContext } from 'standardized-audio-context';
+import { noteToFrequency } from '../utils/audio/NoteMapper';
+import { SoundfontPlayer, type NotePlaybackInstruction } from '../utils/audio/SoundfontPlayer';
 import type { InstrumentType } from '../types/audio';
+import { INSTRUMENT_TO_MIDI } from '../types/audio';
 
 const STORAGE_KEY = 'note-slice-preferred-instrument';
 
@@ -49,24 +52,38 @@ export function useAudioEngine(): [AudioEngineState, AudioEngineActions] {
     isLoading: false,
     error: null,
     currentInstrument: getSavedInstrument(),
-    volume: 0,
+    volume: 1,
   });
 
-  const instrumentFactoryRef = useRef<InstrumentFactory | null>(null);
-  const synthRef = useRef<Tone.PolySynth | null>(null);
+  const audioContextRef = useRef<IAudioContext | null>(null);
+  const soundfontPlayerRef = useRef<SoundfontPlayer | null>(null);
+  const currentMidiRef = useRef<number>(INSTRUMENT_TO_MIDI[getSavedInstrument()]);
 
-  // Initialize the instrument factory
-  const getFactory = useCallback(() => {
-    if (!instrumentFactoryRef.current) {
-      instrumentFactoryRef.current = getInstrumentFactory();
+  // Initialize audio context and soundfont player on mount
+  useEffect(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
     }
-    return instrumentFactoryRef.current;
+    if (!soundfontPlayerRef.current) {
+      soundfontPlayerRef.current = new SoundfontPlayer();
+      soundfontPlayerRef.current.init(audioContextRef.current);
+    }
+
+    return () => {
+      // Cleanup if needed
+    };
   }, []);
 
   // Initialize audio context
   const init = useCallback(async () => {
+    if (state.isReady) return;
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
     try {
-      await Tone.start();
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
       setState((prev) => ({ ...prev, isReady: true, error: null }));
     } catch (error) {
       setState((prev) => ({
@@ -74,29 +91,22 @@ export function useAudioEngine(): [AudioEngineState, AudioEngineActions] {
         error: error instanceof Error ? error.message : 'Failed to initialize audio',
       }));
     }
-  }, []);
+  }, [state.isReady]);
 
-  // Load an instrument
+  // Load instrument using soundfont-player
   const loadInstrument = useCallback(async (type: InstrumentType) => {
+    if (!soundfontPlayerRef.current || !audioContextRef.current) {
+      setState((prev) => ({ ...prev, error: 'Audio engine not initialized' }));
+      return;
+    }
+
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const factory = getFactory();
+      const midiId = INSTRUMENT_TO_MIDI[type];
+      currentMidiRef.current = midiId;
 
-      // If we have a synth, dispose it
-      if (synthRef.current) {
-        synthRef.current.dispose();
-        synthRef.current = null;
-      }
-
-      // Load the instrument
-      await factory.loadInstrument(type);
-
-      // Create a fallback synth for notes that don't have samples
-      synthRef.current = new Tone.PolySynth(Tone.Synth).toDestination();
-      synthRef.current.volume.value = -10;
-
-      // Save to localStorage
+      await soundfontPlayerRef.current.load(midiId);
       saveInstrument(type);
 
       setState((prev) => ({
@@ -111,58 +121,68 @@ export function useAudioEngine(): [AudioEngineState, AudioEngineActions] {
         error: error instanceof Error ? error.message : 'Failed to load instrument',
       }));
     }
-  }, [getFactory]);
+  }, []);
 
-  // Play a note
-  const playNote = useCallback((pitch: string, duration: string) => {
-    const factory = getFactory();
-
-    // Check if instrument is loaded
-    if (!state.isReady || state.isLoading) {
+  // Play a note using soundfont player
+  const playNote = useCallback(async (pitch: string, duration: string) => {
+    if (!soundfontPlayerRef.current || !audioContextRef.current) {
       console.warn('Audio engine not ready');
       return;
     }
 
-    // Try to play with the instrument factory first
-    factory.playNote(pitch, duration);
-
-    // Also play with synth for immediate feedback
-    if (synthRef.current) {
-      const frequency = noteToFrequency(pitch);
-      const toneDuration = durationToTone(duration);
-      synthRef.current.triggerAttackRelease(frequency, toneDuration);
+    // Ensure the instrument is loaded before playing
+    const midiId = currentMidiRef.current;
+    const isLoaded = soundfontPlayerRef.current.instruments.some(
+      i => i.midiId === midiId && i.loaded
+    );
+    if (!isLoaded) {
+      try {
+        await soundfontPlayerRef.current.load(midiId);
+      } catch (error) {
+        console.warn('Failed to load instrument:', error);
+        return;
+      }
     }
-  }, [state.isReady, state.isLoading, getFactory]);
 
-  // Set instrument
+    const frequency = noteToFrequency(pitch);
+    // Convert MIDI note number to soundfont player note format
+    // frequency = 440 * 2^((note-69)/12), so note = 69 + 12 * log2(frequency/440)
+    const midiNote = Math.round(69 + 12 * Math.log2(frequency / 440));
+
+    // Convert duration string to seconds
+    const durationSeconds = parseDuration(duration);
+
+    const instructions: NotePlaybackInstruction[] = [
+      {
+        note: midiNote,
+        duration: durationSeconds,
+        gain: state.volume,
+      },
+    ];
+
+    soundfontPlayerRef.current.schedule(
+      midiId,
+      audioContextRef.current.currentTime,
+      instructions
+    );
+  }, [state.volume]);
+
+  // Set instrument (sync state only, actual loading is done via loadInstrument)
   const setInstrument = useCallback((type: InstrumentType) => {
-    const factory = getFactory();
-    factory.setInstrument(type);
     saveInstrument(type);
     setState((prev) => ({ ...prev, currentInstrument: type }));
-  }, [getFactory]);
+  }, []);
 
   // Set volume
   const setVolume = useCallback((volume: number) => {
-    Tone.Destination.volume.value = volume;
     setState((prev) => ({ ...prev, volume }));
   }, []);
 
-  // Resume audio context (needed after user interaction)
+  // Resume audio context
   const resume = useCallback(async () => {
-    if (Tone.context.state === 'suspended') {
-      await Tone.context.resume();
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
     }
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (synthRef.current) {
-        synthRef.current.dispose();
-      }
-      instrumentFactoryRef.current?.dispose();
-    };
   }, []);
 
   const actions: AudioEngineActions = {
@@ -175,6 +195,20 @@ export function useAudioEngine(): [AudioEngineState, AudioEngineActions] {
   };
 
   return [state, actions];
+}
+
+function parseDuration(duration: string): number {
+  const durationMap: Record<string, number> = {
+    w: 4,
+    h: 2,
+    q: 1,
+    e: 0.5,
+    s: 0.25,
+    t: 1 / 3,
+    full: 4,
+  };
+  const base = durationMap[duration] || 0.5;
+  return duration.includes('t') ? (base * 2) / 3 : base;
 }
 
 export default useAudioEngine;

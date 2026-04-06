@@ -12,8 +12,8 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import type { SelectedNote, SelectionRange, NotePosition } from '../types/notation';
 import type { RowConfig, RowHighlight, RowSelection } from '../types/selection';
-import { getSelectionRects, noteBoundsCache, rowConfigsCache } from '../utils/notation';
-import { STAVE_HEIGHT, VERTICAL_OFFSET, ROW_SPACING, TOP_Y } from '../utils/notation/types';
+import { getSelectionRects } from '../utils/notation';
+import { noteCache, rowCache, STAVE_HEIGHT, VERTICAL_OFFSET, ROW_SPACING, TOP_Y } from '../core';
 
 // 常量
 const MIN_HANDLE_DISTANCE = 20; // 句柄最小距离
@@ -434,7 +434,7 @@ export function generateRowConfigs(
  * 根据 Y 坐标找到对应的行索引
  */
 export function findRowIndexByY(y: number): number {
-  for (const row of rowConfigsCache) {
+  for (const row of rowCache.getAll()) {
     const rowTop = row.y + VERTICAL_OFFSET;
     const rowBottom = row.y + STAVE_HEIGHT - VERTICAL_OFFSET;
     if (y >= rowTop && y <= rowBottom) {
@@ -452,7 +452,7 @@ export function calculateRowHighlights(
   selectionRange: SelectionRange | null,
   _rowConfigs: RowConfig[] = []
 ): RowHighlight[] {
-  if (!selectionRange || rowConfigsCache.length === 0) {
+  if (!selectionRange || rowCache.getAll().length === 0) {
     return [];
   }
 
@@ -461,17 +461,17 @@ export function calculateRowHighlights(
 
   // 如果有 startNote 和 endNote，使用基于音符的跨行选择
   if (startNote && endNote) {
-    const startNoteBounds = noteBoundsCache.find(
+    const startNoteBounds = noteCache.getAll().find(
       n => n.measureIndex === startNote.measureIndex && n.noteIndex === startNote.noteIndex
     );
-    const endNoteBounds = noteBoundsCache.find(
+    const endNoteBounds = noteCache.getAll().find(
       n => n.measureIndex === endNote.measureIndex && n.noteIndex === endNote.noteIndex
     );
 
     if (startNoteBounds && endNoteBounds) {
       const rects = getSelectionRects(startNoteBounds, endNoteBounds);
       return rects.map(rect => {
-        const row = rowConfigsCache.find(r => r.rowIndex === rect.rowIndex);
+        const row = rowCache.getAll().find(r => r.rowIndex === rect.rowIndex);
         if (!row) return null;
         return {
           row,
@@ -498,10 +498,10 @@ export function calculateRowHighlights(
   const maxRow = Math.max(startRowIndex, endRowIndex);
 
   for (let rowIdx = minRow; rowIdx <= maxRow; rowIdx++) {
-    const rowConfig = rowConfigsCache.find(r => r.rowIndex === rowIdx);
+    const rowConfig = rowCache.getAll().find(r => r.rowIndex === rowIdx);
     if (!rowConfig) continue;
 
-    const rowNotes = noteBoundsCache.filter(n => n.rowIndex === rowIdx);
+    const rowNotes = noteCache.getAll().filter(n => n.rowIndex === rowIdx);
     if (rowNotes.length === 0) continue;
 
     // 找到该行中在选择范围内的音符

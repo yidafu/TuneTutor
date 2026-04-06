@@ -2,10 +2,10 @@
  * Playback indicator utilities
  */
 
-import type { RowConfig } from './types';
-import { PADDING, STAVE_HEIGHT, VERTICAL_OFFSET } from './types';
+import type { RowConfig } from '../../core/types';
+import { PADDING, STAVE_HEIGHT, VERTICAL_OFFSET } from '../../core';
 import { getNotePositions } from './positions';
-import { rowConfigsCache } from './types';
+import { rowCache } from '../../core';
 
 /**
  * Get the playback indicator X position based on current position and progress
@@ -85,6 +85,6 @@ export function getIndicatorRowBounds(
  * @returns Row Y coordinate, or 0 if not found
  */
 export function getRowY(rowIndex: number): number {
-  const row = rowConfigsCache.find(r => r.rowIndex === rowIndex);
+  const row = rowCache.find(r => r.rowIndex === rowIndex);
   return row?.y ?? 0;
 }

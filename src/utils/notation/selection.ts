@@ -2,9 +2,10 @@
  * Selection calculation utilities for note selection
  */
 
-import type { NoteBounds } from './types';
+import type { NoteBounds } from '../../core/types';
 import type { SelectionRect } from '../../types/selection';
-import { rowConfigsCache, noteBoundsCache, STAVE_HEIGHT } from './types';
+import { noteCache, rowCache } from '../../core';
+import { STAVE_HEIGHT } from '../../core';
 
 /**
  * Get notes within a range defined by start and end notes (cross-row support)
@@ -13,16 +14,16 @@ import { rowConfigsCache, noteBoundsCache, STAVE_HEIGHT } from './types';
  * @returns Array of notes within the range
  */
 export function getNotesInRange(startNote: NoteBounds, endNote: NoteBounds): NoteBounds[] {
-  const startIdx = noteBoundsCache.findIndex(
+  const startIdx = noteCache.getAll().findIndex(
     n => n.measureIndex === startNote.measureIndex && n.noteIndex === startNote.noteIndex
   );
-  const endIdx = noteBoundsCache.findIndex(
+  const endIdx = noteCache.getAll().findIndex(
     n => n.measureIndex === endNote.measureIndex && n.noteIndex === endNote.noteIndex
   );
 
   if (startIdx === -1 || endIdx === -1) return [];
 
-  return noteBoundsCache.slice(
+  return noteCache.getAll().slice(
     Math.min(startIdx, endIdx),
     Math.max(startIdx, endIdx) + 1
   );
@@ -44,11 +45,11 @@ export function getSelectionRects(
   const endRow = Math.max(startNote.rowIndex, endNote.rowIndex);
 
   for (let row = startRow; row <= endRow; row++) {
-    const rowConfig = rowConfigsCache.find(r => r.rowIndex === row);
+    const rowConfig = rowCache.getAll().find(r => r.rowIndex === row);
     if (!rowConfig) continue;
 
     const rowY = rowConfig.y;
-    const rowNotes = noteBoundsCache.filter(n => n.rowIndex === row);
+    const rowNotes = noteCache.getAll().filter(n => n.rowIndex === row);
 
     if (rowNotes.length === 0) continue;
 

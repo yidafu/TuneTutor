@@ -11,8 +11,8 @@ export { FileLoaderModal } from './FileLoaderModal';
 // Header
 export { Header } from './Header';
 
-// Notation Display
-export { NotationDisplay, PlayButton, SelectionCanvas, Indicator, SelectionRangeBar } from './NotationDisplay';
+// Notation Display (OSMD)
+export { OsmdNotation } from './OsmdNotation/OsmdNotation';
 
 // Playback Controls
 export { PlaybackControls, ProgressBar } from './PlaybackControls';

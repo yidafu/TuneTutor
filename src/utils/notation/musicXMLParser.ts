@@ -122,7 +122,7 @@ function extractTempo(measures: MusicXMLMeasure[]): number {
       }
     }
   }
-  return 120; // Default tempo
+  return 60; // Default tempo
 }
 
 /**
@@ -211,11 +211,11 @@ function parseMeasures(
     for (const entry of entries) {
       if (entry.type !== 'note') continue;
 
-      // Skip chord notes (they share duration with previous note)
-      if (entry.chord) continue;
-
+      // Mark chord notes but include them for rendering as chord
+      const isChord = entry.chord === true;
       const parsedNote = parseNote(entry, currentDivisions);
       if (parsedNote) {
+        parsedNote.isChord = isChord;
         notes.push(parsedNote);
       }
     }
@@ -255,7 +255,7 @@ function convertToParsedScore(result: MusicXMLIOResult): ParsedScore {
       title,
       composer: undefined,
       measures: [],
-      tempo: 120,
+      tempo: 60,
       timeSignature: '4/4',
       keySignature: undefined,
       divisions: 1,

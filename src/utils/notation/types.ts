@@ -1,71 +1,48 @@
 /**
  * VexFlow types and constants for music notation rendering
+ * @deprecated Use src/core/types.ts instead
  */
 
-// Layout constants
-export const STAVE_WIDTH = 200;
-export const STAVE_HEIGHT = 80;
-export const PADDING = 20;
-export const STAVE_PADDING = 0;
-export const ROW_SPACING = 30;
-export const TOP_Y = 30;
-export const VERTICAL_OFFSET = 30; // Playback indicator and selection highlight vertical offset
+// Re-export from core module for backward compatibility
+export {
+  STAVE_WIDTH,
+  STAVE_HEIGHT,
+  PADDING,
+  STAVE_PADDING,
+  ROW_SPACING,
+  TOP_Y,
+  VERTICAL_OFFSET,
+  COLORS,
+  type NoteBounds,
+  type RowConfig,
+  type ScoreLayout,
+} from '../../core';
 
-// Colors for measure states
-export const COLORS = {
-  selected: '#dbeafe', // blue-100
-  playing: '#fef08a',  // yellow-200
-  default: '#ffffff',
-  border: '#e5e7eb',   // gray-200
-  hover: '#eff6ff',    // blue-50
-};
+// Re-export cache managers for backward compatibility
+export { noteCache, rowCache } from '../../core';
 
-/**
- * Note bounds for selection and positioning
- */
-export interface NoteBounds {
-  measureIndex: number;
-  noteIndex: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  staveX: number;
-  staveY: number;
-  staveWidth: number;
-  staveHeight: number;
-  rowIndex: number;
-}
+// Legacy clearCaches function - delegates to core
+import { noteCache, rowCache } from '../../core';
 
-/**
- * Row configuration for multi-row score rendering
- */
-export interface RowConfig {
-  startMeasure: number;
-  endMeasure: number;
-  rowIndex: number;
-  y: number;
-}
-
-/**
- * Score layout result
- */
-export interface ScoreLayout {
-  measuresPerRow: number;
-  totalRows: number;
-  svgWidth: number;
-  svgHeight: number;
-  rowConfigs: RowConfig[];
-}
-
-// Global caches (exported for use across modules)
-export let noteBoundsCache: NoteBounds[] = [];
-export let rowConfigsCache: RowConfig[] = [];
-
-/**
- * Clear all caches
- */
 export function clearCaches(): void {
-  noteBoundsCache = [];
-  rowConfigsCache = [];
+  noteCache.clear();
+  rowCache.clear();
 }
+
+// For backward compatibility - legacy global cache arrays
+// These are initialized as empty and synced via clearCaches/populateCaches
+import type { NoteBounds, RowConfig } from '../../core/types';
+
+export const noteBoundsCache: NoteBounds[] = [];
+export const rowConfigsCache: RowConfig[] = [];
+
+// Call this after rendering to sync legacy caches with core cache managers
+export function syncLegacyCaches(): void {
+  noteBoundsCache.length = 0;
+  noteBoundsCache.push(...noteCache.getAll());
+  rowConfigsCache.length = 0;
+  rowConfigsCache.push(...rowCache.getAll());
+}
+
+// Initialize with current cache state on module load
+syncLegacyCaches();

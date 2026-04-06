@@ -43,6 +43,17 @@ export const instrumentNamesZh: Record<string, string> = {
   trumpet: '小号',
 } as const;
 
+// Mapping from InstrumentType to MIDI instrument ID
+export const INSTRUMENT_TO_MIDI: Record<InstrumentType, number> = {
+  piano: 0, // Acoustic Grand Piano
+  saxophone: 65, // Alto Sax
+  guitar: 25, // Acoustic Guitar (steel) - 使用确定支持的
+  bass: 32, // Acoustic Bass
+  violin: 40, // Violin
+  flute: 73, // Flute
+  trumpet: 56, // Trumpet
+};
+
 // Get instrument name based on translation set
 export function getInstrumentName(type: InstrumentType, t: Record<string, any>): string {
   const inst = INSTRUMENTS.find(i => i.type === type);

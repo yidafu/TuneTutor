@@ -3,24 +3,26 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { NotationDisplay } from './components/NotationDisplay/NotationDisplay';
+import * as Tone from 'tone';
+import { OsmdNotation } from './components/OsmdNotation/OsmdNotation';
 import { PlaybackControls } from './components/PlaybackControls/PlaybackControls';
 import { Header } from './components/Header';
 import { ScoreInfo } from './components/ScoreInfo';
 import { SelectionInfo } from './components/SelectionInfo';
 import { StatusBar } from './components/StatusBar';
 import { FileLoaderModal } from './components/FileLoaderModal';
-import { useNoteSelection } from './hooks/useNoteSelection';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { usePlayback } from './hooks/usePlayback';
-import { noteDurationToSeconds } from './utils/audio/TempoConverter';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useNoteSelection } from './hooks/useNoteSelection';
+import type { SelectedNote } from './components/OsmdNotation/OsmdNotation';
 import type { ParsedScore } from './types/notation';
-import { DURATION_TO_BEATS } from './types/notation';
+import { DURATION_TO_BEATS, createDemoScore } from './types/notation';
+import { parseMusicXML } from './utils/notation';
+import { getAllFiles } from './utils/storage';
 import type { StoredFile } from './types/storedFile';
 import type { InstrumentType } from './types/audio';
 import { INSTRUMENTS, getInstrumentName } from './types/audio';
-import { createDemoScore, getRowConfigs, getPlaybackIndicatorX, getIndicatorRowBounds } from './utils/notation';
-import { createPlaybackIndicator, removePlaybackIndicator, getNotationContainerElement } from './components/NotationDisplay/NotationDisplay';
 import { useTranslation, useSetLanguage, type Language } from './locales/I18nContext';
 
 const STORAGE_KEY = 'note-slice-preferred-instrument';
@@ -43,7 +45,9 @@ function saveInstrument(instrument: InstrumentType): void {
 function App() {
   const { t, language } = useTranslation();
   const setLanguage = useSetLanguage();
-  const [score, setScore] = useState<ParsedScore>(createDemoScore());
+  const demoXml = createDemoScore();
+  const [score, setScore] = useState<ParsedScore | null>(null);
+  const [musicXml, setMusicXml] = useState<string | null>(null);
   const [showFileLoader, setShowFileLoader] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tempo, setTempo] = useState(60);
@@ -52,26 +56,49 @@ function App() {
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>(getSavedInstrument);
   const [loopConfig, setLoopConfig] = useState({ skipBeats: 0 });
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Handle language change
-  const handleLanguageChange = useCallback((newLang: Language) => {
-    setLanguage(newLang);
-  }, [setLanguage]);
+  // Load last opened file on mount
+  useEffect(() => {
+    let mounted = true;
+    const loadLastFile = async () => {
+      try {
+        const files = await getAllFiles();
+        if (mounted && files.length > 0) {
+          const lastFile = files[0]; // Already sorted by newest first
+          const loadedScore = parseMusicXML(lastFile.rawContent);
+          setScore(loadedScore);
+          setMusicXml(lastFile.rawContent);
+          setTempo(loadedScore.tempo || 60);
+        } else if (mounted) {
+          // No files found, use demo score
+          setScore(parseMusicXML(demoXml));
+          setMusicXml(demoXml);
+        }
+      } catch (err) {
+        if (mounted) {
+          setScore(parseMusicXML(demoXml));
+          setMusicXml(demoXml);
+        }
+      }
+    };
+    loadLastFile();
+    return () => { mounted = false; };
+  }, []);
 
-  // Use the unified note selection hook
+  // Use note selection hook
   const totalMeasures = score?.measures.length || 8;
   const [selectionState, selectionActions] = useNoteSelection(totalMeasures, []);
   const { selectedNotes } = selectionState;
 
-  // Use the audio engine
+  // Use audio engine
   const [audioState, audioActions] = useAudioEngine();
-  // Ref to store audioActions - updated on every render
   const audioActionsRef = useRef(audioActions);
   useEffect(() => {
     audioActionsRef.current = audioActions;
   }, [audioActions]);
 
-  // Initialize audio and load default instrument on mount
+  // Initialize audio
   useEffect(() => {
     let mounted = true;
     const initAudio = async () => {
@@ -87,44 +114,43 @@ function App() {
         console.error('Failed to initialize audio:', err);
       }
     };
-    // Delay slightly to ensure audioActionsRef is properly initialized
     const timer = setTimeout(initAudio, 0);
     return () => {
       clearTimeout(timer);
       mounted = false;
     };
-  }, [selectedInstrument]); // Include selectedInstrument as dependency
+  }, [selectedInstrument]);
 
-  // Use the playback hook
+  // Use playback hook
   const [playbackState, playbackActions] = usePlayback();
-  // Ref to store playbackActions - updated on every render
   const playbackActionsRef = useRef(playbackActions);
   useEffect(() => {
     playbackActionsRef.current = playbackActions;
   }, [playbackActions]);
 
-  // Refs for playback
+  // Playback refs
   const playbackTimeoutRef = useRef<number | null>(null);
-  const noteIndexRef = useRef(0);
-  const startTimeRef = useRef(0);
-
-  // Refs for smooth indicator animation
-  const animationFrameRef = useRef<number | null>(null);
+  const tonePartRef = useRef<Tone.Part | null>(null);
   const currentNoteStartTimeRef = useRef<number>(0);
   const currentNoteDurationRef = useRef<number>(0);
-
-  // Store notesToPlay for animation loop access
   const notesToPlayRef = useRef<{ measureIndex: number; noteIndex: number }[]>([]);
+  const noteIndexRef = useRef(0);
 
-  // Playback indicator element ref
-  const indicatorRef = useRef<HTMLDivElement | null>(null);
+  // Handle language change
+  const handleLanguageChange = useCallback((newLang: Language) => {
+    setLanguage(newLang);
+  }, [setLanguage]);
 
   // Handle file loaded
-  const handleScoreLoaded = useCallback((loadedScore: ParsedScore, _storedFile?: StoredFile) => {
+  const handleScoreLoaded = useCallback((loadedScore: ParsedScore, storedFile?: StoredFile) => {
     setScore(loadedScore);
+    // 更新 musicXml 状态以触发乐谱重新渲染
+    if (storedFile?.rawContent) {
+      setMusicXml(storedFile.rawContent);
+    }
     setShowFileLoader(false);
     setError(null);
-    setTempo(loadedScore.tempo || 120);
+    setTempo(loadedScore.tempo || 60);
   }, []);
 
   // Handle file load error
@@ -132,10 +158,9 @@ function App() {
     setError(errorMsg);
   }, []);
 
-  // Sync loopConfig to playback hook
+  // Sync loopConfig
   useEffect(() => {
     if (loopConfig.skipBeats > 0 && selectedNotes.length > 0 && score) {
-      // Calculate beat range from selected notes
       const sortedNotes = [...selectedNotes].sort((a, b) => {
         if (a.measureIndex !== b.measureIndex) {
           return a.measureIndex - b.measureIndex;
@@ -147,7 +172,6 @@ function App() {
       let startBeat = 0;
       let endBeat = 0;
 
-      // First pass: find startBeat from first note
       for (let m = 0; m < sortedNotes[0].measureIndex; m++) {
         for (const note of score.measures[m].notes) {
           currentBeat += DURATION_TO_BEATS[note.duration] || 1;
@@ -158,7 +182,6 @@ function App() {
       }
       startBeat = currentBeat;
 
-      // Second pass: find endBeat from last note
       currentBeat = 0;
       for (let m = 0; m < sortedNotes[sortedNotes.length - 1].measureIndex; m++) {
         for (const note of score.measures[m].notes) {
@@ -180,10 +203,7 @@ function App() {
     }
   }, [loopConfig, selectedNotes, score]);
 
-  // Enable audio - load saved instrument
-  // No longer needed as instrument selection now auto-enables audio
-
-  // Get instrument display name and icon
+  // Get instrument display
   const getInstrumentDisplay = useCallback(() => {
     const inst = INSTRUMENTS.find(i => i.type === audioState.currentInstrument);
     if (!inst) return { name: 'Piano', icon: '🎹' };
@@ -193,7 +213,7 @@ function App() {
     };
   }, [audioState.currentInstrument, t]);
 
-  // Select instrument - saves to localStorage and loads the instrument
+  // Select instrument
   const handleSelectInstrument = useCallback(async (instrument: InstrumentType) => {
     setSelectedInstrument(instrument);
     saveInstrument(instrument);
@@ -207,279 +227,191 @@ function App() {
     }
   }, []);
 
-  // Play the selected notes
-  const handlePlay = useCallback(() => {
-    if (selectedNotes.length === 0) return;
-
-    // Stop any current playback
-    handleStop();
-
-    // Start playback
-    playbackActions.play();
-
-    // Use selected notes directly
-    const notesToPlay = [...selectedNotes].sort((a, b) => {
-      if (a.measureIndex !== b.measureIndex) {
-        return a.measureIndex - b.measureIndex;
-      }
-      return a.noteIndex - b.noteIndex;
-    });
-
-    // Initialize playback state
-    notesToPlayRef.current = notesToPlay;
-    noteIndexRef.current = 0;
-    startTimeRef.current = Date.now();
-
-    // Create new indicator for this playback cycle
-    const container = getNotationContainerElement();
-    removePlaybackIndicator(indicatorRef.current);
-    indicatorRef.current = createPlaybackIndicator(container);
-
-    // Immediately position indicator at first note to prevent flash
-    if (indicatorRef.current && notesToPlay.length > 0) {
-      const firstNote = notesToPlay[0];
-      const rowConfigs = getRowConfigs(score?.measures.length || 8, { measuresPerRow: 5 });
-      const bounds = getIndicatorRowBounds(firstNote.measureIndex, rowConfigs);
-      if (bounds) {
-        const indicatorX = getPlaybackIndicatorX(firstNote.measureIndex, firstNote.noteIndex, 0);
-        indicatorRef.current.style.left = `${indicatorX}px`;
-        indicatorRef.current.style.top = `${bounds.top}px`;
-        indicatorRef.current.style.height = `${bounds.bottom - bounds.top}px`;
-        indicatorRef.current.style.display = 'block';
-      }
+  // Play selected notes or entire score
+  const handlePlay = useCallback(async () => {
+    // Ensure audio context is ready
+    if (!audioState.isReady) {
+      await audioActionsRef.current.init();
     }
 
-    // Play each note
-    const playNextNote = () => {
-      if (noteIndexRef.current >= notesToPlay.length) {
-        // Playback complete - check if loop is enabled
-        if (playbackState.loopEnabled) {
-          // Cancel any pending animation frame to prevent smooth scroll back
-          if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-          }
-
-          // 移除当前指示器，创建新的
-          removePlaybackIndicator(indicatorRef.current);
-          indicatorRef.current = createPlaybackIndicator(getNotationContainerElement());
-
-          // 重置状态
-          noteIndexRef.current = 0;
-          startTimeRef.current = Date.now();
-          setCurrentMeasure(0);
-          setCurrentNoteIndex(0);
-          currentNoteStartTimeRef.current = Date.now();
-
-          // 立即将indicator位置设置到起点，不带动画
-          if (indicatorRef.current && notesToPlay.length > 0) {
-            const firstNote = notesToPlay[0];
-            const rowConfigs = getRowConfigs(score?.measures.length || 8, { measuresPerRow: 5 });
-            const bounds = getIndicatorRowBounds(firstNote.measureIndex, rowConfigs);
-            if (bounds) {
-              const indicatorX = getPlaybackIndicatorX(firstNote.measureIndex, firstNote.noteIndex, 0);
-              indicatorRef.current.style.left = `${indicatorX}px`;
-              indicatorRef.current.style.top = `${bounds.top}px`;
-              indicatorRef.current.style.height = `${bounds.bottom - bounds.top}px`;
-              indicatorRef.current.style.display = 'block';
-            }
-          }
-
-          // 开始新循环
-          playNextNote();
-        } else {
-          // Position indicator at the end of the last note before stopping
-          if (notesToPlay.length > 0 && indicatorRef.current) {
-            const lastNote = notesToPlay[notesToPlay.length - 1];
-            const rowConfigs = getRowConfigs(score?.measures.length || 8, { measuresPerRow: 5 });
-            const bounds = getIndicatorRowBounds(lastNote.measureIndex, rowConfigs);
-            if (bounds) {
-              const indicatorX = getPlaybackIndicatorX(lastNote.measureIndex, lastNote.noteIndex, 1);
-              indicatorRef.current.style.left = `${indicatorX}px`;
-              indicatorRef.current.style.top = `${bounds.top}px`;
-              indicatorRef.current.style.height = `${bounds.bottom - bounds.top}px`;
-              indicatorRef.current.style.display = 'block';
-            }
-          }
-
-          // Cancel any pending animation frame before stopping
-          if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-          }
-
-          // 移除指示器并停止
-          removePlaybackIndicator(indicatorRef.current);
-          indicatorRef.current = null;
-          handleStop();
-        }
-        return;
-      }
-
-      const { measureIndex: measureIdx, noteIndex: noteIdx } = notesToPlay[noteIndexRef.current];
-      const measure = score?.measures[measureIdx];
-
-      if (!measure || noteIdx >= measure.notes.length) {
-        noteIndexRef.current++;
-        playbackTimeoutRef.current = window.setTimeout(playNextNote, 10);
-        return;
-      }
-
-      // Get the note
-      const note = measure.notes[noteIdx];
-
-      // Update current measure and note index
-      setCurrentMeasure(measureIdx);
-      setCurrentNoteIndex(noteIdx);
-
-      // Record note timing for smooth indicator animation
-      const noteDuration = noteDurationToSeconds(note.duration, tempo) * 1000;
-      currentNoteDurationRef.current = noteDuration;
-      currentNoteStartTimeRef.current = Date.now();
-
-      // Play the note
-      if (isAudioEnabled && !note.isRest) {
-        audioActions.playNote(note.pitch, note.duration);
-      }
-
-      // Schedule next note
-      noteIndexRef.current++;
-      playbackTimeoutRef.current = window.setTimeout(playNextNote, noteDuration);
-    };
-
-    playNextNote();
-  }, [selectedNotes, score, tempo, isAudioEnabled, playbackState.loopEnabled]);
-
-  // Stop playback
-  const handleStop = useCallback(() => {
+    // Stop current playback
+    if (tonePartRef.current) {
+      tonePartRef.current.stop();
+      tonePartRef.current.dispose();
+      tonePartRef.current = null;
+    }
     if (playbackTimeoutRef.current) {
-      clearTimeout(playbackTimeoutRef.current);
+      clearInterval(playbackTimeoutRef.current);
       playbackTimeoutRef.current = null;
     }
     playbackActionsRef.current.stop();
     setCurrentMeasure(-1);
     setCurrentNoteIndex(-1);
     noteIndexRef.current = 0;
-    // Remove indicator
-    removePlaybackIndicator(indicatorRef.current);
-    indicatorRef.current = null;
-  }, []);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
+    playbackActions.play();
+    setIsPlaying(true);
 
-      switch (e.code) {
-        case 'Space':
-          e.preventDefault();
-          if (playbackState.isPlaying) {
-            handleStop();
-          } else {
-            handlePlay();
+    // Build playback notes
+    let notesToPlay: { measureIndex: number; noteIndex: number; pitch: string; duration: string }[] = [];
+
+    if (selectedNotes.length > 0) {
+      // Play selected notes only
+      const sortedNotes = [...selectedNotes].sort((a, b) => {
+        if (a.measureIndex !== b.measureIndex) return a.measureIndex - b.measureIndex;
+        return a.noteIndex - b.noteIndex;
+      });
+
+      for (const sel of sortedNotes) {
+        const measure = score?.measures[sel.measureIndex];
+        if (measure && sel.noteIndex < measure.notes.length) {
+          const note = measure.notes[sel.noteIndex];
+          if (!note.isRest) {
+            notesToPlay.push({
+              measureIndex: sel.measureIndex,
+              noteIndex: sel.noteIndex,
+              pitch: note.pitch,
+              duration: note.duration,
+            });
           }
-          break;
-        case 'Escape':
-          handleStop();
-          selectionActions.clearSelection();
-          break;
-        case 'ArrowLeft':
-          if (selectedNotes.length > 0) {
-            e.preventDefault();
-            const minMeasure = Math.min(...selectedNotes.map(n => n.measureIndex));
-            if (minMeasure > 0) {
-              selectionActions.selectMeasure(minMeasure - 1);
-            }
+        }
+      }
+    } else if (score?.measures) {
+      // Play entire score when no notes selected
+      for (let m = 0; m < score.measures.length; m++) {
+        const measure = score.measures[m];
+        for (let n = 0; n < measure.notes.length; n++) {
+          const note = measure.notes[n];
+          if (!note.isRest) {
+            notesToPlay.push({
+              measureIndex: m,
+              noteIndex: n,
+              pitch: note.pitch,
+              duration: note.duration,
+            });
           }
-          break;
-        case 'ArrowRight':
-          if (selectedNotes.length > 0) {
-            e.preventDefault();
-            const maxMeasure = Math.max(...selectedNotes.map(n => n.measureIndex));
-            if (maxMeasure < totalMeasures - 1) {
-              selectionActions.selectMeasure(maxMeasure + 1);
-            }
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [playbackState.isPlaying, selectedNotes, totalMeasures, selectionActions, handlePlay, handleStop]);
-
-  // Smooth indicator animation loop using requestAnimationFrame
-  useEffect(() => {
-    const updateIndicator = () => {
-      if (!playbackState.isPlaying || currentNoteDurationRef.current === 0 || !indicatorRef.current) {
-        // Stop animation when not playing
-        animationFrameRef.current = null;
-        return;
-      }
-
-      const elapsed = Date.now() - currentNoteStartTimeRef.current;
-      const progress = Math.min(elapsed / currentNoteDurationRef.current, 1);
-
-      // Check if we're at the last note in the playback sequence
-      // Note: noteIndexRef.current is incremented BEFORE the next note starts,
-      // so we need to check if currentNoteIndex matches the last note's indices
-      const lastNote = notesToPlayRef.current[notesToPlayRef.current.length - 1];
-      const isLastNote = lastNote &&
-        currentMeasure === lastNote.measureIndex &&
-        currentNoteIndex === lastNote.noteIndex;
-
-      // Get row configs for current measure
-      const rowConfigs = getRowConfigs(score?.measures.length || 8, { measuresPerRow: 5 });
-      const bounds = getIndicatorRowBounds(currentMeasure, rowConfigs);
-
-      if (bounds) {
-        const indicatorX = getPlaybackIndicatorX(currentMeasure, currentNoteIndex, progress, isLastNote);
-
-        // Directly update indicator DOM position
-        indicatorRef.current.style.display = 'block';
-        indicatorRef.current.style.left = `${indicatorX}px`;
-        indicatorRef.current.style.top = `${bounds.top}px`;
-        indicatorRef.current.style.height = `${bounds.bottom - bounds.top}px`;
-      }
-
-      animationFrameRef.current = requestAnimationFrame(updateIndicator);
-    };
-
-    if (playbackState.isPlaying) {
-      // Start animation loop
-      animationFrameRef.current = requestAnimationFrame(updateIndicator);
-    } else {
-      // Cancel any pending animation frame
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
+        }
       }
     }
 
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    };
-  }, [playbackState.isPlaying, currentMeasure, currentNoteIndex, score]);
+    notesToPlayRef.current = notesToPlay;
+    noteIndexRef.current = 0;
 
-  // Cleanup on unmount
+    // Create Tone.Part
+    if (notesToPlay.length > 0) {
+      const notesWithTime: Array<{ time: number; note: { pitch: string; duration: string } }> = [];
+      let currentTime = 0;
+
+      for (const noteData of notesToPlay) {
+        const noteDuration = (DURATION_TO_BEATS[noteData.duration] || 1) * (60 / tempo);
+        notesWithTime.push({ time: currentTime, note: noteData });
+        currentTime += noteDuration;
+      }
+
+      const partEvents: Array<[number, { pitch: string; duration: string }]> = notesWithTime.map(n => [n.time, n.note]);
+
+      const part = new Tone.Part((_time, note) => {
+        if (isAudioEnabled) {
+          audioActionsRef.current.playNote(note.pitch, note.duration);
+        }
+      }, partEvents);
+
+      Tone.Transport.stop();
+      Tone.Transport.seconds = 0;
+      Tone.Transport.position = 0;
+      part.start(0);
+      Tone.Transport.start();
+      tonePartRef.current = part;
+    }
+
+    // Visual indicator
+    const indicatorInterval = setInterval(() => {
+      if (noteIndexRef.current >= notesToPlay.length) {
+        if (playbackState.loopEnabled) {
+          noteIndexRef.current = 0;
+        } else {
+          clearInterval(indicatorInterval);
+          if (tonePartRef.current) {
+            tonePartRef.current.stop();
+            tonePartRef.current.dispose();
+            tonePartRef.current = null;
+          }
+          setIsPlaying(false);
+          playbackActionsRef.current.stop();
+        }
+        return;
+      }
+
+      const { measureIndex: mIdx, noteIndex: nIdx } = notesToPlayRef.current[noteIndexRef.current];
+      const measure = score?.measures[mIdx];
+      if (measure && nIdx < measure.notes.length) {
+        const note = measure.notes[nIdx];
+        setCurrentMeasure(mIdx);
+        setCurrentNoteIndex(nIdx);
+        const noteDuration = (DURATION_TO_BEATS[note.duration] || 1) * (60 / tempo) * 1000;
+        currentNoteDurationRef.current = noteDuration;
+        currentNoteStartTimeRef.current = Date.now();
+      }
+      noteIndexRef.current++;
+    }, 50);
+
+    playbackTimeoutRef.current = indicatorInterval as unknown as number;
+  }, [selectedNotes, score, tempo, isAudioEnabled, playbackState.loopEnabled, playbackActions]);
+
+  // Stop playback
+  const handleStop = useCallback(() => {
+    if (tonePartRef.current) {
+      tonePartRef.current.stop();
+      tonePartRef.current.dispose();
+      tonePartRef.current = null;
+    }
+    if (playbackTimeoutRef.current) {
+      clearInterval(playbackTimeoutRef.current);
+      playbackTimeoutRef.current = null;
+    }
+    playbackActionsRef.current.stop();
+    setCurrentMeasure(-1);
+    setCurrentNoteIndex(-1);
+    noteIndexRef.current = 0;
+    setIsPlaying(false);
+  }, []);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    isPlaying: playbackState.isPlaying,
+    selectedNotes,
+    totalMeasures,
+    selectionActions,
+    onPlay: handlePlay,
+    onStop: handleStop,
+  });
+
+  // Cleanup
   useEffect(() => {
     return () => {
       if (playbackTimeoutRef.current) {
-        clearTimeout(playbackTimeoutRef.current);
+        clearInterval(playbackTimeoutRef.current);
+      }
+      if (tonePartRef.current) {
+        tonePartRef.current.stop();
+        tonePartRef.current.dispose();
       }
     };
   }, []);
 
   const instrumentDisplay = getInstrumentDisplay();
 
+  // Handle note selection from OSMD
+  const handleNoteSelect = useCallback((notes: SelectedNote[], mode: 'replace' | 'add') => {
+    if (mode === 'replace') {
+      selectionActions.selectNotes(notes as { measureIndex: number; noteIndex: number }[], 'replace');
+    } else {
+      selectionActions.selectNotes(notes as { measureIndex: number; noteIndex: number }[], 'add');
+    }
+  }, [selectionActions]);
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
       <Header
         language={language}
@@ -490,24 +422,26 @@ function App() {
         t={t}
       />
 
-      {/* Main Content - Scrollable container */}
+      {/* Main Content */}
       <div className="flex-1 overflow-y-auto scroll-smooth">
-        <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6" role="main" aria-label="Music notation display">
+        <main className="w-full px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8" role="main" aria-label="Music notation display">
           {/* Score Info */}
           <ScoreInfo
             title={score?.title || 'Twinkle Twinkle Little Star'}
             composer={score?.composer}
             timeSignature={score?.timeSignature || '4/4'}
-            tempo={score?.tempo || 120}
+            tempo={score?.tempo || 60}
             t={t}
           />
 
           {/* Notation Display */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <NotationDisplay
-              score={score}
-              selectedNotes={selectedNotes}
-              onNoteSelect={selectionActions.selectNotes}
+          <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
+            <OsmdNotation
+              musicXml={musicXml || demoXml}
+              onNoteSelect={handleNoteSelect}
+              isPlaying={isPlaying}
+              indicatorMeasure={currentMeasure}
+              indicatorNote={currentNoteIndex}
               className="min-h-62.5"
             />
           </div>
@@ -521,11 +455,11 @@ function App() {
         </main>
       </div>
 
-      {/* Playback Controls - Sticky at bottom */}
+      {/* Playback Controls */}
       <div className="sticky bottom-0 z-10 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
         <PlaybackControls
           isPlaying={playbackState.isPlaying}
-          canPlay={selectedNotes.length > 0 && isAudioEnabled}
+          canPlay={isAudioEnabled}
           onPlay={handlePlay}
           onPause={handleStop}
           onStop={handleStop}
