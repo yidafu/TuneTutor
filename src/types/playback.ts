@@ -3,6 +3,7 @@
  */
 
 import type { ParsedScore } from './notation';
+import type { InstrumentType } from './audio';
 
 /**
  * Loop range for section looping
@@ -37,4 +38,6 @@ export interface PlaybackActions {
   setLoopRange: (range: LoopRange | null) => void;
   seek: (time: number) => void;
   calculateTotalDuration: (score: ParsedScore, tempo: number) => number;
+  setInstrument: (type: InstrumentType) => void;
+  setVolume: (volume: number) => void;
 }

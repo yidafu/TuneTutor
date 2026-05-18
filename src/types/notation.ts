@@ -34,18 +34,6 @@ export interface Note {
 }
 
 /**
- * Position information for a single note element
- */
-export interface NotePosition {
-  measureIndex: number;
-  noteIndex: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
  * Represents a selected note with its position
  */
 export interface SelectedNote {

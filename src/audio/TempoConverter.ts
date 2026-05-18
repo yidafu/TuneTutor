@@ -2,7 +2,7 @@
  * Tempo Converter - Convert between tempo, beats, and time
  */
 
-import { DURATION_TO_BEATS } from "../../types/notation";
+import { DURATION_TO_BEATS } from "../types/notation";
 
 /**
  * Calculate the duration of a note in seconds based on tempo

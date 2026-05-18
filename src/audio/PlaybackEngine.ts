@@ -1,9 +1,10 @@
 import type { OpenSheetMusicDisplay, MusicSheet, Note, Instrument, Voice, Cursor } from "opensheetmusicdisplay";
 import type { IAudioContext } from "standardized-audio-context";
 import { AudioContext } from "standardized-audio-context";
-import { PlaybackScheduler } from "./PlaybackScheduler";
-import type { PlaybackInstrument, NotePlaybackInstruction } from "./SoundfontPlayer";
-import { SoundfontPlayer, ArticulationStyle } from "./SoundfontPlayer";
+import { PlaybackTimeline } from "./PlaybackTimeline";
+import { StepQueue } from "./StepQueue";
+import type { PlaybackInstrument } from "./SoundfontPlayer";
+import { TonejsPlayer } from "./TonejsPlayer";
 
 export const PlaybackState = {
   INIT: "INIT",
@@ -33,15 +34,14 @@ export class PlaybackEngine {
   private defaultBpm = 100;
   private cursor!: Cursor;
   private sheet!: MusicSheet;
-  private scheduler!: PlaybackScheduler;
-  private instrumentPlayer: SoundfontPlayer;
+  private timeline!: PlaybackTimeline;
+  private stepQueue = new StepQueue();
+  private instrumentPlayer: TonejsPlayer;
 
   private events: Map<PlaybackEvent, EventCallback[]> = new Map();
 
   private iterationSteps = 0;
   private currentIterationStep = 0;
-
-  private timeoutHandles: number[] = [];
 
   public playbackSettings: PlaybackSettings;
   public state: PlaybackState;
@@ -49,19 +49,17 @@ export class PlaybackEngine {
   public scoreInstruments: Instrument[] = [];
   public ready = false;
 
-  constructor(context: IAudioContext = new AudioContext(), instrumentPlayer?: SoundfontPlayer) {
+  constructor(context: IAudioContext = new AudioContext(), instrumentPlayer?: TonejsPlayer) {
     this.ac = context;
     this.ac.suspend();
 
-    this.instrumentPlayer = instrumentPlayer ?? new SoundfontPlayer();
-    this.instrumentPlayer.init(this.ac);
+    this.instrumentPlayer = instrumentPlayer ?? new TonejsPlayer();
+    this.instrumentPlayer.init();
 
     this.availableInstruments = this.instrumentPlayer.instruments;
 
     this.iterationSteps = 0;
     this.currentIterationStep = 0;
-
-    this.timeoutHandles = [];
 
     this.playbackSettings = {
       bpm: this.defaultBpm,
@@ -98,11 +96,11 @@ export class PlaybackEngine {
     await this.loadInstruments();
     this.initInstruments();
 
-    this.scheduler = new PlaybackScheduler(this.wholeNoteLength, this.ac, (delay, notes) =>
-      this.notePlaybackCallback(delay, notes)
-    );
+    this.timeline = new PlaybackTimeline();
 
     this.countAndSetIterationSteps();
+    this.timeline.calculate(this.stepQueue.steps, this.wholeNoteLength);
+
     this.ready = true;
     this.setState(PlaybackState.STOPPED);
   }
@@ -144,16 +142,22 @@ export class PlaybackEngine {
     }
 
     this.setState(PlaybackState.PLAYING);
-    this.scheduler.start();
+
+    this.timeline.scheduleAll(
+      this.currentIterationStep,
+      this.instrumentPlayer,
+      this.wholeNoteLength,
+      (notes) => this.iterationCallback(notes),
+      () => this.stop()
+    );
   }
 
   async stop(): Promise<void> {
     this.setState(PlaybackState.STOPPED);
     this.stopPlayers();
-    this.clearTimeouts();
-    this.scheduler.reset();
-    this.cursor.reset();
+    this.timeline.cancelAll();
     this.currentIterationStep = 0;
+    this.cursor.reset();
     this.cursor.hide();
   }
 
@@ -161,9 +165,7 @@ export class PlaybackEngine {
     this.setState(PlaybackState.PAUSED);
     this.ac.suspend();
     this.stopPlayers();
-    this.scheduler.setIterationStep(this.currentIterationStep);
-    this.scheduler.pause();
-    this.clearTimeouts();
+    this.timeline.cancelAll();
   }
 
   jumpToStep(step: number): void {
@@ -176,14 +178,14 @@ export class PlaybackEngine {
       this.cursor.next();
       ++this.currentIterationStep;
     }
-    let schedulerStep = this.currentIterationStep;
-    if (this.currentIterationStep > 0 && this.currentIterationStep < this.iterationSteps) ++schedulerStep;
-    this.scheduler.setIterationStep(schedulerStep);
+    this.timeline.calculate(this.stepQueue.steps, this.wholeNoteLength);
   }
 
   setBpm(bpm: number) {
     this.playbackSettings.bpm = bpm;
-    if (this.scheduler) this.scheduler.wholeNoteLength = this.wholeNoteLength;
+    if (this.timeline) {
+      this.timeline.calculate(this.stepQueue.steps, this.wholeNoteLength);
+    }
   }
 
   on(event: PlaybackEvent, cb: EventCallback) {
@@ -203,62 +205,35 @@ export class PlaybackEngine {
   }
 
   private countAndSetIterationSteps() {
+    this.stepQueue.steps = [];
     this.cursor.reset();
     let steps = 0;
+    const lastTickOffset = 300;
+    const tickDenominator = 1024;
+
     while (!this.cursor.Iterator.EndReached) {
       if (this.cursor.Iterator.CurrentVoiceEntries) {
-        this.scheduler.loadNotes(this.cursor.Iterator.CurrentVoiceEntries);
+        for (const entry of this.cursor.Iterator.CurrentVoiceEntries) {
+          if (!entry.IsGrace) {
+            let thisTick = lastTickOffset;
+            if (this.stepQueue.steps.length > 0) {
+              const emptySteps = this.stepQueue.steps.filter(s => !s.notes.length);
+              thisTick = emptySteps.length > 0 ? emptySteps[0].tick : this.stepQueue.steps[this.stepQueue.steps.length - 1].tick;
+            }
+
+            for (const note of entry.Notes) {
+              this.stepQueue.addNote(thisTick, note);
+              this.stepQueue.createStep(thisTick + note.Length.RealValue * tickDenominator);
+            }
+          }
+        }
       }
       this.cursor.next();
       ++steps;
     }
     this.iterationSteps = steps;
+    console.log(`[Playback] Total iteration steps: ${steps}`);
     this.cursor.reset();
-  }
-
-  private getNoteDuration(note: Note): number {
-    return (note.Length.RealValue * this.wholeNoteLength) / 1000;
-  }
-
-  private getNoteVolume(_note: Note): number {
-    return 0.8;
-  }
-
-  private notePlaybackCallback(audioDelay: number, notes: Note[]) {
-    if (this.state !== PlaybackState.PLAYING) return;
-    const scheduledNotes: Map<number, NotePlaybackInstruction[]> = new Map();
-
-    for (const note of notes) {
-      if (note.isRest()) {
-        continue;
-      }
-      const noteDuration = this.getNoteDuration(note);
-      if (noteDuration === 0) continue;
-      const noteVolume = this.getNoteVolume(note);
-
-      const midiPlaybackInstrument = (note.ParentVoiceEntry?.ParentVoice as unknown as { midiInstrumentId: number })?.midiInstrumentId;
-      const fixedKey = note.ParentVoiceEntry?.ParentVoice?.Parent?.SubInstruments?.[0]?.fixedKey || 0;
-
-      if (!scheduledNotes.has(midiPlaybackInstrument)) {
-        scheduledNotes.set(midiPlaybackInstrument, []);
-      }
-
-      scheduledNotes.get(midiPlaybackInstrument)!.push({
-        note: note.halfTone - fixedKey * 12,
-        duration: noteDuration,
-        gain: noteVolume,
-        articulation: ArticulationStyle.Normal,
-      });
-    }
-
-    for (const [midiId, playbackNotes] of scheduledNotes) {
-      this.instrumentPlayer.schedule(midiId, this.ac.currentTime + audioDelay, playbackNotes);
-    }
-
-    this.timeoutHandles.push(
-      window.setTimeout(() => this.iterationCallback(), Math.max(0, audioDelay * 1000 - 35)),
-      window.setTimeout(() => this.emit(PlaybackEvent.ITERATION, notes), audioDelay * 1000)
-    );
   }
 
   private setState(state: PlaybackState) {
@@ -274,16 +249,21 @@ export class PlaybackEngine {
     }
   }
 
-  private clearTimeouts() {
-    for (const h of this.timeoutHandles) {
-      clearTimeout(h);
-    }
-    this.timeoutHandles = [];
-  }
-
-  private iterationCallback() {
+  private iterationCallback(notes: Note[]) {
     if (this.state !== PlaybackState.PLAYING) return;
-    if (this.currentIterationStep > 0) this.cursor.next();
+
+    if (this.currentIterationStep >= this.iterationSteps) {
+      console.log(`[Playback] Reached end at step ${this.currentIterationStep}, stopping`);
+      this.stop();
+      return;
+    }
+
+    console.log(`[Playback] Step ${this.currentIterationStep} / ${this.iterationSteps}`);
+    if (this.currentIterationStep > 0) {
+      this.cursor.next();
+    }
+
+    this.emit(PlaybackEvent.ITERATION, notes);
     ++this.currentIterationStep;
   }
 }

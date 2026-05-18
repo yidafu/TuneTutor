@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .claude/settings.json
+
+/lib/
+.bsb.lock
+
+*.res.mjs

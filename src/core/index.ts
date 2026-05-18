@@ -4,5 +4,3 @@
  */
 
 export * from './types';
-export { noteCache, NoteCacheManager } from './NoteCache';
-export { rowCache, RowCacheManager } from './RowCache';

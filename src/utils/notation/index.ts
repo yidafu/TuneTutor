@@ -3,7 +3,6 @@
  */
 
 // Re-export core types and constants
-export { noteCache, rowCache } from '../../core';
 export {
   STAVE_WIDTH,
   STAVE_HEIGHT,
@@ -29,18 +28,6 @@ export * from './OsmdRender';
 
 // Note Interaction utilities
 export * from './NoteInteraction';
-
-// Position utilities
-export * from './positions';
-
-// Selection utilities
-export * from './selection';
-
-// Playback utilities
-export * from './playback';
-
-// Note Coordinate Mapper
-export * from './NoteCoordinateMapper';
 
 // Parser utilities
 export { parseMusicXML, isMusicXMLFile } from './musicXMLParser';

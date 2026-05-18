@@ -3,6 +3,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide } from '../../utils/notation/OsmdRender';
 import { findOsmdNoteAtPosition } from '../../utils/notation/NoteInteraction';
 
@@ -14,6 +15,7 @@ export interface SelectedNote {
 interface OsmdNotationProps {
   musicXml: string;
   onNoteSelect?: (notes: SelectedNote[], mode: 'replace' | 'add') => void;
+  onOsmdReady?: (osmd: OpenSheetMusicDisplay) => void;
   isPlaying?: boolean;
   indicatorMeasure?: number;
   indicatorNote?: number;
@@ -23,6 +25,7 @@ interface OsmdNotationProps {
 export function OsmdNotation({
   musicXml,
   onNoteSelect,
+  onOsmdReady,
   isPlaying = false,
   indicatorMeasure = -1,
   indicatorNote = -1,
@@ -84,6 +87,9 @@ export function OsmdNotation({
         }
 
         setIsLoading(false);
+        if (osmd && onOsmdReady) {
+          onOsmdReady(osmd);
+        }
       } catch (err) {
         console.error('Error rendering score:', err);
         setError(err instanceof Error ? err.message : 'Failed to render score');

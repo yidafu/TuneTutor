@@ -2,9 +2,6 @@
  * All utilities - Barrel export
  */
 
-// Audio utilities
-export * from './audio';
-
 // Formatting utilities
 export * from './formatting';
 

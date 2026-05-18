@@ -1,11 +1,26 @@
 /**
- * usePlayback Hook - Manage playback state and control
+ * usePlayback Hook - Manage playback state, control, and audio preferences
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ParsedScore } from '../types/notation';
 import type { PlaybackState, PlaybackActions, LoopRange } from '../types/playback';
-import { calculateTotalDuration as calculateDurationFromMeasures, noteDurationToSeconds, beatsToSeconds } from '../utils/audio/TempoConverter';
+import { calculateTotalDuration as calculateDurationFromMeasures, noteDurationToSeconds, beatsToSeconds } from '../audio/TempoConverter';
+import type { InstrumentType } from '../types/audio';
+
+const STORAGE_KEY = 'note-slice-preferred-instrument';
+
+function getSavedInstrument(): InstrumentType {
+  if (typeof window === 'undefined') return 'piano';
+  const saved = localStorage.getItem(STORAGE_KEY);
+  return (saved as InstrumentType) || 'piano';
+}
+
+function saveInstrument(type: InstrumentType): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, type);
+  }
+}
 
 // Helper to calculate current note index and progress within note from time
 function calculateNotePosition(
@@ -46,7 +61,7 @@ function calculateNotePosition(
   return { measureIndex: 0, noteIndex: 0, progressInNote: 0 };
 }
 
-export function usePlayback(): [PlaybackState, PlaybackActions] {
+export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, number] {
   const [state, setState] = useState<PlaybackState>({
     isPlaying: false,
     isPaused: false,
@@ -61,6 +76,19 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
     indicatorRowTop: 0,
     indicatorRowBottom: 0,
   });
+
+  // Audio preferences
+  const [currentInstrument, setCurrentInstrumentState] = useState<InstrumentType>(getSavedInstrument());
+  const [volume, setVolumeState] = useState<number>(1);
+
+  const setInstrument = useCallback((type: InstrumentType) => {
+    saveInstrument(type);
+    setCurrentInstrumentState(type);
+  }, []);
+
+  const setVolume = useCallback((vol: number) => {
+    setVolumeState(vol);
+  }, []);
 
   // Store score and tempo for position calculation
   const scoreRef = useRef<ParsedScore | null>(null);
@@ -275,9 +303,11 @@ export function usePlayback(): [PlaybackState, PlaybackActions] {
     setLoopRange,
     seek,
     calculateTotalDuration,
-  }), [calculateTotalDuration, pause, play, seek, setLoopRange, stop, toggleLoop]);
+    setInstrument,
+    setVolume,
+  }), [calculateTotalDuration, pause, play, seek, setLoopRange, stop, toggleLoop, setInstrument, setVolume]);
 
-  return [state, actions];
+  return [state, actions, currentInstrument, volume];
 }
 
 export default usePlayback;
