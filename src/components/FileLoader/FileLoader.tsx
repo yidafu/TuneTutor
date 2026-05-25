@@ -4,7 +4,7 @@
 
 import { useCallback, useState } from 'react';
 import { isMusicXMLFile, parseMusicXML } from '../../utils/notation/musicXMLParser';
-import { processMusicXMLFile } from '../../utils/parsing/processFile';
+import { processMusicXMLFile } from '../../utils/notation';
 import type { ParsedScore } from '../../types/notation';
 import type { StoredFile } from '../../types/storedFile';
 import { FileHistoryList } from './FileHistoryList';

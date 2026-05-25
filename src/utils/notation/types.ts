@@ -3,7 +3,7 @@
  * @deprecated Use src/core/types.ts instead
  */
 
-// Re-export from core module for backward compatibility
+// Re-export from types module for backward compatibility
 export {
   STAVE_WIDTH,
   STAVE_HEIGHT,
@@ -16,4 +16,4 @@ export {
   type NoteBounds,
   type RowConfig,
   type ScoreLayout,
-} from '../../core';
+} from '../../types';

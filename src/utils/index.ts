@@ -2,17 +2,13 @@
  * All utilities - Barrel export
  */
 
-// Formatting utilities
-export * from './formatting';
-
-// Notation utilities
+// Notation utilities (includes formatting and processing)
 export {
   parseMusicXML,
   isMusicXMLFile,
+  processMusicXMLFile,
+  formatSelectionRange,
 } from './notation';
-
-// Parsing utilities
-export { processMusicXMLFile } from './parsing';
 
 // Storage utilities
 export {

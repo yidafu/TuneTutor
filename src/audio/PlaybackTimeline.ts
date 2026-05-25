@@ -1,8 +1,10 @@
-import * as Tone from 'tone';
+import {  getTransport } from 'tone';
 import type { Note } from "opensheetmusicdisplay";
 import type { TonejsPlayer } from "./TonejsPlayer";
-import type { NotePlaybackInstruction } from "./SoundfontPlayer";
-import { ArticulationStyle } from "./SoundfontPlayer";
+import type { NotePlaybackInstruction } from "./TonejsPlayer";
+import { ArticulationStyle } from "./TonejsPlayer";
+import { PLAYBACK_CONSTANTS } from "./constants";
+import { getVoiceEntryMidiInstrumentId } from "../types/osmd-extensions";
 
 interface TimelineStep {
   stepIndex: number;
@@ -14,11 +16,10 @@ interface TimelineStep {
 export class PlaybackTimeline {
   private steps: TimelineStep[] = [];
   private scheduledEventIds: number[] = [];
-  private tickDenominator = 1024;
 
   calculate(stepQueueSteps: { tick: number; notes: Note[] }[], wholeNoteLength: number): void {
     this.steps = [];
-    const tickDuration = wholeNoteLength / this.tickDenominator;
+    const tickDuration = wholeNoteLength / PLAYBACK_CONSTANTS.TICK_DENOMINATOR;
 
     for (let i = 0; i < stepQueueSteps.length; i++) {
       const step = stepQueueSteps[i];
@@ -36,20 +37,26 @@ export class PlaybackTimeline {
     player: TonejsPlayer,
     wholeNoteLength: number,
     onIteration: (notes: Note[]) => void,
-    onEnd: () => void
+    onEnd: () => void,
+    startPosition?: number
   ): void {
     this.cancelAll();
+
+    const shouldResetTransport = startPosition === undefined;
+    if (startPosition !== undefined) {
+      getTransport().seconds = startPosition;
+    }
 
     for (let i = startFromStep; i < this.steps.length; i++) {
       const step = this.steps[i];
       const audioTimeMs = step.audioTime;
 
-      const iterationEventId = Tone.Transport.schedule(() => {
+      const iterationEventId = getTransport().schedule(() => {
         onIteration(step.notes);
-      }, (audioTimeMs - 35) / 1000);
+      }, (audioTimeMs - PLAYBACK_CONSTANTS.ITERATION_SCHEDULE_AHEAD_MS) / 1000);
       this.scheduledEventIds.push(iterationEventId);
 
-      const noteEventId = Tone.Transport.schedule((time) => {
+      const noteEventId = getTransport().schedule((time) => {
         this.triggerNotes(step.notes, wholeNoteLength, player, time);
       }, audioTimeMs / 1000);
       this.scheduledEventIds.push(noteEventId);
@@ -57,15 +64,17 @@ export class PlaybackTimeline {
 
     if (this.steps.length > 0) {
       const lastStep = this.steps[this.steps.length - 1];
-      const endEventId = Tone.Transport.schedule(() => {
+      const endEventId = getTransport().schedule(() => {
         onEnd();
-      }, (lastStep.audioTime + 100) / 1000);
+      }, (lastStep.audioTime + PLAYBACK_CONSTANTS.END_EVENT_DELAY_MS) / 1000);
       this.scheduledEventIds.push(endEventId);
     }
 
-    Tone.Transport.stop();
-    Tone.Transport.seconds = 0;
-    Tone.Transport.start();
+    if (shouldResetTransport) {
+      getTransport().stop();
+      getTransport().seconds = 0;
+      getTransport().start();
+    }
   }
 
   private triggerNotes(notes: Note[], wholeNoteLength: number, player: TonejsPlayer, time: number): void {
@@ -77,8 +86,10 @@ export class PlaybackTimeline {
       const noteDuration = (note.Length.RealValue * wholeNoteLength) / 1000;
       if (noteDuration === 0) continue;
 
-      const noteVolume = 0.8;
-      const midiPlaybackInstrument = (note.ParentVoiceEntry?.ParentVoice as unknown as { midiInstrumentId: number })?.midiInstrumentId;
+      const noteVolume = PLAYBACK_CONSTANTS.DEFAULT_NOTE_VOLUME;
+      const midiPlaybackInstrument = getVoiceEntryMidiInstrumentId(note.ParentVoiceEntry!);
+      if (midiPlaybackInstrument === undefined) continue;
+
       const fixedKey = note.ParentVoiceEntry?.ParentVoice?.Parent?.SubInstruments?.[0]?.fixedKey || 0;
 
       if (!scheduledNotes.has(midiPlaybackInstrument)) {
@@ -93,17 +104,17 @@ export class PlaybackTimeline {
       });
     }
 
-    for (const [midiId, playbackNotes] of scheduledNotes) {
+    scheduledNotes.forEach((playbackNotes, midiId) => {
       player.schedule(midiId, time, playbackNotes);
-    }
+    });
   }
 
   cancelAll(): void {
     for (const id of this.scheduledEventIds) {
-      Tone.Transport.clear(id);
+      getTransport().clear(id);
     }
     this.scheduledEventIds = [];
-    Tone.Transport.cancel();
+    getTransport().cancel();
   }
 
   getStepCount(): number {

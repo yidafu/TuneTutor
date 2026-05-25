@@ -1,33 +1,21 @@
-import type { OpenSheetMusicDisplay, MusicSheet, Note, Instrument, Voice, Cursor } from "opensheetmusicdisplay";
+import * as Tone from 'tone';
+import type { OpenSheetMusicDisplay, MusicSheet, Note, Voice, Cursor } from "opensheetmusicdisplay";
 import type { IAudioContext } from "standardized-audio-context";
 import { AudioContext } from "standardized-audio-context";
 import { PlaybackTimeline } from "./PlaybackTimeline";
 import { StepQueue } from "./StepQueue";
-import type { PlaybackInstrument } from "./SoundfontPlayer";
+import type { PlaybackInstrument } from "./TonejsPlayer";
 import { TonejsPlayer } from "./TonejsPlayer";
+import { InstrumentManager } from "./InstrumentManager";
+import { PlaybackStateManager, PlaybackState, PlaybackEvent } from "./PlaybackStateManager";
+import { PLAYBACK_CONSTANTS } from "./constants";
 
-export const PlaybackState = {
-  INIT: "INIT",
-  PLAYING: "PLAYING",
-  STOPPED: "STOPPED",
-  PAUSED: "PAUSED",
-} as const;
+export { PlaybackState, PlaybackEvent };
 
-export type PlaybackState = typeof PlaybackState[keyof typeof PlaybackState];
-
-export const PlaybackEvent = {
-  STATE_CHANGE: "state-change",
-  ITERATION: "iteration",
-} as const;
-
-export type PlaybackEvent = typeof PlaybackEvent[keyof typeof PlaybackEvent];
-
-interface PlaybackSettings {
+export interface PlaybackSettings {
   bpm: number;
   masterVolume: number;
 }
-
-type EventCallback = (...args: unknown[]) => void;
 
 export class PlaybackEngine {
   private ac: IAudioContext;
@@ -37,16 +25,14 @@ export class PlaybackEngine {
   private timeline!: PlaybackTimeline;
   private stepQueue = new StepQueue();
   private instrumentPlayer: TonejsPlayer;
-
-  private events: Map<PlaybackEvent, EventCallback[]> = new Map();
+  private instrumentManager: InstrumentManager;
+  private stateManager: PlaybackStateManager;
 
   private iterationSteps = 0;
   private currentIterationStep = 0;
+  private transportPositionBeforePause = 0;
 
   public playbackSettings: PlaybackSettings;
-  public state: PlaybackState;
-  public availableInstruments: PlaybackInstrument[] = [];
-  public scoreInstruments: Instrument[] = [];
   public ready = false;
 
   constructor(context: IAudioContext = new AudioContext(), instrumentPlayer?: TonejsPlayer) {
@@ -56,7 +42,8 @@ export class PlaybackEngine {
     this.instrumentPlayer = instrumentPlayer ?? new TonejsPlayer();
     this.instrumentPlayer.init();
 
-    this.availableInstruments = this.instrumentPlayer.instruments;
+    this.instrumentManager = new InstrumentManager(this.instrumentPlayer);
+    this.stateManager = new PlaybackStateManager();
 
     this.iterationSteps = 0;
     this.currentIterationStep = 0;
@@ -65,8 +52,18 @@ export class PlaybackEngine {
       bpm: this.defaultBpm,
       masterVolume: 1,
     };
+  }
 
-    this.state = PlaybackState.INIT;
+  get state(): PlaybackState {
+    return this.stateManager.state;
+  }
+
+  get availableInstruments(): PlaybackInstrument[] {
+    return this.instrumentManager.availableInstruments;
+  }
+
+  get scoreInstruments() {
+    return this.sheet?.Instruments ?? [];
   }
 
   get wholeNoteLength(): number {
@@ -75,26 +72,28 @@ export class PlaybackEngine {
 
   getPlaybackInstrument(voiceId: number): PlaybackInstrument | null {
     if (!this.sheet) return null;
-    const voice = this.sheet.Instruments.flatMap(i => i.Voices).find(v => v.VoiceId === voiceId);
-    return this.availableInstruments.find(i => i.midiId === (voice as unknown as { midiInstrumentId: number }).midiInstrumentId) ?? null;
+    return this.instrumentManager.getPlaybackInstrumentForVoice(
+      voiceId,
+      this.sheet.Instruments,
+      this.availableInstruments
+    );
   }
 
   async setInstrument(voice: Voice, midiInstrumentId: number): Promise<void> {
     await this.instrumentPlayer.load(midiInstrumentId);
-    (voice as unknown as { midiInstrumentId: number }).midiInstrumentId = midiInstrumentId;
+    this.instrumentManager.setVoiceMidiInstrument(voice, midiInstrumentId);
   }
 
   async loadScore(osmd: OpenSheetMusicDisplay): Promise<void> {
     this.ready = false;
     this.sheet = osmd.Sheet;
-    this.scoreInstruments = this.sheet.Instruments;
     this.cursor = osmd.cursor;
     if (this.sheet.HasBPMInfo) {
       this.setBpm(this.sheet.DefaultStartTempoInBpm);
     }
 
-    await this.loadInstruments();
-    this.initInstruments();
+    await this.instrumentManager.loadInstruments(this.sheet.Instruments);
+    this.instrumentManager.initInstrumentsForSheet(this.sheet.Instruments);
 
     this.timeline = new PlaybackTimeline();
 
@@ -102,36 +101,7 @@ export class PlaybackEngine {
     this.timeline.calculate(this.stepQueue.steps, this.wholeNoteLength);
 
     this.ready = true;
-    this.setState(PlaybackState.STOPPED);
-  }
-
-  private initInstruments() {
-    for (const i of this.sheet.Instruments) {
-      for (const v of i.Voices) {
-        (v as unknown as { midiInstrumentId: number }).midiInstrumentId = i.MidiInstrumentId;
-      }
-    }
-  }
-
-  private async loadInstruments() {
-    const playerPromises: Promise<void>[] = [];
-    for (const i of this.sheet.Instruments) {
-      const pbInstrument = this.availableInstruments.find(pbi => pbi.midiId === i.MidiInstrumentId);
-      if (pbInstrument == null) {
-        this.fallbackToPiano(i);
-      }
-      playerPromises.push(this.instrumentPlayer.load(i.MidiInstrumentId));
-    }
-    await Promise.all(playerPromises);
-  }
-
-  private fallbackToPiano(i: Instrument) {
-    console.warn(`Can't find playback instrument for midiInstrumentId ${i.MidiInstrumentId}. Falling back to piano`);
-    i.MidiInstrumentId = 0;
-
-    if (this.availableInstruments.find(i => i.midiId === 0) == null) {
-      throw new Error("Piano fallback failed, grand piano not supported");
-    }
+    this.stateManager.setState(PlaybackState.STOPPED);
   }
 
   async play(): Promise<void> {
@@ -139,32 +109,42 @@ export class PlaybackEngine {
 
     if (this.state === PlaybackState.INIT || this.state === PlaybackState.STOPPED) {
       this.cursor.show();
+      this.timeline.scheduleAll(
+        0,
+        this.instrumentPlayer,
+        this.wholeNoteLength,
+        (notes) => this.iterationCallback(notes),
+        () => this.stop()
+      );
+    } else if (this.state === PlaybackState.PAUSED) {
+      this.timeline.scheduleAll(
+        this.currentIterationStep,
+        this.instrumentPlayer,
+        this.wholeNoteLength,
+        (notes) => this.iterationCallback(notes),
+        () => this.stop(),
+        this.transportPositionBeforePause
+      );
     }
 
-    this.setState(PlaybackState.PLAYING);
-
-    this.timeline.scheduleAll(
-      this.currentIterationStep,
-      this.instrumentPlayer,
-      this.wholeNoteLength,
-      (notes) => this.iterationCallback(notes),
-      () => this.stop()
-    );
+    this.stateManager.setState(PlaybackState.PLAYING);
   }
 
   async stop(): Promise<void> {
-    this.setState(PlaybackState.STOPPED);
-    this.stopPlayers();
+    this.stateManager.setState(PlaybackState.STOPPED);
+    this.instrumentManager.stopAll(this.sheet.Instruments);
     this.timeline.cancelAll();
     this.currentIterationStep = 0;
+    this.transportPositionBeforePause = 0;
     this.cursor.reset();
     this.cursor.hide();
   }
 
   pause(): void {
-    this.setState(PlaybackState.PAUSED);
+    this.transportPositionBeforePause = Tone.Transport.seconds;
+    this.stateManager.setState(PlaybackState.PAUSED);
     this.ac.suspend();
-    this.stopPlayers();
+    this.instrumentManager.stopAll(this.sheet.Instruments);
     this.timeline.cancelAll();
   }
 
@@ -188,42 +168,28 @@ export class PlaybackEngine {
     }
   }
 
-  on(event: PlaybackEvent, cb: EventCallback) {
-    if (!this.events.has(event)) {
-      this.events.set(event, []);
-    }
-    this.events.get(event)!.push(cb);
-  }
-
-  private emit(event: PlaybackEvent, ...args: unknown[]) {
-    const callbacks = this.events.get(event);
-    if (callbacks) {
-      for (const cb of callbacks) {
-        cb(...args);
-      }
-    }
+  on(event: PlaybackEvent, cb: (...args: unknown[]) => void) {
+    this.stateManager.on(event, cb);
   }
 
   private countAndSetIterationSteps() {
     this.stepQueue.steps = [];
     this.cursor.reset();
     let steps = 0;
-    const lastTickOffset = 300;
-    const tickDenominator = 1024;
 
     while (!this.cursor.Iterator.EndReached) {
       if (this.cursor.Iterator.CurrentVoiceEntries) {
         for (const entry of this.cursor.Iterator.CurrentVoiceEntries) {
           if (!entry.IsGrace) {
-            let thisTick = lastTickOffset;
+            let thisTick = PLAYBACK_CONSTANTS.LAST_TICK_OFFSET;
             if (this.stepQueue.steps.length > 0) {
-              const emptySteps = this.stepQueue.steps.filter(s => !s.notes.length);
-              thisTick = emptySteps.length > 0 ? emptySteps[0].tick : this.stepQueue.steps[this.stepQueue.steps.length - 1].tick;
+              const emptyTick = this.stepQueue.getFirstEmptyTick();
+              thisTick = emptyTick !== null ? emptyTick : this.stepQueue.steps[this.stepQueue.steps.length - 1].tick;
             }
 
             for (const note of entry.Notes) {
               this.stepQueue.addNote(thisTick, note);
-              this.stepQueue.createStep(thisTick + note.Length.RealValue * tickDenominator);
+              this.stepQueue.createStep(thisTick + note.Length.RealValue * PLAYBACK_CONSTANTS.TICK_DENOMINATOR);
             }
           }
         }
@@ -234,19 +200,6 @@ export class PlaybackEngine {
     this.iterationSteps = steps;
     console.log(`[Playback] Total iteration steps: ${steps}`);
     this.cursor.reset();
-  }
-
-  private setState(state: PlaybackState) {
-    this.state = state;
-    this.emit(PlaybackEvent.STATE_CHANGE, state);
-  }
-
-  private stopPlayers() {
-    for (const i of this.sheet.Instruments) {
-      for (const v of i.Voices) {
-        this.instrumentPlayer.stop((v as unknown as { midiInstrumentId: number }).midiInstrumentId);
-      }
-    }
   }
 
   private iterationCallback(notes: Note[]) {
@@ -263,7 +216,7 @@ export class PlaybackEngine {
       this.cursor.next();
     }
 
-    this.emit(PlaybackEvent.ITERATION, notes);
+    this.stateManager.emit(PlaybackEvent.ITERATION, notes);
     ++this.currentIterationStep;
   }
 }

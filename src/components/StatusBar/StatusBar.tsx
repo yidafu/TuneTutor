@@ -1,5 +1,5 @@
 import type { SelectedNote } from '../../types/notation';
-import { formatSelectionRange } from '../../utils/formatting';
+import { formatSelectionRange } from '../../utils/notation';
 import type { TranslationSet } from '../../locales';
 
 interface LoopConfig {

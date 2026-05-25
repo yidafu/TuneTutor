@@ -24,8 +24,10 @@ export function formatSelectionRange(
 
   // Extract measure indices
   let measureIndices: number[];
-  const firstItem = selectedMeasures[0] as { measureIndex?: number };
-  if ('measureIndex' in firstItem && firstItem.measureIndex !== undefined) {
+  const firstItem = selectedMeasures[0];
+  // Check if firstItem is an object with measureIndex property (SelectedNote)
+  // to avoid TypeError when firstItem is a primitive number
+  if (typeof firstItem === 'object' && firstItem !== null && 'measureIndex' in firstItem) {
     measureIndices = (selectedMeasures as SelectedNote[]).map(n => n.measureIndex);
   } else {
     measureIndices = selectedMeasures as number[];

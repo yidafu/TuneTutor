@@ -26,5 +26,3 @@ dist-ssr
 
 /lib/
 .bsb.lock
-
-*.res.mjs

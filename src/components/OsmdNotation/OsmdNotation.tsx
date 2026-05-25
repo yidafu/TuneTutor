@@ -3,9 +3,11 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
+import type { OpenSheetMusicDisplay, Note } from 'opensheetmusicdisplay';
 import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide } from '../../utils/notation/OsmdRender';
 import { findOsmdNoteAtPosition } from '../../utils/notation/NoteInteraction';
+import type { GraphicalNote } from 'opensheetmusicdisplay';
+import { PlaybackEngine, PlaybackEvent } from '../../audio/PlaybackEngine';
 
 export interface SelectedNote {
   measureIndex: number;
@@ -16,6 +18,7 @@ interface OsmdNotationProps {
   musicXml: string;
   onNoteSelect?: (notes: SelectedNote[], mode: 'replace' | 'add') => void;
   onOsmdReady?: (osmd: OpenSheetMusicDisplay) => void;
+  playbackEngine?: PlaybackEngine;
   isPlaying?: boolean;
   indicatorMeasure?: number;
   indicatorNote?: number;
@@ -26,20 +29,21 @@ export function OsmdNotation({
   musicXml,
   onNoteSelect,
   onOsmdReady,
+  playbackEngine,
   isPlaying = false,
   indicatorMeasure = -1,
   indicatorNote = -1,
   className = '',
 }: OsmdNotationProps) {
-  // Placeholder for future use
-  void isPlaying;
-  void indicatorMeasure;
-  void indicatorNote;
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerId] = useState(() => `osmd-${Math.random().toString(36).substr(2, 9)}`);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, setDimensions] = useState({ width: 0, height: 0 });
+
+  // Ref to track highlighted notes for cleanup
+  const highlightedNotesRef = useRef<GraphicalNote[]>([]);
+  const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
 
   // Resize observer
   useEffect(() => {
@@ -134,6 +138,53 @@ export function OsmdNotation({
       cursorHide();
     }
   }, [isPlaying, indicatorMeasure, indicatorNote]);
+
+  // Subscribe to PlaybackEngine events for note highlighting
+  useEffect(() => {
+    const osmd = getOsmdInstance();
+    if (!osmd || !playbackEngine) return;
+
+    osmdRef.current = osmd;
+
+    const handleIteration = (notes: unknown[]) => {
+      // Clear previous highlights
+      highlightedNotesRef.current.forEach((gNote) => {
+        gNote.setColor('black', { applyToNoteheads: true, applyToStem: true });
+      });
+      highlightedNotesRef.current = [];
+
+      // Highlight current notes
+      const typedNotes = notes as Note[];
+      for (const note of typedNotes) {
+        const gnote = osmd.EngravingRules.GNote(note);
+        if (gnote) {
+          gnote.setColor('#3b82f6', { applyToNoteheads: true, applyToStem: true });
+          highlightedNotesRef.current.push(gnote);
+        }
+      }
+    };
+
+    const handleStateChange = (state: unknown) => {
+      // When playback stops, clear all highlights
+      if (state === 'STOPPED') {
+        highlightedNotesRef.current.forEach((gNote) => {
+          gNote.setColor('black', { applyToNoteheads: true, applyToStem: true });
+        });
+        highlightedNotesRef.current = [];
+      }
+    };
+
+    playbackEngine.on(PlaybackEvent.ITERATION, handleIteration);
+    playbackEngine.on(PlaybackEvent.STATE_CHANGE, handleStateChange);
+
+    return () => {
+      // Cleanup: clear highlights when unmounting
+      highlightedNotesRef.current.forEach((gNote) => {
+        gNote.setColor('black', { applyToNoteheads: true, applyToStem: true });
+      });
+      highlightedNotesRef.current = [];
+    };
+  }, [playbackEngine]);
 
   if (!musicXml) {
     return (

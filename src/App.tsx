@@ -196,6 +196,7 @@ function App() {
               musicXml={musicXml || demoXml}
               onNoteSelect={handleNoteSelect}
               onOsmdReady={handleOsmdReady}
+              playbackEngine={playbackEngine}
               isPlaying={isPlaying}
               className="min-h-62.5"
             />

@@ -3,7 +3,7 @@
  */
 
 import JSZip from 'jszip';
-import { parseMusicXML, isValidXML } from '../notation/musicXMLParser';
+import { parseMusicXML, isValidXML } from './musicXMLParser';
 import type { ParsedScore } from '../../types/notation';
 import type { StoredFile } from '../../types/storedFile';
 import { generateFileId, saveFile } from '../storage/indexedDB';

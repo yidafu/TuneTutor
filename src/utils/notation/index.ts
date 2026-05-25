@@ -15,7 +15,7 @@ export {
   type NoteBounds,
   type RowConfig,
   type ScoreLayout,
-} from '../../core';
+} from '../../types';
 
 // Re-export types and createDemoScore
 export * from '../../types/notation';
@@ -31,3 +31,9 @@ export * from './NoteInteraction';
 
 // Parser utilities
 export { parseMusicXML, isMusicXMLFile } from './musicXMLParser';
+
+// File processing utilities
+export { processMusicXMLFile } from './processFile';
+
+// Selection formatting utilities
+export { formatSelectionRange } from './selection';

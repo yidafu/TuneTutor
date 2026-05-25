@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PlaybackEngine, PlaybackState, PlaybackEvent } from './PlaybackEngine';
+import { PlaybackEngine, PlaybackState, PlaybackEvent } from '@/audio/PlaybackEngine';
 import type { IAudioContext } from 'standardized-audio-context';
 import type { OpenSheetMusicDisplay, MusicSheet, Instrument, Voice, Cursor } from 'opensheetmusicdisplay';
-import type { TonejsPlayer } from './TonejsPlayer';
+import type { TonejsPlayer } from '@/audio/TonejsPlayer';
 
 // Mock tone module
 vi.mock('tone', () => ({
