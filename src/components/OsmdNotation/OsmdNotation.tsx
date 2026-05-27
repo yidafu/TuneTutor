@@ -6,7 +6,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { OpenSheetMusicDisplay, Note } from 'opensheetmusicdisplay';
 import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide } from '../../utils/notation/OsmdRender';
 import { findOsmdNoteAtPosition } from '../../utils/notation/NoteInteraction';
-import type { GraphicalNote } from 'opensheetmusicdisplay';
 import { PlaybackEngine, PlaybackEvent } from '../../audio/PlaybackEngine';
 
 export interface SelectedNote {
@@ -41,8 +40,8 @@ export function OsmdNotation({
   const [error, setError] = useState<string | null>(null);
   const [, setDimensions] = useState({ width: 0, height: 0 });
 
-  // Ref to track highlighted notes for cleanup
-  const highlightedNotesRef = useRef<GraphicalNote[]>([]);
+  // Ref to track highlighted SVG elements for cleanup
+  const highlightedNotesRef = useRef<{ svgGroup: SVGGElement; stemEl: HTMLElement | null }[]>([]);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
 
   // Resize observer
@@ -106,7 +105,7 @@ export function OsmdNotation({
     return () => {
       clearOsmd();
     };
-  }, [musicXml, containerId]);
+  }, [musicXml, containerId, onOsmdReady]);
 
   // Handle note click
   const handleNoteClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -146,31 +145,52 @@ export function OsmdNotation({
 
     osmdRef.current = osmd;
 
-    const handleIteration = (notes: unknown[]) => {
-      // Clear previous highlights
-      highlightedNotesRef.current.forEach((gNote) => {
-        gNote.setColor('black', { applyToNoteheads: true, applyToStem: true });
-      });
-      highlightedNotesRef.current = [];
-
-      // Highlight current notes
-      const typedNotes = notes as Note[];
-      for (const note of typedNotes) {
-        const gnote = osmd.EngravingRules.GNote(note);
-        if (gnote) {
-          gnote.setColor('#3b82f6', { applyToNoteheads: true, applyToStem: true });
-          highlightedNotesRef.current.push(gnote);
+    const clearHighlights = () => {
+      for (const h of highlightedNotesRef.current) {
+        h.svgGroup.querySelectorAll('path').forEach((p) => {
+          p.removeAttribute('fill');
+        });
+        if (h.stemEl) {
+          h.stemEl.removeAttribute('stroke');
         }
+      }
+      highlightedNotesRef.current = [];
+    };
+
+    const highlightNote = (note: Note) => {
+      const gnote = osmd.EngravingRules.GNote(note);
+      if (!gnote) return;
+
+      const vfNote = gnote as unknown as {
+        getSVGGElement?: () => SVGGElement;
+        getStemSVG?: () => HTMLElement;
+      };
+
+      const svgGroup = vfNote.getSVGGElement?.();
+      if (!svgGroup) return;
+
+      svgGroup.querySelectorAll('path').forEach((p) => {
+        p.setAttribute('fill', '#3b82f6');
+      });
+
+      const stem = vfNote.getStemSVG?.() ?? null;
+      if (stem) {
+        stem.setAttribute('stroke', '#3b82f6');
+      }
+
+      highlightedNotesRef.current.push({ svgGroup, stemEl: stem });
+    };
+
+    const handleIteration = (notes: unknown[]) => {
+      clearHighlights();
+      for (const note of notes as Note[]) {
+        highlightNote(note);
       }
     };
 
     const handleStateChange = (state: unknown) => {
-      // When playback stops, clear all highlights
       if (state === 'STOPPED') {
-        highlightedNotesRef.current.forEach((gNote) => {
-          gNote.setColor('black', { applyToNoteheads: true, applyToStem: true });
-        });
-        highlightedNotesRef.current = [];
+        clearHighlights();
       }
     };
 
@@ -178,11 +198,7 @@ export function OsmdNotation({
     playbackEngine.on(PlaybackEvent.STATE_CHANGE, handleStateChange);
 
     return () => {
-      // Cleanup: clear highlights when unmounting
-      highlightedNotesRef.current.forEach((gNote) => {
-        gNote.setColor('black', { applyToNoteheads: true, applyToStem: true });
-      });
-      highlightedNotesRef.current = [];
+      clearHighlights();
     };
   }, [playbackEngine]);
 

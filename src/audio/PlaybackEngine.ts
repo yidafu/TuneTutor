@@ -1,222 +1,191 @@
-import * as Tone from 'tone';
-import type { OpenSheetMusicDisplay, MusicSheet, Note, Voice, Cursor } from "opensheetmusicdisplay";
-import type { IAudioContext } from "standardized-audio-context";
-import { AudioContext } from "standardized-audio-context";
-import { PlaybackTimeline } from "./PlaybackTimeline";
-import { StepQueue } from "./StepQueue";
-import type { PlaybackInstrument } from "./TonejsPlayer";
-import { TonejsPlayer } from "./TonejsPlayer";
-import { InstrumentManager } from "./InstrumentManager";
-import { PlaybackStateManager, PlaybackState, PlaybackEvent } from "./PlaybackStateManager";
-import { PLAYBACK_CONSTANTS } from "./constants";
+import { Part, Transport, Draw, Frequency, start } from 'tone';
+import type { Sampler } from 'tone';
+import type { OpenSheetMusicDisplay, Note } from 'opensheetmusicdisplay';
+import { InstrumentLoader } from './InstrumentLoader';
+import { realValueToSeconds } from './TempoConverter';
 
-export { PlaybackState, PlaybackEvent };
+// ── Events ──────────────────────────────────────────────
 
-export interface PlaybackSettings {
-  bpm: number;
-  masterVolume: number;
+export const PlaybackEvent = {
+  ITERATION: 'iteration',
+  STATE_CHANGE: 'state-change',
+} as const;
+export type PlaybackEvent = (typeof PlaybackEvent)[keyof typeof PlaybackEvent];
+
+// ── Internal types ──────────────────────────────────────
+
+interface ScheduledNoteEvent {
+  time: number;
+  duration: number;
+  noteName: string;
+  originalNotes: Note[];
 }
 
+// ── Engine ──────────────────────────────────────────────
+
 export class PlaybackEngine {
-  private ac: IAudioContext;
-  private defaultBpm = 100;
-  private cursor!: Cursor;
-  private sheet!: MusicSheet;
-  private timeline!: PlaybackTimeline;
-  private stepQueue = new StepQueue();
-  private instrumentPlayer: TonejsPlayer;
-  private instrumentManager: InstrumentManager;
-  private stateManager: PlaybackStateManager;
+  private osmd: OpenSheetMusicDisplay | null = null;
+  private bpm = 60;
+  private sampler: Sampler | null = null;
+  private loader = new InstrumentLoader();
+  private part: Part | null = null;
+  private listeners = new Map<PlaybackEvent, Set<(...args: any[]) => void>>();
 
-  private iterationSteps = 0;
-  private currentIterationStep = 0;
-  private transportPositionBeforePause = 0;
-
-  public playbackSettings: PlaybackSettings;
-  public ready = false;
-
-  constructor(context: IAudioContext = new AudioContext(), instrumentPlayer?: TonejsPlayer) {
-    this.ac = context;
-    this.ac.suspend();
-
-    this.instrumentPlayer = instrumentPlayer ?? new TonejsPlayer();
-    this.instrumentPlayer.init();
-
-    this.instrumentManager = new InstrumentManager(this.instrumentPlayer);
-    this.stateManager = new PlaybackStateManager();
-
-    this.iterationSteps = 0;
-    this.currentIterationStep = 0;
-
-    this.playbackSettings = {
-      bpm: this.defaultBpm,
-      masterVolume: 1,
-    };
+  constructor() {
+    this.loader.loadInstrument('piano').then((s) => {
+      this.sampler = s;
+    });
   }
 
-  get state(): PlaybackState {
-    return this.stateManager.state;
-  }
+  // ── Public API ──────────────────────────────────────
 
-  get availableInstruments(): PlaybackInstrument[] {
-    return this.instrumentManager.availableInstruments;
-  }
-
-  get scoreInstruments() {
-    return this.sheet?.Instruments ?? [];
-  }
-
-  get wholeNoteLength(): number {
-    return Math.round((60 / this.playbackSettings.bpm) * 4000);
-  }
-
-  getPlaybackInstrument(voiceId: number): PlaybackInstrument | null {
-    if (!this.sheet) return null;
-    return this.instrumentManager.getPlaybackInstrumentForVoice(
-      voiceId,
-      this.sheet.Instruments,
-      this.availableInstruments
-    );
-  }
-
-  async setInstrument(voice: Voice, midiInstrumentId: number): Promise<void> {
-    await this.instrumentPlayer.load(midiInstrumentId);
-    this.instrumentManager.setVoiceMidiInstrument(voice, midiInstrumentId);
-  }
-
-  async loadScore(osmd: OpenSheetMusicDisplay): Promise<void> {
-    this.ready = false;
-    this.sheet = osmd.Sheet;
-    this.cursor = osmd.cursor;
-    if (this.sheet.HasBPMInfo) {
-      this.setBpm(this.sheet.DefaultStartTempoInBpm);
-    }
-
-    await this.instrumentManager.loadInstruments(this.sheet.Instruments);
-    this.instrumentManager.initInstrumentsForSheet(this.sheet.Instruments);
-
-    this.timeline = new PlaybackTimeline();
-
-    this.countAndSetIterationSteps();
-    this.timeline.calculate(this.stepQueue.steps, this.wholeNoteLength);
-
-    this.ready = true;
-    this.stateManager.setState(PlaybackState.STOPPED);
+  loadScore(osmd: OpenSheetMusicDisplay): void {
+    this.osmd = osmd;
   }
 
   async play(): Promise<void> {
-    await this.ac.resume();
+    await start();
+    if (!this.osmd || !this.sampler) return;
 
-    if (this.state === PlaybackState.INIT || this.state === PlaybackState.STOPPED) {
-      this.cursor.show();
-      this.timeline.scheduleAll(
-        0,
-        this.instrumentPlayer,
-        this.wholeNoteLength,
-        (notes) => this.iterationCallback(notes),
-        () => this.stop()
-      );
-    } else if (this.state === PlaybackState.PAUSED) {
-      this.timeline.scheduleAll(
-        this.currentIterationStep,
-        this.instrumentPlayer,
-        this.wholeNoteLength,
-        (notes) => this.iterationCallback(notes),
-        () => this.stop(),
-        this.transportPositionBeforePause
-      );
+    this.part?.dispose();
+    Transport.cancel();
+
+    console.log(
+      `[PlaybackEngine] play() called, BPM=${this.bpm}, Transport.bpm was ${Transport.bpm.value}`,
+    );
+    Transport.bpm.value = this.bpm;
+    const timeline = this.buildTimetable();
+    if (timeline.length === 0) return;
+
+    console.table(
+      timeline.slice(0, 10).map((e, i) => ({
+        index: i,
+        time: e.time.toFixed(3),
+        duration: e.duration.toFixed(3),
+        noteName: e.noteName,
+      })),
+    );
+    if (timeline.length > 10) {
+      console.log(`[PlaybackEngine] ... and ${timeline.length - 10} more events`);
     }
 
-    this.stateManager.setState(PlaybackState.PLAYING);
+    this.part = new Part((time, event: ScheduledNoteEvent) => {
+      this.sampler!.triggerAttackRelease(event.noteName, event.duration, time, 0.7);
+      Draw.schedule(() => {
+        this.emit(PlaybackEvent.ITERATION, event.originalNotes);
+      }, time);
+    }, timeline);
+
+    const totalDuration =
+      timeline[timeline.length - 1].time + timeline[timeline.length - 1].duration;
+
+    Transport.schedule(() => {
+      Transport.stop();
+      this.emit(PlaybackEvent.STATE_CHANGE, 'STOPPED');
+    }, totalDuration);
+
+    console.log(`[PlaybackEngine] Total duration: ${totalDuration.toFixed(2)}s, events: ${timeline.length}`);
+    this.part.start(0);
+    Transport.start();
+    console.log(`[PlaybackEngine] Transport started, Transport.bpm=${Transport.bpm.value}`);
+    this.emit(PlaybackEvent.STATE_CHANGE, 'PLAYING');
   }
 
-  async stop(): Promise<void> {
-    this.stateManager.setState(PlaybackState.STOPPED);
-    this.instrumentManager.stopAll(this.sheet.Instruments);
-    this.timeline.cancelAll();
-    this.currentIterationStep = 0;
-    this.transportPositionBeforePause = 0;
-    this.cursor.reset();
-    this.cursor.hide();
+  stop(): void {
+    Transport.stop();
+    Transport.cancel();
+    this.part?.dispose();
+    this.part = null;
+    this.emit(PlaybackEvent.STATE_CHANGE, 'STOPPED');
   }
 
-  pause(): void {
-    this.transportPositionBeforePause = Tone.Transport.seconds;
-    this.stateManager.setState(PlaybackState.PAUSED);
-    this.ac.suspend();
-    this.instrumentManager.stopAll(this.sheet.Instruments);
-    this.timeline.cancelAll();
+  setBpm(tempo: number): void {
+    this.bpm = tempo;
   }
 
-  jumpToStep(step: number): void {
-    this.pause();
-    if (this.currentIterationStep > step) {
-      this.cursor.reset();
-      this.currentIterationStep = 0;
+  on(event: PlaybackEvent, callback: (...args: any[]) => void): void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
     }
-    while (this.currentIterationStep < step) {
-      this.cursor.next();
-      ++this.currentIterationStep;
-    }
-    this.timeline.calculate(this.stepQueue.steps, this.wholeNoteLength);
+    this.listeners.get(event)!.add(callback);
   }
 
-  setBpm(bpm: number) {
-    this.playbackSettings.bpm = bpm;
-    if (this.timeline) {
-      this.timeline.calculate(this.stepQueue.steps, this.wholeNoteLength);
-    }
+  // ── Private helpers ─────────────────────────────────
+
+  private emit(event: PlaybackEvent, ...args: any[]): void {
+    this.listeners.get(event)?.forEach((cb) => cb(...args));
   }
 
-  on(event: PlaybackEvent, cb: (...args: unknown[]) => void) {
-    this.stateManager.on(event, cb);
-  }
+  private buildTimetable(): ScheduledNoteEvent[] {
+    const osmd = this.osmd!;
+    const cursor = osmd.cursor;
+    cursor.reset();
 
-  private countAndSetIterationSteps() {
-    this.stepQueue.steps = [];
-    this.cursor.reset();
-    let steps = 0;
+    console.log(`[PlaybackEngine] buildTimetable: BPM=${this.bpm}`);
 
-    while (!this.cursor.Iterator.EndReached) {
-      if (this.cursor.Iterator.CurrentVoiceEntries) {
-        for (const entry of this.cursor.Iterator.CurrentVoiceEntries) {
-          if (!entry.IsGrace) {
-            let thisTick = PLAYBACK_CONSTANTS.LAST_TICK_OFFSET;
-            if (this.stepQueue.steps.length > 0) {
-              const emptyTick = this.stepQueue.getFirstEmptyTick();
-              thisTick = emptyTick !== null ? emptyTick : this.stepQueue.steps[this.stepQueue.steps.length - 1].tick;
-            }
+    const events: ScheduledNoteEvent[] = [];
+    let accumulatedTime = 0;
+    let entryIndex = 0;
 
-            for (const note of entry.Notes) {
-              this.stepQueue.addNote(thisTick, note);
-              this.stepQueue.createStep(thisTick + note.Length.RealValue * PLAYBACK_CONSTANTS.TICK_DENOMINATOR);
-            }
+    while (!cursor.Iterator.EndReached) {
+      const entries = cursor.Iterator.CurrentVoiceEntries;
+      if (!entries || entries.length === 0) {
+        cursor.next();
+        continue;
+      }
+
+      let maxRealValue = 0;
+      const entryNotes: string[] = [];
+
+      for (const entry of entries) {
+        if (entry.IsGrace) continue;
+
+        for (const note of entry.Notes) {
+          if (note.IsGraceNote) continue;
+
+          // Skip tie continuation notes — handled as part of the start note
+          if (note.NoteTie && note !== note.NoteTie.StartNote) continue;
+
+          const isTied = !!(note.NoteTie);
+          const effectiveRealValue = isTied
+            ? note.NoteTie!.Duration.RealValue
+            : note.Length.RealValue;
+
+          if (effectiveRealValue > maxRealValue) maxRealValue = effectiveRealValue;
+
+          if (note.isRest()) {
+            entryNotes.push(`rest(RV=${effectiveRealValue})`);
+            continue;
           }
+
+          const duration = realValueToSeconds(effectiveRealValue, this.bpm);
+          const noteName = Frequency(note.halfTone, 'midi').toNote();
+
+          entryNotes.push(
+            `${noteName}(RV=${effectiveRealValue}, tied=${isTied}, dur=${duration.toFixed(3)}s)`,
+          );
+
+          events.push({
+            time: accumulatedTime,
+            duration,
+            noteName,
+            originalNotes: isTied ? note.NoteTie!.Notes : [note],
+          });
         }
       }
-      this.cursor.next();
-      ++steps;
-    }
-    this.iterationSteps = steps;
-    console.log(`[Playback] Total iteration steps: ${steps}`);
-    this.cursor.reset();
-  }
 
-  private iterationCallback(notes: Note[]) {
-    if (this.state !== PlaybackState.PLAYING) return;
-
-    if (this.currentIterationStep >= this.iterationSteps) {
-      console.log(`[Playback] Reached end at step ${this.currentIterationStep}, stopping`);
-      this.stop();
-      return;
+      const advance = realValueToSeconds(maxRealValue, this.bpm);
+      console.log(
+        `[PlaybackEngine]   entry#${entryIndex} at ${accumulatedTime.toFixed(3)}s: maxRV=${maxRealValue}, advance=${advance.toFixed(3)}s, notes=[${entryNotes.join(', ')}]`,
+      );
+      accumulatedTime += advance;
+      entryIndex++;
+      cursor.next();
     }
 
-    console.log(`[Playback] Step ${this.currentIterationStep} / ${this.iterationSteps}`);
-    if (this.currentIterationStep > 0) {
-      this.cursor.next();
-    }
-
-    this.stateManager.emit(PlaybackEvent.ITERATION, notes);
-    ++this.currentIterationStep;
+    console.log(
+      `[PlaybackEngine] buildTimetable done: ${events.length} events, totalTime=${accumulatedTime.toFixed(2)}s`,
+    );
+    return events;
   }
 }
