@@ -22,7 +22,16 @@ export const frFR = {
   pause: 'Pause',
   stop: 'Arrêter',
   loopSkip: 'Boucle saut',
+  loop: 'Boucle',
   off: 'Désactivé',
+  metronome: 'Métronome',
+  metronomeSound: 'Son',
+  metronomeSound_classic: 'Classique',
+  metronomeSound_digital: 'Numérique',
+  metronomeSound_kick: 'Kick',
+  metronomeSound_click: 'Clic',
+  metronomeStrongBeat: 'Temps fort',
+  metronomeWeakBeat: 'Temps faible',
 
   // StatusBar
   noSelection: 'Aucune sélection',

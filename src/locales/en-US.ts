@@ -22,7 +22,16 @@ export const enUS = {
   pause: 'Pause',
   stop: 'Stop',
   loopSkip: 'Loop Skip',
+  loop: 'Loop',
   off: 'Off',
+  metronome: 'Metronome',
+  metronomeSound: 'Sound',
+  metronomeSound_classic: 'Classic',
+  metronomeSound_digital: 'Digital',
+  metronomeSound_kick: 'Kick',
+  metronomeSound_click: 'Click',
+  metronomeStrongBeat: 'Strong Beat',
+  metronomeWeakBeat: 'Weak Beat',
 
   // StatusBar
   noSelection: 'No selection',

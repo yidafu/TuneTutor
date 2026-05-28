@@ -4,7 +4,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ParsedScore } from '../types/notation';
-import type { PlaybackState, PlaybackActions, LoopRange } from '../types/playback';
+import type { PlaybackState, PlaybackActions, LoopRange, MetronomeSoundType } from '../types/playback';
 import { calculateTotalDuration as calculateDurationFromMeasures, noteDurationToSeconds, beatsToSeconds } from '../audio/TempoConverter';
 import type { InstrumentType } from '../types/audio';
 
@@ -20,6 +20,27 @@ function saveInstrument(type: InstrumentType): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, type);
   }
+}
+
+const METRONOME_SOUND_KEY = 'note-slice-metronome-sound';
+const METRONOME_STRONG_VOL_KEY = 'note-slice-metronome-strong-volume';
+const METRONOME_WEAK_VOL_KEY = 'note-slice-metronome-weak-volume';
+
+function getSavedMetronomeSound(): MetronomeSoundType {
+  if (typeof window === 'undefined') return 'classic';
+  return (localStorage.getItem(METRONOME_SOUND_KEY) as MetronomeSoundType) || 'classic';
+}
+
+function getSavedMetronomeStrongVolume(): number {
+  if (typeof window === 'undefined') return 0.8;
+  const saved = localStorage.getItem(METRONOME_STRONG_VOL_KEY);
+  return saved ? parseFloat(saved) : 0.8;
+}
+
+function getSavedMetronomeWeakVolume(): number {
+  if (typeof window === 'undefined') return 0.5;
+  const saved = localStorage.getItem(METRONOME_WEAK_VOL_KEY);
+  return saved ? parseFloat(saved) : 0.5;
 }
 
 // Helper to calculate current note index and progress within note from time
@@ -72,6 +93,10 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
     totalDuration: 0,
     loopEnabled: false,
     loopRange: null,
+    metronomeEnabled: false,
+    metronomeSound: getSavedMetronomeSound(),
+    metronomeStrongVolume: getSavedMetronomeStrongVolume(),
+    metronomeWeakVolume: getSavedMetronomeWeakVolume(),
     indicatorX: 0,
     indicatorRowTop: 0,
     indicatorRowBottom: 0,
@@ -88,6 +113,43 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
 
   const setVolume = useCallback((vol: number) => {
     setVolumeState(vol);
+  }, []);
+
+  const toggleMetronome = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      metronomeEnabled: !prev.metronomeEnabled,
+    }));
+  }, []);
+
+  const setMetronomeSound = useCallback((sound: MetronomeSoundType) => {
+    setState((prev) => ({
+      ...prev,
+      metronomeSound: sound,
+    }));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(METRONOME_SOUND_KEY, sound);
+    }
+  }, []);
+
+  const setMetronomeStrongVolume = useCallback((volume: number) => {
+    setState((prev) => ({
+      ...prev,
+      metronomeStrongVolume: volume,
+    }));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(METRONOME_STRONG_VOL_KEY, String(volume));
+    }
+  }, []);
+
+  const setMetronomeWeakVolume = useCallback((volume: number) => {
+    setState((prev) => ({
+      ...prev,
+      metronomeWeakVolume: volume,
+    }));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(METRONOME_WEAK_VOL_KEY, String(volume));
+    }
   }, []);
 
   // Store score and tempo for position calculation
@@ -305,7 +367,11 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
     calculateTotalDuration,
     setInstrument,
     setVolume,
-  }), [calculateTotalDuration, pause, play, seek, setLoopRange, stop, toggleLoop, setInstrument, setVolume]);
+    toggleMetronome,
+    setMetronomeSound,
+    setMetronomeStrongVolume,
+    setMetronomeWeakVolume,
+  }), [calculateTotalDuration, pause, play, seek, setLoopRange, stop, toggleLoop, setInstrument, setVolume, toggleMetronome, setMetronomeSound, setMetronomeStrongVolume, setMetronomeWeakVolume]);
 
   return [state, actions, currentInstrument, volume];
 }

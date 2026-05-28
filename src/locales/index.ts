@@ -29,8 +29,17 @@ export interface TranslationSet {
   play: string;
   pause: string;
   stop: string;
+  loop: string;
   loopSkip: string;
   off: string;
+  metronome: string;
+  metronomeSound: string;
+  metronomeSound_classic: string;
+  metronomeSound_digital: string;
+  metronomeSound_kick: string;
+  metronomeSound_click: string;
+  metronomeStrongBeat: string;
+  metronomeWeakBeat: string;
 
   // StatusBar
   noSelection: string;

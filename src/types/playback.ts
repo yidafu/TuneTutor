@@ -5,6 +5,8 @@
 import type { ParsedScore } from './notation';
 import type { InstrumentType } from './audio';
 
+export type MetronomeSoundType = 'classic' | 'digital' | 'kick' | 'click';
+
 /**
  * Loop range for section looping
  */
@@ -24,6 +26,10 @@ export interface PlaybackState {
   totalDuration: number; // seconds
   loopEnabled: boolean;
   loopRange: LoopRange | null; // Loop range for section looping
+  metronomeEnabled: boolean;
+  metronomeSound: MetronomeSoundType;
+  metronomeStrongVolume: number; // 0-1
+  metronomeWeakVolume: number;   // 0-1
   // Playback indicator position for vertical line
   indicatorX: number;
   indicatorRowTop: number;
@@ -40,4 +46,8 @@ export interface PlaybackActions {
   calculateTotalDuration: (score: ParsedScore, tempo: number) => number;
   setInstrument: (type: InstrumentType) => void;
   setVolume: (volume: number) => void;
+  toggleMetronome: () => void;
+  setMetronomeSound: (sound: MetronomeSoundType) => void;
+  setMetronomeStrongVolume: (volume: number) => void;
+  setMetronomeWeakVolume: (volume: number) => void;
 }

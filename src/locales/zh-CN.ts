@@ -22,7 +22,16 @@ export const zhCN = {
   pause: '暂停',
   stop: '停止',
   loopSkip: '循环跳过',
+  loop: '循环',
   off: '关闭',
+  metronome: '节拍器',
+  metronomeSound: '音色',
+  metronomeSound_classic: '经典',
+  metronomeSound_digital: '电子',
+  metronomeSound_kick: '底鼓',
+  metronomeSound_click: '敲击',
+  metronomeStrongBeat: '强拍',
+  metronomeWeakBeat: '弱拍',
 
   // StatusBar
   noSelection: '未选择',

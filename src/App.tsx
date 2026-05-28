@@ -15,6 +15,7 @@ import { PlaybackEngine } from './audio/PlaybackEngine';
 import { usePlayback } from './hooks/usePlayback';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import type { SelectedNote, ParsedScore } from './types/notation';
+import type { LoopRange } from './types/playback';
 import { createDemoScore } from './types/notation';
 import { parseMusicXML } from './utils/notation';
 import { getAllFiles } from './utils/storage';
@@ -89,6 +90,42 @@ function App() {
   // PlaybackEngine for actual audio
   const [playbackEngine] = useState(() => new PlaybackEngine());
 
+  // Derive LoopRange from selected notes and score
+  const computeLoopRange = useCallback((notes: SelectedNote[], skpBeats: number): LoopRange | null => {
+    if (!score) return null;
+    const [beatsPerMeasure] = score.timeSignature.split('/').map(Number);
+    const bpm = beatsPerMeasure || 4;
+
+    if (notes.length === 0) {
+      const totalBeats = score.measures.length * bpm;
+      return { startBeat: 0, endBeat: totalBeats, skipBeats: skpBeats };
+    }
+
+    const measureIndices = notes.map(n => n.measureIndex);
+    const firstMeasure = Math.min(...measureIndices);
+    const lastMeasure = Math.max(...measureIndices);
+
+    return {
+      startBeat: firstMeasure * bpm,
+      endBeat: (lastMeasure + 1) * bpm,
+      skipBeats: skpBeats,
+    };
+  }, [score]);
+
+  // Sync loopRange to usePlayback when skipBeats or selection changes.
+  // loopConfig.skipBeats > 0 enables loop; 0 disables it.
+  useEffect(() => {
+    const enabled = loopConfig.skipBeats > 0;
+    console.log('[App] loop sync effect:', { enabled, hasScore: !!score, selectedCount: selectedNotes.length, skipBeats: loopConfig.skipBeats });
+    if (!enabled || !score) {
+      playbackActions.setLoopRange(null);
+      return;
+    }
+    const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
+    console.log('[App] computed loop range:', range);
+    if (range) playbackActions.setLoopRange(range);
+  }, [loopConfig.skipBeats, selectedNotes, score, computeLoopRange, playbackActions]);
+
   // Handle OSMD ready - load score into PlaybackEngine
   const handleOsmdReady = useCallback((osmd: OpenSheetMusicDisplay) => {
     playbackEngine.loadScore(osmd);
@@ -98,6 +135,34 @@ function App() {
   useEffect(() => {
     playbackEngine.setBpm(tempo);
   }, [tempo, playbackEngine]);
+
+  // Sync time signature for metronome beat counting
+  useEffect(() => {
+    if (score) {
+      const beats = parseInt(score.timeSignature.split('/')[0], 10) || 4;
+      playbackEngine.setBeatsPerMeasure(beats);
+    }
+  }, [score, playbackEngine]);
+
+  // Sync metronome toggle to engine
+  useEffect(() => {
+    playbackEngine.toggleMetronome(playbackState.metronomeEnabled);
+  }, [playbackState.metronomeEnabled, playbackEngine]);
+
+  // Sync metronome sound to engine
+  useEffect(() => {
+    playbackEngine.setMetronomeSound(playbackState.metronomeSound);
+  }, [playbackState.metronomeSound, playbackEngine]);
+
+  // Sync metronome strong volume to engine
+  useEffect(() => {
+    playbackEngine.setMetronomeStrongVolume(playbackState.metronomeStrongVolume);
+  }, [playbackState.metronomeStrongVolume, playbackEngine]);
+
+  // Sync metronome weak volume to engine
+  useEffect(() => {
+    playbackEngine.setMetronomeWeakVolume(playbackState.metronomeWeakVolume);
+  }, [playbackState.metronomeWeakVolume, playbackEngine]);
 
   // Handle language change
   const handleLanguageChange = useCallback((newLang: Language) => {
@@ -140,10 +205,29 @@ function App() {
 
   // Play - delegates to PlaybackEngine via usePlayback
   const handlePlay = useCallback(async () => {
+    const enabled = loopConfig.skipBeats > 0;
+    console.log('[App] handlePlay:', { enabled, hasScore: !!score, selectedCount: selectedNotes.length, skipBeats: loopConfig.skipBeats });
+    if (enabled && score) {
+      const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
+      console.log('[App] handlePlay loop branch, range:', range);
+      if (range) {
+        console.log('[App] handlePlay -> calling playbackEngine.play with loopConfig');
+        await playbackEngine.play({
+          enabled: true,
+          startBeat: range.startBeat,
+          endBeat: range.endBeat,
+          skipBeats: range.skipBeats ?? 0,
+        });
+        playbackActions.play();
+        setIsPlaying(true);
+        return;
+      }
+    }
+    console.log('[App] handlePlay -> calling playbackEngine.play (no loop)');
     await playbackEngine.play();
     playbackActions.play();
     setIsPlaying(true);
-  }, [playbackActions, playbackEngine]);
+  }, [playbackActions, playbackEngine, score, selectedNotes, loopConfig.skipBeats, computeLoopRange]);
 
   // Stop playback
   const handleStop = useCallback(() => {
@@ -223,6 +307,14 @@ function App() {
           onTempoChange={setTempo}
           loopConfig={loopConfig}
           onLoopConfigChange={setLoopConfig}
+          metronomeEnabled={playbackState.metronomeEnabled}
+          metronomeSound={playbackState.metronomeSound}
+          metronomeStrongVolume={playbackState.metronomeStrongVolume}
+          metronomeWeakVolume={playbackState.metronomeWeakVolume}
+          onMetronomeToggle={playbackActions.toggleMetronome}
+          onMetronomeSoundChange={playbackActions.setMetronomeSound}
+          onMetronomeStrongVolumeChange={playbackActions.setMetronomeStrongVolume}
+          onMetronomeWeakVolumeChange={playbackActions.setMetronomeWeakVolume}
           t={t}
         />
       </div>

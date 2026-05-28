@@ -22,7 +22,16 @@ export const zhTW = {
   pause: '暫停',
   stop: '停止',
   loopSkip: '循環跳過',
+  loop: '循環',
   off: '關閉',
+  metronome: '節拍器',
+  metronomeSound: '音色',
+  metronomeSound_classic: '經典',
+  metronomeSound_digital: '電子',
+  metronomeSound_kick: '底鼓',
+  metronomeSound_click: '敲擊',
+  metronomeStrongBeat: '強拍',
+  metronomeWeakBeat: '弱拍',
 
   // StatusBar
   noSelection: '未選擇',
