@@ -4,7 +4,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
-import { OsmdNotation } from './components/OsmdNotation/OsmdNotation';
+import { OsmdNotation } from './components/OsmdNotation';
 import { PlaybackControls } from './components/PlaybackControls/PlaybackControls';
 import { Header } from './components/Header';
 import { ScoreInfo } from './components/ScoreInfo';

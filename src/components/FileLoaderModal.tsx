@@ -1,7 +1,7 @@
-import { FileLoader } from '../FileLoader/FileLoader';
-import type { ParsedScore } from '../../types/notation';
-import type { StoredFile } from '../../types/storedFile';
-import type { TranslationSet } from '../../locales';
+import { FileLoader } from './FileLoader/FileLoader';
+import type { ParsedScore } from '../types/notation';
+import type { StoredFile } from '../types/storedFile';
+import type { TranslationSet } from '../locales';
 
 interface FileLoaderModalProps {
   show: boolean;

@@ -12,7 +12,7 @@ export { FileLoaderModal } from './FileLoaderModal';
 export { Header } from './Header';
 
 // Notation Display (OSMD)
-export { OsmdNotation } from './OsmdNotation/OsmdNotation';
+export { OsmdNotation } from './OsmdNotation';
 
 // Playback Controls
 export { PlaybackControls, ProgressBar } from './PlaybackControls';

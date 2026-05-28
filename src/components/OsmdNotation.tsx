@@ -4,9 +4,9 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { OpenSheetMusicDisplay, Note } from 'opensheetmusicdisplay';
-import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide } from '../../utils/notation/OsmdRender';
-import { findOsmdNoteAtPosition } from '../../utils/notation/NoteInteraction';
-import { PlaybackEngine, PlaybackEvent } from '../../audio/PlaybackEngine';
+import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide } from '../utils/notation/OsmdRender';
+import { findOsmdNoteAtPosition } from '../utils/notation/NoteInteraction';
+import { PlaybackEngine, PlaybackEvent } from '../audio/PlaybackEngine';
 
 export interface SelectedNote {
   measureIndex: number;

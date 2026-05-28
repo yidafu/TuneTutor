@@ -1,4 +1,4 @@
-import type { TranslationSet } from '../../locales';
+import type { TranslationSet } from '../locales';
 
 interface ScoreInfoProps {
   title: string;

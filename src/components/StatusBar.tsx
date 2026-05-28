@@ -1,6 +1,6 @@
-import type { SelectedNote } from '../../types/notation';
-import { formatSelectionRange } from '../../utils/notation';
-import type { TranslationSet } from '../../locales';
+import type { SelectedNote } from '../types/notation';
+import { formatSelectionRange } from '../utils/notation';
+import type { TranslationSet } from '../locales';
 
 interface LoopConfig {
   skipBeats: number;

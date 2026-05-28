@@ -1,6 +1,6 @@
-import type { InstrumentType } from '../../types/audio';
-import { INSTRUMENTS, getInstrumentName } from '../../types/audio';
-import { languageNames, type Language, type TranslationSet } from '../../locales';
+import type { InstrumentType } from '../types/audio';
+import { INSTRUMENTS, getInstrumentName } from '../types/audio';
+import { languageNames, type Language, type TranslationSet } from '../locales';
 import { useState, useRef, useEffect } from 'react';
 
 interface HeaderProps {

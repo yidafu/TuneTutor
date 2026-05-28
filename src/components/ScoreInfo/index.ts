@@ -1,1 +1,0 @@
-export { ScoreInfo } from './ScoreInfo';
