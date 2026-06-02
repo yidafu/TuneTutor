@@ -65,6 +65,10 @@ export interface TranslationSet {
   measure: string;
   measures: string;
 
+  // Loop modes
+  loopPhrase: string;
+  phraseSelected: string;
+
   // Language switcher
   language: string;
   chinese: string;

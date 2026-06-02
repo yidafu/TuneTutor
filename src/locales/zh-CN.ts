@@ -62,6 +62,10 @@ export const zhCN = {
   chinese: '繁體中文',
   english: 'English',
   french: 'Français',
+
+  // Loop modes
+  loopPhrase: '乐句循环',
+  phraseSelected: '乐句',
 } as const;
 
 export type Chinese = typeof zhCN;

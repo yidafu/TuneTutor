@@ -144,7 +144,7 @@ export class PlaybackEngine {
       this.part = new Part((time, event: ScheduledNoteEvent) => {
         this.sampler!.triggerAttackRelease(event.noteName, event.duration, time, 0.7);
         Draw.schedule(() => {
-          this.emit(PlaybackEvent.ITERATION, event.originalNotes);
+          this.emit(PlaybackEvent.ITERATION, event.originalNotes, time);
         }, time);
       }, timeline);
 
@@ -172,7 +172,7 @@ export class PlaybackEngine {
     this.part = new Part((time, event: ScheduledNoteEvent) => {
       this.sampler!.triggerAttackRelease(event.noteName, event.duration, time, 0.7);
       Draw.schedule(() => {
-        this.emit(PlaybackEvent.ITERATION, event.originalNotes);
+        this.emit(PlaybackEvent.ITERATION, event.originalNotes, time);
       }, time);
     }, timeline);
 
@@ -251,9 +251,19 @@ export class PlaybackEngine {
       this.metronomeEventId = Transport.scheduleRepeat((time) => {
         if (!this.metronomeSynth || !this.metronomeEnabled) return;
         const isStrong = this.beatCounter % this.beatsPerMeasure === 0;
-        const noteName = isStrong ? preset.strongNote : preset.weakNote;
         const velocity = isStrong ? this.metronomeStrongVolume : this.metronomeWeakVolume;
-        (this.metronomeSynth as any).triggerAttackRelease(noteName, '16n', time, velocity);
+
+        if (this.metronomeSynth instanceof NoiseSynth) {
+          this.metronomeSynth.triggerAttackRelease('16n', time, velocity);
+        } else {
+          const noteName = isStrong ? preset.strongNote : preset.weakNote;
+          (this.metronomeSynth as MembraneSynth | Synth).triggerAttackRelease(
+            noteName,
+            '16n',
+            time,
+            velocity,
+          );
+        }
         this.beatCounter++;
       }, '4n');
     }

@@ -3,6 +3,7 @@
  */
 
 import { OpenSheetMusicDisplay, type IOSMDOptions } from 'opensheetmusicdisplay';
+import { buildNoteElementMap, invalidateNoteCaches } from './NoteInteraction';
 
 export interface OsmdRenderOptions extends Partial<IOSMDOptions> {
   containerId: string;
@@ -29,6 +30,7 @@ export async function renderOsmd(
   // Clear previous instance
   if (osmdInstance) {
     osmdInstance.clear();
+    invalidateNoteCaches();
   }
 
   // Extract OSMD-specific options (exclude containerId)
@@ -51,6 +53,9 @@ export async function renderOsmd(
   await osmdInstance.load(musicXml);
   osmdInstance.render();
 
+  // Build DOM element -> note mapping for fast hit-testing
+  buildNoteElementMap(container);
+
   return osmdInstance;
 }
 
@@ -61,6 +66,7 @@ export function clearOsmd(): void {
   if (osmdInstance) {
     osmdInstance.clear();
     osmdInstance = null;
+    invalidateNoteCaches();
   }
 }
 

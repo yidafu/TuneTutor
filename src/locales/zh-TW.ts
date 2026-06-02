@@ -62,6 +62,10 @@ export const zhTW = {
   chinese: '繁體中文',
   english: 'English',
   french: 'Français',
+
+  // Loop modes
+  loopPhrase: '樂句循環',
+  phraseSelected: '樂句',
 } as const;
 
 export type TraditionalChinese = typeof zhTW;

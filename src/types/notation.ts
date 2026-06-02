@@ -54,6 +54,14 @@ export interface SelectionRange {
 }
 
 /**
+ * Phrase selection defined by start and end notes
+ */
+export interface PhraseSelection {
+  startNote: SelectedNote;
+  endNote: SelectedNote;
+}
+
+/**
  * VexFlow duration to beats (quarter note = 1 beat)
  */
 export const DURATION_TO_BEATS: Readonly<Record<string, number>> = {

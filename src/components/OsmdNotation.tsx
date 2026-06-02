@@ -3,15 +3,12 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import type { OpenSheetMusicDisplay, Note } from 'opensheetmusicdisplay';
-import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide } from '../utils/notation/OsmdRender';
+import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
+import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide, cursorNext, cursorReset } from '../utils/notation/OsmdRender';
 import { findOsmdNoteAtPosition } from '../utils/notation/NoteInteraction';
 import { PlaybackEngine, PlaybackEvent } from '../audio/PlaybackEngine';
-
-export interface SelectedNote {
-  measureIndex: number;
-  noteIndex: number;
-}
+import { PhraseMarkers } from './PhraseMarkers';
+import type { SelectedNote, PhraseSelection } from '../types/notation';
 
 interface OsmdNotationProps {
   musicXml: string;
@@ -22,6 +19,9 @@ interface OsmdNotationProps {
   indicatorMeasure?: number;
   indicatorNote?: number;
   className?: string;
+  onPhraseNoteSelected?: (note: SelectedNote) => void;
+  phraseSelection?: PhraseSelection | null;
+  onClearPhrase?: () => void;
 }
 
 export function OsmdNotation({
@@ -29,10 +29,13 @@ export function OsmdNotation({
   onNoteSelect,
   onOsmdReady,
   playbackEngine,
-  isPlaying = false,
-  indicatorMeasure = -1,
-  indicatorNote = -1,
+  isPlaying: _isPlaying = false,
+  indicatorMeasure: _indicatorMeasure = -1,
+  indicatorNote: _indicatorNote = -1,
   className = '',
+  onPhraseNoteSelected,
+  phraseSelection = null,
+  onClearPhrase,
 }: OsmdNotationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerId] = useState(() => `osmd-${Math.random().toString(36).substr(2, 9)}`);
@@ -40,9 +43,13 @@ export function OsmdNotation({
   const [error, setError] = useState<string | null>(null);
   const [, setDimensions] = useState({ width: 0, height: 0 });
 
-  // Ref to track highlighted SVG elements for cleanup
-  const highlightedNotesRef = useRef<{ svgGroup: SVGGElement; stemEl: HTMLElement | null }[]>([]);
-  const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
+  // Prevent cursor from advancing multiple times for chord notes (same timestamp)
+  const cursorStepLocked = useRef(false);
+  const lastIterationTime = useRef<number>(-1);
+
+  // Double-click detection
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastClickNote = useRef<SelectedNote | null>(null);
 
   // Resize observer
   useEffect(() => {
@@ -107,99 +114,100 @@ export function OsmdNotation({
     };
   }, [musicXml, containerId, onOsmdReady]);
 
-  // Handle note click
+  // Handle note click with double-click detection
   const handleNoteClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const container = containerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const x = event.clientX - rect.left + container.scrollLeft;
-    const y = event.clientY - rect.top + container.scrollTop;
-
-    const note = findOsmdNoteAtPosition(x, y);
-    if (note && onNoteSelect) {
-      const clickedNote: SelectedNote = {
-        measureIndex: note.measureIndex,
-        noteIndex: note.noteIndex,
-      };
-      onNoteSelect([clickedNote], 'replace');
+    if (!container) {
+      console.log('[Osmd] click: no container ref');
+      return;
     }
-  }, [onNoteSelect]);
 
-  // Update cursor position based on playing state
-  useEffect(() => {
-    const osmd = getOsmdInstance();
-    if (!osmd?.cursor) return;
-
-    if (isPlaying && indicatorMeasure >= 0) {
-      cursorShow();
-    } else {
-      cursorHide();
+    const note = findOsmdNoteAtPosition(event.clientX, event.clientY);
+    if (!note) {
+      console.log('[Osmd] click: no note at', event.clientX, event.clientY);
+      return;
     }
-  }, [isPlaying, indicatorMeasure, indicatorNote]);
 
-  // Subscribe to PlaybackEngine events for note highlighting
+    const clickedNote: SelectedNote = {
+      measureIndex: note.measureIndex,
+      noteIndex: note.noteIndex,
+    };
+    const hasTimer = !!clickTimer.current;
+    const last = lastClickNote.current;
+    const isSameNote = last && last.measureIndex === clickedNote.measureIndex && last.noteIndex === clickedNote.noteIndex;
+    console.log('[Osmd] click: note=', clickedNote, 'hasTimer=', hasTimer, 'lastNote=', last, 'sameNote=', isSameNote, 'hasPhraseCb=', !!onPhraseNoteSelected);
+
+    // Check if this is a double-click (same note within 300ms)
+    if (hasTimer && isSameNote) {
+      console.log('[Osmd] --> DOUBLE-CLICK detected');
+      clearTimeout(clickTimer.current!);
+      clickTimer.current = null;
+      lastClickNote.current = null;
+      onPhraseNoteSelected?.(clickedNote);
+      return;
+    }
+
+    // First click — wait to see if it's a double-click
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      if (onNoteSelect && lastClickNote.current) {
+        console.log('[Osmd] --> single-click (different note, firing pending)');
+        onNoteSelect([lastClickNote.current], 'replace');
+      }
+    }
+
+    console.log('[Osmd] setting 300ms timer for potential dblclick');
+    lastClickNote.current = clickedNote;
+    clickTimer.current = setTimeout(() => {
+      console.log('[Osmd] --> single-click confirmed (timer expired)');
+      clickTimer.current = null;
+      lastClickNote.current = null;
+      if (onNoteSelect) {
+        onNoteSelect([clickedNote], 'replace');
+      }
+    }, 300);
+  }, [onNoteSelect, onPhraseNoteSelected]);
+
+  // Drive OSMD cursor via PlaybackEngine events during playback
   useEffect(() => {
     const osmd = getOsmdInstance();
     if (!osmd || !playbackEngine) return;
 
-    osmdRef.current = osmd;
-
-    const clearHighlights = () => {
-      for (const h of highlightedNotesRef.current) {
-        h.svgGroup.querySelectorAll('path').forEach((p) => {
-          p.removeAttribute('fill');
-        });
-        if (h.stemEl) {
-          h.stemEl.removeAttribute('stroke');
-        }
-      }
-      highlightedNotesRef.current = [];
-    };
-
-    const highlightNote = (note: Note) => {
-      const gnote = osmd.EngravingRules.GNote(note);
-      if (!gnote) return;
-
-      const vfNote = gnote as unknown as {
-        getSVGGElement?: () => SVGGElement;
-        getStemSVG?: () => HTMLElement;
-      };
-
-      const svgGroup = vfNote.getSVGGElement?.();
-      if (!svgGroup) return;
-
-      svgGroup.querySelectorAll('path').forEach((p) => {
-        p.setAttribute('fill', '#3b82f6');
-      });
-
-      const stem = vfNote.getStemSVG?.() ?? null;
-      if (stem) {
-        stem.setAttribute('stroke', '#3b82f6');
-      }
-
-      highlightedNotesRef.current.push({ svgGroup, stemEl: stem });
-    };
-
-    const handleIteration = (notes: unknown[]) => {
-      clearHighlights();
-      for (const note of notes as Note[]) {
-        highlightNote(note);
-      }
-    };
-
     const handleStateChange = (state: unknown) => {
-      if (state === 'STOPPED') {
-        clearHighlights();
+      if (state === 'PLAYING') {
+        cursorStepLocked.current = false;
+        lastIterationTime.current = -1;
+        cursorReset();
+        requestAnimationFrame(() => {
+          cursorShow();
+        });
+      } else if (state === 'STOPPED') {
+        cursorStepLocked.current = false;
+        cursorHide();
+        cursorReset();
       }
+    };
+
+    const handleIteration = (_notes: unknown[], eventTime?: number) => {
+      if (cursorStepLocked.current) return;
+      cursorStepLocked.current = true;
+
+      const time = typeof eventTime === 'number' ? eventTime : -1;
+
+      requestAnimationFrame(() => {
+        // Detect loop wrap-around: time reset indicates the loop restarted
+        if (time >= 0 && lastIterationTime.current >= 0 && time < lastIterationTime.current) {
+          cursorReset();
+        }
+
+        cursorNext();
+        lastIterationTime.current = time;
+        cursorStepLocked.current = false;
+      });
     };
 
     playbackEngine.on(PlaybackEvent.ITERATION, handleIteration);
     playbackEngine.on(PlaybackEvent.STATE_CHANGE, handleStateChange);
-
-    return () => {
-      clearHighlights();
-    };
   }, [playbackEngine]);
 
   if (!musicXml) {
@@ -224,6 +232,12 @@ export function OsmdNotation({
     >
       {/* Always render container for OSMD */}
       <div id={containerId} className="osmd-score" />
+
+      {/* Phrase markers (visible after double-click selection) */}
+      <PhraseMarkers
+        phraseSelection={phraseSelection}
+        onClear={onClearPhrase ?? (() => {})}
+      />
 
       {/* Loading overlay */}
       {isLoading && (

@@ -62,6 +62,10 @@ export const enUS = {
   chinese: '繁體中文',
   english: 'English',
   french: 'Français',
+
+  // Loop modes
+  loopPhrase: 'Phrase',
+  phraseSelected: 'Phrase',
 } as const;
 
 export type English = typeof enUS;

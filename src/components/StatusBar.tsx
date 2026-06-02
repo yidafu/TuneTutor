@@ -1,4 +1,4 @@
-import type { SelectedNote } from '../types/notation';
+import type { SelectedNote, PhraseSelection } from '../types/notation';
 import { formatSelectionRange } from '../utils/notation';
 import type { TranslationSet } from '../locales';
 
@@ -12,6 +12,7 @@ interface StatusBarProps {
   instrumentName: string;
   loopConfig?: LoopConfig;
   t: TranslationSet;
+  phraseSelection?: PhraseSelection | null;
 }
 
 export function StatusBar({
@@ -20,11 +21,17 @@ export function StatusBar({
   instrumentName,
   loopConfig = { skipBeats: 0 },
   t,
+  phraseSelection = null,
 }: StatusBarProps) {
-  const selectionText = formatSelectionRange(selectedNotes, {
-    emptyText: t.noSelection,
-    prefix: '',
-  }, t);
+  const selectionText = phraseSelection
+    ? `${t.measure?.replace('{0}', String(phraseSelection.startNote.measureIndex + 1))} - ${t.measure?.replace('{0}', String(phraseSelection.endNote.measureIndex + 1))}`
+    : formatSelectionRange(selectedNotes, {
+        emptyText: t.noSelection,
+        prefix: '',
+      }, t);
+
+  const hasPhraseLoop = !!phraseSelection;
+  const hasSkipLoop = loopConfig.skipBeats > 0 && !phraseSelection;
 
   return (
     <footer className="bg-gray-800 text-white py-3 px-6" role="contentinfo" aria-label="Status bar">
@@ -44,7 +51,12 @@ export function StatusBar({
           <span aria-label="Current instrument">
             {t.instrument} <span className="text-white font-bold">{instrumentName}</span>
           </span>
-          {loopConfig.skipBeats > 0 && (
+          {hasPhraseLoop && (
+            <span aria-label="Phrase loop active" className="text-green-400">
+              🔁 {t.loopPhrase ?? 'Phrase Loop'}
+            </span>
+          )}
+          {hasSkipLoop && (
             <span aria-label="Loop config" className="text-purple-400">
               🔁 {t.loopConfigSkip.replace('{0}', String(loopConfig.skipBeats))}
             </span>

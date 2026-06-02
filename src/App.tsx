@@ -11,10 +11,11 @@ import { ScoreInfo } from './components/ScoreInfo';
 import { SelectionInfo } from './components/SelectionInfo';
 import { StatusBar } from './components/StatusBar';
 import { FileLoaderModal } from './components/FileLoaderModal';
-import { PlaybackEngine } from './audio/PlaybackEngine';
+import { PlaybackEngine, PlaybackEvent } from './audio/PlaybackEngine';
 import { usePlayback } from './hooks/usePlayback';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import type { SelectedNote, ParsedScore } from './types/notation';
+import type { SelectedNote, ParsedScore, PhraseSelection } from './types/notation';
+import { DURATION_TO_BEATS } from './types/notation';
 import type { LoopRange } from './types/playback';
 import { createDemoScore } from './types/notation';
 import { parseMusicXML } from './utils/notation';
@@ -48,6 +49,7 @@ function App() {
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>(getSavedInstrument);
   const [loopConfig, setLoopConfig] = useState({ skipBeats: 0 });
   const [isPlaying, setIsPlaying] = useState(false);
+  const [phraseSelection, setPhraseSelection] = useState<PhraseSelection | null>(null);
 
   // Load last opened file on mount
   useEffect(() => {
@@ -90,7 +92,46 @@ function App() {
   // PlaybackEngine for actual audio
   const [playbackEngine] = useState(() => new PlaybackEngine());
 
-  // Derive LoopRange from selected notes and score
+  // Compute beat position of a note within the score using parsed measure data
+  const getNoteBeatPosition = useCallback((target: SelectedNote): number | null => {
+    if (!score) return null;
+    let totalBeats = 0;
+
+    for (let m = 0; m < score.measures.length; m++) {
+      const measure = score.measures[m];
+      if (m < target.measureIndex) {
+        for (const note of measure.notes) {
+          totalBeats += DURATION_TO_BEATS[note.duration] ?? 0;
+        }
+      } else if (m === target.measureIndex) {
+        for (let n = 0; n < measure.notes.length && n <= target.noteIndex; n++) {
+          totalBeats += DURATION_TO_BEATS[measure.notes[n].duration] ?? 0;
+        }
+        const targetDuration = DURATION_TO_BEATS[measure.notes[target.noteIndex]?.duration] ?? 0;
+        return totalBeats - targetDuration;
+      } else {
+        break;
+      }
+    }
+    return totalBeats;
+  }, [score]);
+
+  // Compute phrase loop range from start/end notes using note-level precision
+  const computePhraseLoopRange = useCallback((phrase: PhraseSelection): LoopRange | null => {
+    if (!score) return null;
+    const startBeat = getNoteBeatPosition(phrase.startNote);
+    const endNoteBeat = getNoteBeatPosition(phrase.endNote);
+    if (startBeat === null || endNoteBeat === null) return null;
+
+    const endMeasure = score.measures[phrase.endNote.measureIndex];
+    const endNote = endMeasure?.notes[phrase.endNote.noteIndex];
+    const endNoteBeats = endNote ? (DURATION_TO_BEATS[endNote.duration] ?? 0) : 0;
+    const endBeat = endNoteBeat + endNoteBeats;
+
+    return { startBeat, endBeat, skipBeats: 0 };
+  }, [score, getNoteBeatPosition]);
+
+  // Derive LoopRange for skip-beat loop
   const computeLoopRange = useCallback((notes: SelectedNote[], skpBeats: number): LoopRange | null => {
     if (!score) return null;
     const [beatsPerMeasure] = score.timeSignature.split('/').map(Number);
@@ -112,19 +153,23 @@ function App() {
     };
   }, [score]);
 
-  // Sync loopRange to usePlayback when skipBeats or selection changes.
-  // loopConfig.skipBeats > 0 enables loop; 0 disables it.
+  // Sync loopRange to usePlayback: phrase loop takes priority over skip-beat loop
   useEffect(() => {
-    const enabled = loopConfig.skipBeats > 0;
-    console.log('[App] loop sync effect:', { enabled, hasScore: !!score, selectedCount: selectedNotes.length, skipBeats: loopConfig.skipBeats });
-    if (!enabled || !score) {
+    if (!score) {
       playbackActions.setLoopRange(null);
       return;
     }
-    const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
-    console.log('[App] computed loop range:', range);
-    if (range) playbackActions.setLoopRange(range);
-  }, [loopConfig.skipBeats, selectedNotes, score, computeLoopRange, playbackActions]);
+
+    if (phraseSelection) {
+      const range = computePhraseLoopRange(phraseSelection);
+      if (range) playbackActions.setLoopRange(range);
+    } else if (loopConfig.skipBeats > 0) {
+      const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
+      if (range) playbackActions.setLoopRange(range);
+    } else {
+      playbackActions.setLoopRange(null);
+    }
+  }, [loopConfig.skipBeats, selectedNotes, phraseSelection, score, computeLoopRange, computePhraseLoopRange, playbackActions]);
 
   // Handle OSMD ready - load score into PlaybackEngine
   const handleOsmdReady = useCallback((osmd: OpenSheetMusicDisplay) => {
@@ -164,6 +209,17 @@ function App() {
     playbackEngine.setMetronomeWeakVolume(playbackState.metronomeWeakVolume);
   }, [playbackState.metronomeWeakVolume, playbackEngine]);
 
+  // Sync App's isPlaying with PlaybackEngine state (handles natural completion)
+  useEffect(() => {
+    const handleStateChange = (state: unknown) => {
+      if (state === 'STOPPED') {
+        setIsPlaying(false);
+        playbackActions.stop();
+      }
+    };
+    playbackEngine.on(PlaybackEvent.STATE_CHANGE, handleStateChange);
+  }, [playbackEngine, playbackActions]);
+
   // Handle language change
   const handleLanguageChange = useCallback((newLang: Language) => {
     setLanguage(newLang);
@@ -172,7 +228,6 @@ function App() {
   // Handle file loaded
   const handleScoreLoaded = useCallback((loadedScore: ParsedScore, storedFile?: StoredFile) => {
     setScore(loadedScore);
-    // 更新 musicXml 状态以触发乐谱重新渲染
     if (storedFile?.rawContent) {
       setMusicXml(storedFile.rawContent);
     }
@@ -203,15 +258,28 @@ function App() {
     playbackActions.setInstrument(instrument);
   }, [playbackActions]);
 
-  // Play - delegates to PlaybackEngine via usePlayback
+  // Play: phrase loop > skip-beat loop > normal playback
   const handlePlay = useCallback(async () => {
-    const enabled = loopConfig.skipBeats > 0;
-    console.log('[App] handlePlay:', { enabled, hasScore: !!score, selectedCount: selectedNotes.length, skipBeats: loopConfig.skipBeats });
-    if (enabled && score) {
-      const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
-      console.log('[App] handlePlay loop branch, range:', range);
+    // Phrase loop (has start+end notes)
+    if (phraseSelection && score) {
+      const range = computePhraseLoopRange(phraseSelection);
       if (range) {
-        console.log('[App] handlePlay -> calling playbackEngine.play with loopConfig');
+        await playbackEngine.play({
+          enabled: true,
+          startBeat: range.startBeat,
+          endBeat: range.endBeat,
+          skipBeats: 0,
+        });
+        playbackActions.play();
+        setIsPlaying(true);
+        return;
+      }
+    }
+
+    // Skip-beat loop
+    if (loopConfig.skipBeats > 0 && score) {
+      const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
+      if (range) {
         await playbackEngine.play({
           enabled: true,
           startBeat: range.startBeat,
@@ -223,11 +291,12 @@ function App() {
         return;
       }
     }
-    console.log('[App] handlePlay -> calling playbackEngine.play (no loop)');
+
+    // Normal playback
     await playbackEngine.play();
     playbackActions.play();
     setIsPlaying(true);
-  }, [playbackActions, playbackEngine, score, selectedNotes, loopConfig.skipBeats, computeLoopRange]);
+  }, [playbackActions, playbackEngine, score, selectedNotes, phraseSelection, loopConfig.skipBeats, computeLoopRange, computePhraseLoopRange]);
 
   // Stop playback
   const handleStop = useCallback(() => {
@@ -245,9 +314,38 @@ function App() {
 
   const instrumentDisplay = getInstrumentDisplay();
 
-  // Handle note selection from OSMD
+  // Handle single-click note selection (clears phrase)
   const handleNoteSelect = useCallback((notes: SelectedNote[]) => {
     setSelectedNotes(notes);
+    setPhraseSelection(null);
+  }, []);
+
+  // Handle double-click phrase note selection
+  const handlePhraseNoteSelected = useCallback((note: SelectedNote) => {
+    console.log('[App] handlePhraseNoteSelected called with:', note);
+    setSelectedNotes([]);
+    setPhraseSelection(prev => {
+      console.log('[App] phraseSelection prev:', prev);
+      if (!prev) {
+        console.log('[App] -> FIRST dblclick, setting startNote');
+        return { startNote: note, endNote: note };
+      }
+      const isAfter =
+        note.measureIndex > prev.startNote.measureIndex ||
+        (note.measureIndex === prev.startNote.measureIndex && note.noteIndex > prev.startNote.noteIndex);
+      console.log('[App] isAfter:', isAfter);
+      if (isAfter) {
+        console.log('[App] -> setting endNote');
+        return { startNote: prev.startNote, endNote: note };
+      }
+      console.log('[App] -> new note is before start, swapping');
+      return { startNote: note, endNote: prev.startNote };
+    });
+  }, []);
+
+  // Clear phrase selection
+  const clearPhraseSelection = useCallback(() => {
+    setPhraseSelection(null);
   }, []);
 
   return (
@@ -283,6 +381,9 @@ function App() {
               playbackEngine={playbackEngine}
               isPlaying={isPlaying}
               className="min-h-62.5"
+              onPhraseNoteSelected={handlePhraseNoteSelected}
+              phraseSelection={phraseSelection}
+              onClearPhrase={clearPhraseSelection}
             />
           </div>
 
@@ -291,6 +392,8 @@ function App() {
             selectedNotes={selectedNotes}
             onClearSelection={clearSelection}
             t={t}
+            phraseSelection={phraseSelection}
+            onClearPhrase={clearPhraseSelection}
           />
         </main>
       </div>
@@ -326,6 +429,7 @@ function App() {
         instrumentName={instrumentDisplay.name}
         loopConfig={loopConfig}
         t={t}
+        phraseSelection={phraseSelection}
       />
 
       {/* File Loader Modal */}
