@@ -5,19 +5,17 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { renderOsmd, clearOsmd, getOsmdInstance, cursorShow, cursorHide, cursorNext, cursorReset } from '../utils/notation/OsmdRender';
-import { findOsmdNoteAtPosition } from '../utils/notation/NoteInteraction';
-import { PlaybackEngine, PlaybackEvent } from '../audio/PlaybackEngine';
-import { PhraseMarkers } from './PhraseMarkers';
+import { findOsmdNoteAtPosition, getNoteElementsInRange } from '../utils/notation/NoteInteraction';
+import { PlaybackEngine, PlaybackEvent, type PlaybackStateType } from '../audio/PlaybackEngine';
+import type { TimelineEntry } from '../types/playback';
 import type { SelectedNote, PhraseSelection } from '../types/notation';
+import { PhraseMarkers } from './PhraseMarkers';
 
 interface OsmdNotationProps {
   musicXml: string;
-  onNoteSelect?: (notes: SelectedNote[], mode: 'replace' | 'add') => void;
+  onNoteSelect?: (notes: SelectedNote[]) => void;
   onOsmdReady?: (osmd: OpenSheetMusicDisplay) => void;
   playbackEngine?: PlaybackEngine;
-  isPlaying?: boolean;
-  indicatorMeasure?: number;
-  indicatorNote?: number;
   className?: string;
   onPhraseNoteSelected?: (note: SelectedNote) => void;
   phraseSelection?: PhraseSelection | null;
@@ -29,15 +27,13 @@ export function OsmdNotation({
   onNoteSelect,
   onOsmdReady,
   playbackEngine,
-  isPlaying: _isPlaying = false,
-  indicatorMeasure: _indicatorMeasure = -1,
-  indicatorNote: _indicatorNote = -1,
   className = '',
   onPhraseNoteSelected,
   phraseSelection = null,
   onClearPhrase,
 }: OsmdNotationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
   const [containerId] = useState(() => `osmd-${Math.random().toString(36).substr(2, 9)}`);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +63,41 @@ export function OsmdNotation({
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
   }, []);
+
+  // Highlight noteheads within the phrase selection range
+  // Only highlights when both start and end are set (after second double-click)
+  // Uses inline style.fill for reliable SVG element coloring (works on <use> elements)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Restore original fill and remove stored data
+    container.querySelectorAll<SVGElement>('.vf-notehead[data-phrase-fill]')
+      .forEach(el => {
+        el.style.fill = el.getAttribute('data-phrase-fill') ?? '';
+        el.removeAttribute('data-phrase-fill');
+        el.classList.remove('phrase-selected');
+      });
+
+    // Also clean any that were left with the class but without data attribute
+    container.querySelectorAll<SVGElement>('.vf-notehead.phrase-selected')
+      .forEach(el => el.classList.remove('phrase-selected'));
+
+    if (!phraseSelection?.endNote) return;
+
+    const noteheads = getNoteElementsInRange(
+      container,
+      phraseSelection.startNote,
+      phraseSelection.endNote,
+    );
+    noteheads.forEach(el => {
+      // Save original fill
+      const originalFill = el.style.fill || el.getAttribute('fill') || '';
+      el.setAttribute('data-phrase-fill', originalFill);
+      el.style.fill = '#f97316';
+      el.classList.add('phrase-selected');
+    });
+  }, [phraseSelection]);
 
   // Render score when MusicXML changes
   useEffect(() => {
@@ -118,13 +149,15 @@ export function OsmdNotation({
   const handleNoteClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const container = containerRef.current;
     if (!container) {
-      console.log('[Osmd] click: no container ref');
+      console.log('[OsmdNotation] handleNoteClick: no container ref');
       return;
     }
 
-    const note = findOsmdNoteAtPosition(event.clientX, event.clientY);
+    console.log('[OsmdNotation] handleNoteClick fired:', { clientX: event.clientX, clientY: event.clientY, targetTag: (event.target as Element)?.tagName });
+
+    const note = findOsmdNoteAtPosition(event.clientX, event.clientY, event.target);
     if (!note) {
-      console.log('[Osmd] click: no note at', event.clientX, event.clientY);
+      console.log('[OsmdNotation] handleNoteClick: no note found');
       return;
     }
 
@@ -135,11 +168,9 @@ export function OsmdNotation({
     const hasTimer = !!clickTimer.current;
     const last = lastClickNote.current;
     const isSameNote = last && last.measureIndex === clickedNote.measureIndex && last.noteIndex === clickedNote.noteIndex;
-    console.log('[Osmd] click: note=', clickedNote, 'hasTimer=', hasTimer, 'lastNote=', last, 'sameNote=', isSameNote, 'hasPhraseCb=', !!onPhraseNoteSelected);
 
     // Check if this is a double-click (same note within 300ms)
     if (hasTimer && isSameNote) {
-      console.log('[Osmd] --> DOUBLE-CLICK detected');
       clearTimeout(clickTimer.current!);
       clickTimer.current = null;
       lastClickNote.current = null;
@@ -151,19 +182,16 @@ export function OsmdNotation({
     if (clickTimer.current) {
       clearTimeout(clickTimer.current);
       if (onNoteSelect && lastClickNote.current) {
-        console.log('[Osmd] --> single-click (different note, firing pending)');
-        onNoteSelect([lastClickNote.current], 'replace');
+        onNoteSelect([lastClickNote.current]);
       }
     }
 
-    console.log('[Osmd] setting 300ms timer for potential dblclick');
     lastClickNote.current = clickedNote;
     clickTimer.current = setTimeout(() => {
-      console.log('[Osmd] --> single-click confirmed (timer expired)');
       clickTimer.current = null;
       lastClickNote.current = null;
       if (onNoteSelect) {
-        onNoteSelect([clickedNote], 'replace');
+        onNoteSelect([clickedNote]);
       }
     }, 300);
   }, [onNoteSelect, onPhraseNoteSelected]);
@@ -173,7 +201,7 @@ export function OsmdNotation({
     const osmd = getOsmdInstance();
     if (!osmd || !playbackEngine) return;
 
-    const handleStateChange = (state: unknown) => {
+    const handleStateChange = (state: PlaybackStateType) => {
       if (state === 'PLAYING') {
         cursorStepLocked.current = false;
         lastIterationTime.current = -1;
@@ -188,7 +216,8 @@ export function OsmdNotation({
       }
     };
 
-    const handleIteration = (_notes: unknown[], eventTime?: number) => {
+    const handleIteration = (entry: TimelineEntry) => {
+      const eventTime = entry.time;
       if (cursorStepLocked.current) return;
       cursorStepLocked.current = true;
 
@@ -234,10 +263,9 @@ export function OsmdNotation({
       <div id={containerId} className="osmd-score" />
 
       {/* Phrase markers (visible after double-click selection) */}
-      <PhraseMarkers
-        phraseSelection={phraseSelection}
-        onClear={onClearPhrase ?? (() => {})}
-      />
+      {phraseSelection && (
+        <PhraseMarkers phraseSelection={phraseSelection} onClearPhrase={onClearPhrase} container={containerRef.current} />
+      )}
 
       {/* Loading overlay */}
       {isLoading && (

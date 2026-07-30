@@ -15,7 +15,7 @@ export { Header } from './Header';
 export { OsmdNotation } from './OsmdNotation';
 
 // Playback Controls
-export { PlaybackControls, ProgressBar } from './PlaybackControls';
+export { PlaybackControls } from './PlaybackControls';
 
 // Score Info
 export { ScoreInfo } from './ScoreInfo';

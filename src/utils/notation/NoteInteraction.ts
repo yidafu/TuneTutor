@@ -4,7 +4,7 @@
 
 import { getOsmdInstance } from './OsmdRender';
 
-export interface NoteBounds {
+export interface NotePosition {
   measureIndex: number;
   noteIndex: number;
   x: number;
@@ -37,8 +37,8 @@ interface GraphicNoteObj {
 
 // ---- Caches (invalidated on re-render) ----
 
-let cachedNotePositions: NoteBounds[] | null = null;
-let noteElementMap: Map<SVGElement, NoteBounds> | null = null;
+let cachedNotePositions: NotePosition[] | null = null;
+let noteElementMap: Map<SVGElement, NotePosition> | null = null;
 
 /**
  * Invalidate all caches. Call when OSMD clears or re-renders.
@@ -49,47 +49,59 @@ export function invalidateNoteCaches(): void {
 }
 
 /**
- * Build a Map from SVG .vf-stavenote elements to NoteBounds.
+ * Build a Map from SVG .vf-notehead elements to NotePosition.
  * Must be called after OSMD renders (SVG elements are in the DOM).
  */
 export function buildNoteElementMap(container: HTMLElement): void {
   const svg = container.querySelector('svg');
-  if (!svg) return;
+  if (!svg) {
+    console.warn('[NoteInteraction] No SVG found in container');
+    return;
+  }
 
   const positions = getOsmdNotePositions();
-  const staveNotes = svg.querySelectorAll<SVGElement>('.vf-stavenote');
+  const noteheads = svg.querySelectorAll<SVGElement>('.vf-notehead');
+
+  console.log('[NoteInteraction] buildNoteElementMap:', {
+    svgExists: true,
+    positionsCount: positions.length,
+    noteheadsCount: noteheads.length,
+  });
+
+  // Log first few notehead classes for debugging
+  if (noteheads.length > 0) {
+    const sampleClasses: string[] = [];
+    for (let i = 0; i < Math.min(3, noteheads.length); i++) {
+      sampleClasses.push(noteheads[i].className?.baseVal || noteheads[i].className || 'no-class');
+    }
+    console.log('[NoteInteraction] sample notehead classes:', sampleClasses);
+  }
 
   noteElementMap = new Map();
-  let posIdx = 0;
-
-  for (const el of staveNotes) {
-    if (posIdx >= positions.length) break;
-    try {
-      const bbox = (el as SVGGraphicsElement).getBBox();
-      const pos = positions[posIdx];
-      if (Math.abs(bbox.x - pos.x) < 5 && Math.abs(bbox.y - pos.y) < 5) {
-        noteElementMap.set(el, pos);
-        posIdx++;
-      }
-    } catch {
-      // getBBox may throw on detached/hidden elements — skip
-    }
+  const count = Math.min(noteheads.length, positions.length);
+  for (let i = 0; i < count; i++) {
+    noteElementMap.set(noteheads[i], positions[i]);
   }
+  console.log('[NoteInteraction] noteElementMap built, size:', noteElementMap.size);
 }
 
 /**
  * Get all note positions from the rendered score.
  * Result is cached until invalidateNoteCaches() is called.
  */
-export function getOsmdNotePositions(): NoteBounds[] {
-  if (cachedNotePositions) return cachedNotePositions;
+export function getOsmdNotePositions(): NotePosition[] {
+  if (cachedNotePositions) {
+    console.log('[NoteInteraction] getOsmdNotePositions: using cache, count:', cachedNotePositions.length);
+    return cachedNotePositions;
+  }
 
   const osmd = getOsmdInstance();
   if (!osmd) {
+    console.warn('[NoteInteraction] getOsmdNotePositions: No OSMD instance');
     return [];
   }
 
-  const notes: NoteBounds[] = [];
+  const notes: NotePosition[] = [];
 
   try {
     const graphic = osmd as unknown as {
@@ -101,8 +113,11 @@ export function getOsmdNotePositions(): NoteBounds[] {
 
     const measureList = graphic.graphic.measureList;
     if (!Array.isArray(measureList)) {
+      console.warn('[NoteInteraction] measureList is not an array');
       return [];
     }
+
+    console.log('[NoteInteraction] measureList length:', measureList.length);
 
     let globalNoteIndex = 0;
 
@@ -136,49 +151,131 @@ export function getOsmdNotePositions(): NoteBounds[] {
               if (!graphicalNote) continue;
 
               const box = graphicalNote.PositionAndShape;
-              if (!box) continue;
-
-              notes.push({
-                measureIndex: m,
-                noteIndex: globalNoteIndex,
-                x: box.AbsolutePosition.x,
-                y: box.AbsolutePosition.y,
-                width: box.Width,
-                height: box.Height,
-              });
-              globalNoteIndex++;
+              if (box) {
+                notes.push({
+                  measureIndex: m,
+                  noteIndex: globalNoteIndex,
+                  x: box.AbsolutePosition.x,
+                  y: box.AbsolutePosition.y,
+                  width: box.Width,
+                  height: box.Height,
+                });
+              }
+              globalNoteIndex++; // Always increment to match timeline indices
             }
           }
         }
       }
     }
   } catch (error) {
-    console.error('Error getting note positions:', error);
+    console.error('[NoteInteraction] Error getting note positions:', error);
   }
 
+  console.log('[NoteInteraction] getOsmdNotePositions: collected', notes.length, 'positions');
   cachedNotePositions = notes;
   return notes;
 }
 
 /**
- * Find the note at the given client (viewport) coordinates using DOM hit-testing.
- * Returns null if no note is found at the position.
+ * Get the SVG .vf-notehead elements within the phrase selection range.
+ *
+ * Uses the cached note positions (from getOsmdNotePositions) to find the
+ * start/end indices, then matches them by index to .vf-notehead elements
+ * in the rendered SVG. The two arrays correspond 1:1 (same ordering as
+ * buildNoteElementMap creates).
+ *
+ * @param container  The .osmd-container element containing the rendered SVG.
+ * @param startNote  The start note of the phrase selection.
+ * @param endNote    The end note of the phrase selection.
+ * @returns Array of SVG .vf-notehead elements within the range (inclusive).
+ */
+export function getNoteElementsInRange(
+  container: HTMLElement,
+  startNote: { measureIndex: number; noteIndex: number },
+  endNote: { measureIndex: number; noteIndex: number },
+): SVGElement[] {
+  const positions = getOsmdNotePositions();
+  const startIdx = positions.findIndex(
+    p => p.measureIndex === startNote.measureIndex && p.noteIndex === startNote.noteIndex,
+  );
+  const endIdx = positions.findIndex(
+    p => p.measureIndex === endNote.measureIndex && p.noteIndex === endNote.noteIndex,
+  );
+  if (startIdx === -1 || endIdx === -1) return [];
+
+  const min = Math.min(startIdx, endIdx);
+  const max = Math.max(startIdx, endIdx);
+  const svg = container.querySelector('svg');
+  if (!svg) return [];
+
+  const noteheads = Array.from(svg.querySelectorAll<SVGElement>('.vf-notehead'));
+  return noteheads.slice(min, max + 1);
+}
+
+/**
+ * Find the note at a click position using DOM hit-testing.
+ *
+ * Strategy (in order of reliability):
+ * 1. Use the event's actual target element (the DOM node the user clicked on) —
+ *    no coordinate calculation needed, always the exact clicked element.
+ * 2. Fallback to elementsFromPoint for programmatic clicks or edge cases.
+ *
+ * The noteElementMap (built by buildNoteElementMap() after render)
+ * maps SVG .vf-notehead elements to their NotePosition data.
+ *
+ * @param clientX Viewport x coordinate (only used for elementsFromPoint fallback)
+ * @param clientY Viewport y coordinate (only used for elementsFromPoint fallback)
+ * @param target The click event's target element (event.target), the most reliable source.
  */
 export function findOsmdNoteAtPosition(
   clientX: number,
   clientY: number,
-): NoteBounds | null {
-  if (!noteElementMap) return null;
+  target?: EventTarget | null,
+): NotePosition | null {
+  if (!noteElementMap) {
+    console.log('[NoteInteraction] findOsmdNoteAtPosition: noteElementMap is null');
+    return null;
+  }
 
-  const elements = document.elementsFromPoint(clientX, clientY);
-  for (const el of elements) {
-    if (!(el instanceof SVGElement)) continue;
-    const staveNote = el.closest('.vf-stavenote');
-    if (staveNote instanceof SVGElement) {
-      const note = noteElementMap.get(staveNote);
-      if (note) return note;
+  // Strategy 1: use the actual clicked DOM element — most reliable, no coordinate issues
+  if (target instanceof Element) {
+    const targetTag = target.tagName;
+    const targetClass = target instanceof SVGElement ? target.className.baseVal : (target as Element).className || '';
+    const notehead = target.closest('.vf-notehead') as SVGElement | null;
+    console.log('[NoteInteraction] Strategy 1:', {
+      targetTag,
+      targetClass: typeof targetClass === 'string' ? targetClass.slice(0, 100) : 'no class',
+      foundNotehead: !!notehead,
+      noteheadTag: notehead?.tagName,
+      noteheadClass: notehead?.className?.baseVal,
+      mapSize: noteElementMap.size,
+      hasNoteInMap: notehead ? noteElementMap.has(notehead) : false,
+    });
+    if (notehead) {
+      const note = noteElementMap.get(notehead);
+      if (note) {
+        console.log('[NoteInteraction] ✅ Found note via event.target:', note);
+        return note;
+      }
     }
   }
 
+  // Strategy 2: fallback to elementsFromPoint for programmatic clicks
+  const elements = document.elementsFromPoint(clientX, clientY);
+  console.log('[NoteInteraction] Strategy 2: elementsFromPoint count:', elements.length,
+    'first tag:', elements[0]?.tagName, 'first class:', (elements[0] as Element)?.className);
+  for (const el of elements) {
+    if (!(el instanceof SVGElement)) continue;
+    const notehead = el.closest('.vf-notehead') as SVGElement | null;
+    if (notehead) {
+      const note = noteElementMap.get(notehead);
+      if (note) {
+        console.log('[NoteInteraction] ✅ Found note via elementsFromPoint:', note);
+        return note;
+      }
+    }
+  }
+
+  console.log('[NoteInteraction] ❌ No note found', { mapSize: noteElementMap.size });
   return null;
 }

@@ -300,17 +300,6 @@ export function parseMusicXML(xmlContent: string): ParsedScore {
     const result = parse(xmlContent) as MusicXMLIOResult;
     const score = convertToParsedScore(result);
 
-    console.log('[MusicXMLParser] Parsed score:', {
-      title: score.title,
-      composer: score.composer,
-      measuresCount: score.measures.length,
-      tempo: score.tempo,
-      timeSignature: score.timeSignature,
-      keySignature: score.keySignature,
-      divisions: score.divisions,
-      firstMeasureNotes: score.measures[0]?.notes.length || 0,
-    });
-
     return score;
   } catch (error) {
     console.error('[MusicXMLParser] Failed to parse MusicXML:', error);

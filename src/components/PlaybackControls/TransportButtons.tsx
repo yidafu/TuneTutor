@@ -8,7 +8,7 @@ interface TransportButtonsProps {
   isPlaying: boolean;
   canPlay: boolean;
   onPlay: () => void;
-  onPause: () => void;
+  onStopPlaying: () => void;
   onStop: () => void;
   t: TranslationSet;
 }
@@ -17,14 +17,14 @@ export function TransportButtons({
   isPlaying,
   canPlay,
   onPlay,
-  onPause,
+  onStopPlaying,
   onStop,
   t,
 }: TransportButtonsProps) {
   return (
     <div className="flex items-center justify-center gap-2 flex-1" role="group" aria-label="Transport controls">
       <button
-        onClick={isPlaying ? onPause : onPlay}
+        onClick={isPlaying ? onStopPlaying : onPlay}
         disabled={!canPlay && !isPlaying}
         className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
           isPlaying

@@ -53,10 +53,42 @@ export async function renderOsmd(
   await osmdInstance.load(musicXml);
   osmdInstance.render();
 
+  // OSMD's autoResize defers actual SVG population (ResizeObserver fires async).
+  // Wait for the SVG to have child elements before building the note map.
+  await waitForSvgContent(container);
+
   // Build DOM element -> note mapping for fast hit-testing
   buildNoteElementMap(container);
 
   return osmdInstance;
+}
+
+/**
+ * Wait for the SVG inside the container to have child elements.
+ * OSMD's autoResize may defer rendering to a later frame via ResizeObserver,
+ * so we poll with requestAnimationFrame until the SVG is populated.
+ */
+function waitForSvgContent(container: HTMLElement, maxAttempts = 60): Promise<void> {
+  return new Promise((resolve) => {
+    const svg = container.querySelector('svg');
+    if (!svg || svg.children.length > 0) {
+      resolve();
+      return;
+    }
+    let attempts = 0;
+    const check = () => {
+      attempts++;
+      if (svg.children.length > 0 || attempts >= maxAttempts) {
+        if (attempts >= maxAttempts) {
+          console.warn('[OsmdRender] waitForSvgContent: timeout after', maxAttempts, 'frames');
+        }
+        resolve();
+      } else {
+        requestAnimationFrame(check);
+      }
+    };
+    requestAnimationFrame(check);
+  });
 }
 
 /**
@@ -78,26 +110,10 @@ export function getOsmdInstance(): OpenSheetMusicDisplay | null {
 }
 
 /**
- * Get cursor for playback control
- */
-export function getOsmdCursor() {
-  if (!osmdInstance) return null;
-  // cursor is a public property
-  return (osmdInstance as unknown as { cursor: unknown }).cursor;
-}
-
-/**
  * Move cursor to next note
  */
 export function cursorNext(): void {
   osmdInstance?.cursor.next();
-}
-
-/**
- * Move cursor to previous note
- */
-export function cursorPrevious(): void {
-  osmdInstance?.cursor.previous();
 }
 
 /**

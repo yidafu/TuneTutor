@@ -3,86 +3,73 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { ParsedScore } from '../types/notation';
-import type { PlaybackState, PlaybackActions, LoopRange, MetronomeSoundType } from '../types/playback';
-import { calculateTotalDuration as calculateDurationFromMeasures, noteDurationToSeconds, beatsToSeconds } from '../audio/TempoConverter';
+import type { PlaybackState, PlaybackActions, LoopRange, MetronomeSoundType, TimelineEntry } from '../types/playback';
 import type { InstrumentType } from '../types/audio';
-
-const STORAGE_KEY = 'note-slice-preferred-instrument';
-
-function getSavedInstrument(): InstrumentType {
-  if (typeof window === 'undefined') return 'piano';
-  const saved = localStorage.getItem(STORAGE_KEY);
-  return (saved as InstrumentType) || 'piano';
-}
-
-function saveInstrument(type: InstrumentType): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, type);
-  }
-}
+import { getSavedInstrument, saveInstrument } from '../types/audio';
+import { isBrowser } from '../utils/isBrowser';
 
 const METRONOME_SOUND_KEY = 'note-slice-metronome-sound';
 const METRONOME_STRONG_VOL_KEY = 'note-slice-metronome-strong-volume';
 const METRONOME_WEAK_VOL_KEY = 'note-slice-metronome-weak-volume';
 
 function getSavedMetronomeSound(): MetronomeSoundType {
-  if (typeof window === 'undefined') return 'classic';
-  return (localStorage.getItem(METRONOME_SOUND_KEY) as MetronomeSoundType) || 'classic';
+  if (!isBrowser) return 'classic';
+  const saved = localStorage.getItem(METRONOME_SOUND_KEY);
+  if (saved === 'classic' || saved === 'digital' || saved === 'kick' || saved === 'click') {
+    return saved;
+  }
+  return 'classic';
 }
 
 function getSavedMetronomeStrongVolume(): number {
-  if (typeof window === 'undefined') return 0.8;
+  if (!isBrowser) return 0.8;
   const saved = localStorage.getItem(METRONOME_STRONG_VOL_KEY);
   return saved ? parseFloat(saved) : 0.8;
 }
 
 function getSavedMetronomeWeakVolume(): number {
-  if (typeof window === 'undefined') return 0.5;
+  if (!isBrowser) return 0.5;
   const saved = localStorage.getItem(METRONOME_WEAK_VOL_KEY);
   return saved ? parseFloat(saved) : 0.5;
 }
 
 // Helper to calculate current note index and progress within note from time
-function calculateNotePosition(
-  score: ParsedScore,
+// Uses binary search on the shared timeline (single source of truth).
+function calculateNotePositionFromTimeline(
+  timeline: TimelineEntry[],
   currentTime: number,
-  tempo: number
 ): { measureIndex: number; noteIndex: number; progressInNote: number } {
-  const [, beatValue] = score.timeSignature.split('/').map(Number);
-  let elapsedTime = 0;
+  if (timeline.length === 0) return { measureIndex: 0, noteIndex: 0, progressInNote: 0 };
 
-  for (let m = 0; m < score.measures.length; m++) {
-    const measure = score.measures[m];
-    for (let n = 0; n < measure.notes.length; n++) {
-      const note = measure.notes[n];
-      const noteDuration = noteDurationToSeconds(note.duration, tempo, beatValue);
+  let lo = 0;
+  let hi = timeline.length - 1;
 
-      if (currentTime >= elapsedTime && currentTime < elapsedTime + noteDuration) {
-        return {
-          measureIndex: m,
-          noteIndex: n,
-          progressInNote: (currentTime - elapsedTime) / noteDuration,
-        };
-      }
-      elapsedTime += noteDuration;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const entry = timeline[mid];
+    if (currentTime >= entry.time && currentTime < entry.time + entry.duration) {
+      return {
+        measureIndex: entry.measureIndex,
+        noteIndex: entry.noteIndex,
+        progressInNote: (currentTime - entry.time) / entry.duration,
+      };
+    }
+    if (currentTime < entry.time) {
+      hi = mid - 1;
+    } else {
+      lo = mid + 1;
     }
   }
 
-  // If time is beyond all notes, return last note
-  const lastMeasure = score.measures[score.measures.length - 1];
-  if (lastMeasure.notes.length > 0) {
-    return {
-      measureIndex: score.measures.length - 1,
-      noteIndex: lastMeasure.notes.length - 1,
-      progressInNote: 1,
-    };
+  // currentTime falls between entries — return the preceding entry
+  const prev = timeline[Math.min(hi, timeline.length - 1)];
+  if (prev) {
+    return { measureIndex: prev.measureIndex, noteIndex: prev.noteIndex, progressInNote: 1 };
   }
-
   return { measureIndex: 0, noteIndex: 0, progressInNote: 0 };
 }
 
-export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, number] {
+export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType] {
   const [state, setState] = useState<PlaybackState>({
     isPlaying: false,
     isPaused: false,
@@ -104,15 +91,10 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
 
   // Audio preferences
   const [currentInstrument, setCurrentInstrumentState] = useState<InstrumentType>(getSavedInstrument());
-  const [volume, setVolumeState] = useState<number>(1);
 
   const setInstrument = useCallback((type: InstrumentType) => {
     saveInstrument(type);
     setCurrentInstrumentState(type);
-  }, []);
-
-  const setVolume = useCallback((vol: number) => {
-    setVolumeState(vol);
   }, []);
 
   const toggleMetronome = useCallback(() => {
@@ -127,7 +109,7 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
       ...prev,
       metronomeSound: sound,
     }));
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       localStorage.setItem(METRONOME_SOUND_KEY, sound);
     }
   }, []);
@@ -137,7 +119,7 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
       ...prev,
       metronomeStrongVolume: volume,
     }));
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       localStorage.setItem(METRONOME_STRONG_VOL_KEY, String(volume));
     }
   }, []);
@@ -147,39 +129,47 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
       ...prev,
       metronomeWeakVolume: volume,
     }));
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       localStorage.setItem(METRONOME_WEAK_VOL_KEY, String(volume));
     }
   }, []);
 
-  // Store score and tempo for position calculation
-  const scoreRef = useRef<ParsedScore | null>(null);
-  const tempoRef = useRef<number>(120);
+  // Store timeline for position calculation
+  const timelineRef = useRef<TimelineEntry[]>([]);
 
   const intervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const pauseTimeRef = useRef<number>(0);
-  const loopCycleStartRef = useRef<number>(0);  // Start time of current loop cycle
 
-  // Calculate total duration of measures
-  const calculateTotalDuration = useCallback((score: ParsedScore, tempo: number = 120): number => {
-    scoreRef.current = score;
-    tempoRef.current = tempo;
-    return calculateDurationFromMeasures(score.measures, tempo, score.timeSignature);
+  // Set timeline (called by App.tsx after OSMD renders or tempo changes)
+  const setTimeline = useCallback((tl: TimelineEntry[]) => {
+    timelineRef.current = tl;
+    const total = tl.length > 0
+      ? tl[tl.length - 1].time + tl[tl.length - 1].duration
+      : 0;
+    setState((prev) => ({ ...prev, totalDuration: total }));
   }, []);
 
-  // Play
+  // Play (or resume from pause)
   const play = useCallback(() => {
+    const now = Date.now();
+    // Resume from pause: advance startTime by the paused duration so elapsed
+    // wall-clock time correctly excludes time spent paused.
+    if (pauseTimeRef.current > 0) {
+      const pauseDuration = now - pauseTimeRef.current;
+      startTimeRef.current += pauseDuration;
+    } else {
+      startTimeRef.current = now;
+    }
+    pauseTimeRef.current = 0;
+
     setState((prev) => ({
       ...prev,
       isPlaying: true,
       isPaused: false,
-      currentMeasure: 0,
-      currentNoteIndex: -1,
+      currentMeasure: prev.currentMeasure === -1 ? 0 : prev.currentMeasure,
+      currentNoteIndex: prev.currentNoteIndex === -1 ? -1 : prev.currentNoteIndex,
     }));
-    startTimeRef.current = Date.now();
-    pauseTimeRef.current = 0;
-    loopCycleStartRef.current = Date.now();
   }, []);
 
   // Pause
@@ -249,51 +239,41 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
 
     intervalRef.current = window.setInterval(() => {
       const elapsed = (Date.now() - startTimeRef.current) / 1000;
-      const currentTime = pauseTimeRef.current > 0 ? elapsed - pauseTimeRef.current + pauseTimeRef.current : elapsed;
+      const currentTime = elapsed;
 
       setState((prev) => {
         if (prev.totalDuration === 0) return prev;
 
         const newProgress = (currentTime / prev.totalDuration) * 100;
 
-        // Check if we need to loop with skip (N play, M skip)
-        if (prev.loopEnabled && prev.loopRange && scoreRef.current) {
-          // playDuration from startBeat to endBeat
-          const playBeats = prev.loopRange.endBeat - prev.loopRange.startBeat;
-          // Convert beats directly to seconds
-          const playDuration = beatsToSeconds(playBeats, tempoRef.current, 4);
-          // Use skipBeats from loopRange
-          const skipBeats = prev.loopRange.skipBeats || playBeats;
-          const skipDuration = beatsToSeconds(skipBeats, tempoRef.current, 4);
-          const cycleDuration = playDuration + skipDuration;
-
-          // Calculate cycle position using modulo
+        // Loop with skip (range-based)
+        if (prev.loopEnabled && prev.loopRange && timelineRef.current.length > 0) {
+          const playDuration = prev.loopRange.endTime - prev.loopRange.startTime;
+          const skipTime = prev.loopRange.skipTime;
+          const cycleDuration = playDuration + skipTime;
           const cycleTime = currentTime % cycleDuration;
 
           if (cycleTime >= playDuration) {
-            // Skip phase - we're waiting, position indicator at the end of play range
-            const skipProgress = (playDuration / prev.totalDuration) * 100;
+            // Skip phase — indicator pauses at loop end
             return {
               ...prev,
-              progress: skipProgress,
+              progress: (playDuration / prev.totalDuration) * 100,
               currentTime: playDuration,
-              currentMeasure: prev.loopRange.endBeat,
+              currentMeasure: -1,
               currentNoteIndex: -1,
             };
           }
 
-          // Play phase - show current position
-          const startBeatOffset = beatsToSeconds(prev.loopRange.startBeat, tempoRef.current, 4);
-          const positionTime = cycleTime + startBeatOffset;
-          const { measureIndex, noteIndex } = calculateNotePosition(
-            scoreRef.current,
+          // Play phase
+          const positionTime = cycleTime + prev.loopRange.startTime;
+          const { measureIndex, noteIndex } = calculateNotePositionFromTimeline(
+            timelineRef.current,
             positionTime,
-            tempoRef.current
           );
           return {
             ...prev,
-            progress: (cycleTime / prev.totalDuration) * 100,
-            currentTime: cycleTime,
+            progress: (currentTime / prev.totalDuration) * 100,
+            currentTime,
             currentMeasure: measureIndex,
             currentNoteIndex: noteIndex,
           };
@@ -301,7 +281,7 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
 
         if (newProgress >= 100) {
           if (prev.loopEnabled) {
-            // Restart playback from beginning
+            // Restart playback from beginning (full-score loop)
             startTimeRef.current = Date.now();
             return {
               ...prev,
@@ -327,8 +307,8 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
         }
 
         // Calculate current note position for indicator
-        const { measureIndex, noteIndex } = scoreRef.current
-          ? calculateNotePosition(scoreRef.current, currentTime, tempoRef.current)
+        const { measureIndex, noteIndex } = timelineRef.current.length > 0
+          ? calculateNotePositionFromTimeline(timelineRef.current, currentTime)
           : { measureIndex: 0, noteIndex: 0 };
 
         return {
@@ -364,16 +344,15 @@ export function usePlayback(): [PlaybackState, PlaybackActions, InstrumentType, 
     toggleLoop,
     setLoopRange,
     seek,
-    calculateTotalDuration,
+    setTimeline,
     setInstrument,
-    setVolume,
     toggleMetronome,
     setMetronomeSound,
     setMetronomeStrongVolume,
     setMetronomeWeakVolume,
-  }), [calculateTotalDuration, pause, play, seek, setLoopRange, stop, toggleLoop, setInstrument, setVolume, toggleMetronome, setMetronomeSound, setMetronomeStrongVolume, setMetronomeWeakVolume]);
+  }), [pause, play, seek, setLoopRange, setTimeline, stop, toggleLoop, setInstrument, toggleMetronome, setMetronomeSound, setMetronomeStrongVolume, setMetronomeWeakVolume]);
 
-  return [state, actions, currentInstrument, volume];
+  return [state, actions, currentInstrument];
 }
 
 export default usePlayback;

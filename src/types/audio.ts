@@ -2,6 +2,9 @@
  * Audio engine types for the Music Notation Player
  */
 
+import type { TranslationSet } from '../locales';
+import { isBrowser } from '../utils/isBrowser';
+
 export type InstrumentType = 'piano' | 'saxophone' | 'guitar' | 'bass' | 'violin' | 'flute' | 'trumpet';
 
 export interface InstrumentConfig {
@@ -22,7 +25,7 @@ export const INSTRUMENTS: InstrumentConfig[] = [
 ] as const;
 
 // English instrument names (fallback)
-export const instrumentNamesEn: Record<string, string> = {
+export const instrumentNamesEn: Record<InstrumentType, string> = {
   piano: 'Piano',
   saxophone: 'Saxophone',
   guitar: 'Guitar',
@@ -33,7 +36,7 @@ export const instrumentNamesEn: Record<string, string> = {
 } as const;
 
 // Chinese instrument names
-export const instrumentNamesZh: Record<string, string> = {
+export const instrumentNamesZh: Record<InstrumentType, string> = {
   piano: '钢琴',
   saxophone: '萨克斯',
   guitar: '吉他',
@@ -43,21 +46,28 @@ export const instrumentNamesZh: Record<string, string> = {
   trumpet: '小号',
 } as const;
 
-// Mapping from InstrumentType to MIDI instrument ID
-export const INSTRUMENT_TO_MIDI: Record<InstrumentType, number> = {
-  piano: 0, // Acoustic Grand Piano
-  saxophone: 65, // Alto Sax
-  guitar: 25, // Acoustic Guitar (steel) - 使用确定支持的
-  bass: 32, // Acoustic Bass
-  violin: 40, // Violin
-  flute: 73, // Flute
-  trumpet: 56, // Trumpet
-};
+// Instrument persistence in localStorage
+const STORAGE_KEY = 'note-slice-preferred-instrument';
+
+export function getSavedInstrument(): InstrumentType {
+  if (!isBrowser) return 'piano';
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved && INSTRUMENTS.some(i => i.type === saved)) {
+    return saved as InstrumentType;
+  }
+  return 'piano';
+}
+
+export function saveInstrument(type: InstrumentType): void {
+  if (isBrowser) {
+    localStorage.setItem(STORAGE_KEY, type);
+  }
+}
 
 // Get instrument name based on translation set
-export function getInstrumentName(type: InstrumentType, t: Record<string, any>): string {
+export function getInstrumentName(type: InstrumentType, t: TranslationSet): string {
   const inst = INSTRUMENTS.find(i => i.type === type);
   if (!inst) return type;
-  const key = `instrument_${inst.nameKey}` as keyof typeof t;
-  return (t[key] as string) || instrumentNamesEn[inst.nameKey] || instrumentNamesZh[inst.nameKey] || inst.nameKey;
+  const key = `instrument_${inst.nameKey}` as keyof TranslationSet;
+  return t[key] || instrumentNamesEn[type] || instrumentNamesZh[type] || inst.nameKey;
 }

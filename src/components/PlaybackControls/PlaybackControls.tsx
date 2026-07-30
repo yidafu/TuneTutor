@@ -3,30 +3,23 @@
  */
 
 import type { TranslationSet } from '../../locales';
-import type { MetronomeSoundType } from '../../types/playback';
+import type { LoopConfig, MetronomeConfig, MetronomeSoundType } from '../../types/playback';
 import { TempoSlider } from './TempoSlider';
 import { TransportButtons } from './TransportButtons';
 import { LoopSkipSelector } from './LoopSkipSelector';
 import { MetronomeToggle } from './MetronomeToggle';
 
-export interface LoopConfig {
-  skipBeats: number;  // M: skip M beats
-}
-
 export interface PlaybackControlsProps {
   isPlaying: boolean;
   canPlay: boolean;
   onPlay: () => void;
-  onPause: () => void;
+  onStopPlaying: () => void;
   onStop: () => void;
   tempo: number;
   onTempoChange: (tempo: number) => void;
   loopConfig: LoopConfig;
   onLoopConfigChange: (config: LoopConfig) => void;
-  metronomeEnabled: boolean;
-  metronomeSound: MetronomeSoundType;
-  metronomeStrongVolume: number;
-  metronomeWeakVolume: number;
+  metronomeConfig: MetronomeConfig;
   onMetronomeToggle: () => void;
   onMetronomeSoundChange: (sound: MetronomeSoundType) => void;
   onMetronomeStrongVolumeChange: (volume: number) => void;
@@ -38,16 +31,13 @@ export function PlaybackControls({
   isPlaying,
   canPlay,
   onPlay,
-  onPause,
+  onStopPlaying,
   onStop,
   tempo,
   onTempoChange,
   loopConfig,
   onLoopConfigChange,
-  metronomeEnabled,
-  metronomeSound,
-  metronomeStrongVolume,
-  metronomeWeakVolume,
+  metronomeConfig,
   onMetronomeToggle,
   onMetronomeSoundChange,
   onMetronomeStrongVolumeChange,
@@ -63,15 +53,12 @@ export function PlaybackControls({
             isPlaying={isPlaying}
             canPlay={canPlay}
             onPlay={onPlay}
-            onPause={onPause}
+            onStopPlaying={onStopPlaying}
             onStop={onStop}
             t={t}
           />
           <MetronomeToggle
-            enabled={metronomeEnabled}
-            sound={metronomeSound}
-            strongVolume={metronomeStrongVolume}
-            weakVolume={metronomeWeakVolume}
+            config={metronomeConfig}
             onToggle={onMetronomeToggle}
             onSoundChange={onMetronomeSoundChange}
             onStrongVolumeChange={onMetronomeStrongVolumeChange}

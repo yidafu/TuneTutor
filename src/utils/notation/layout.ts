@@ -2,8 +2,8 @@
  * Layout calculation utilities for music notation rendering
  */
 
-import type { RowConfig, ScoreLayout } from './types';
-import { STAVE_WIDTH, STAVE_HEIGHT, PADDING, STAVE_PADDING, ROW_SPACING, TOP_Y } from './types';
+import type { RowConfig, ScoreLayout } from '../../types';
+import { STAVE_WIDTH, STAVE_HEIGHT, PADDING, STAVE_PADDING, ROW_SPACING, TOP_Y } from '../../types';
 
 /**
  * Calculate score layout for automatic wrapping

@@ -1,9 +1,9 @@
-import { Part, Transport, Draw, Frequency, MembraneSynth, Synth, NoiseSynth, start } from 'tone';
+import { Part, Transport, Draw, MembraneSynth, Synth, NoiseSynth, start } from 'tone';
 import type { Sampler } from 'tone';
-import type { OpenSheetMusicDisplay, Note } from 'opensheetmusicdisplay';
+import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { InstrumentLoader } from './InstrumentLoader';
-import { realValueToSeconds, beatsToSeconds } from './TempoConverter';
-import type { MetronomeSoundType } from '../types/playback';
+import { buildTimeline } from './buildTimeline';
+import type { MetronomeSoundType, LoopRange, TimelineEntry } from '../types/playback';
 
 // ── Events ──────────────────────────────────────────────
 
@@ -13,23 +13,16 @@ export const PlaybackEvent = {
 } as const;
 export type PlaybackEvent = (typeof PlaybackEvent)[keyof typeof PlaybackEvent];
 
-// ── Internal types ──────────────────────────────────────
+export type PlaybackStateType = 'PLAYING' | 'STOPPED';
 
-interface ScheduledNoteEvent {
-  time: number;
-  duration: number;
-  noteName: string;
-  originalNotes: Note[];
+// Per-event callback signatures — this type-safely maps each event name to its
+// callback parameter list, so on() and emit() catch signature mismatches.
+interface PlaybackEventCallback {
+  [PlaybackEvent.ITERATION]: (entry: TimelineEntry) => void;
+  [PlaybackEvent.STATE_CHANGE]: (state: PlaybackStateType) => void;
 }
 
 // ── Loop config ─────────────────────────────────────────
-
-export interface PlaybackLoopConfig {
-  enabled: boolean;
-  startBeat: number;
-  endBeat: number;
-  skipBeats: number;
-}
 
 // ── Metronome presets ────────────────────────────────────
 
@@ -96,7 +89,10 @@ export class PlaybackEngine {
   private metronomeWeakVolume = 0.5;
   private beatCounter = 0;
   private beatsPerMeasure = 4;
-  private listeners = new Map<PlaybackEvent, Set<(...args: any[]) => void>>();
+  // The Set stores callbacks as Function to work around Map<Event, Set<Fn>>
+  // not composing cleanly with the mapped-type approach.  Public on()/emit()
+  // methods provide type safety at the call site.
+  private listeners = new Map<PlaybackEvent, Set<(...args: unknown[]) => void>>();
 
   constructor() {
     this.loader.loadInstrument('piano').then((s) => {
@@ -110,10 +106,10 @@ export class PlaybackEngine {
     this.osmd = osmd;
   }
 
-  async play(loopConfig?: PlaybackLoopConfig): Promise<void> {
+  async play(loopRange?: LoopRange): Promise<void> {
     await start();
-    console.log('[PlaybackEngine] play() called, loopConfig:', loopConfig, 'hasOsmd:', !!this.osmd, 'hasSampler:', !!this.sampler);
     if (!this.osmd || !this.sampler) return;
+    const sampler = this.sampler;
 
     this.part?.dispose();
     Transport.cancel();
@@ -126,66 +122,38 @@ export class PlaybackEngine {
 
     Transport.bpm.value = this.bpm;
 
-    if (loopConfig?.enabled) {
-      console.log('[PlaybackEngine] Entering LOOP branch');
-      const startTime = beatsToSeconds(loopConfig.startBeat, this.bpm, 4);
-      const endTime = beatsToSeconds(loopConfig.endBeat, this.bpm, 4);
-      console.log('[PlaybackEngine] Loop range in seconds:', { startTime: startTime.toFixed(2), endTime: endTime.toFixed(2), bpm: this.bpm });
-      const timeline = this.buildTimetable(startTime, endTime);
-      console.log('[PlaybackEngine] Filtered timeline:', { eventCount: timeline.length });
-      if (timeline.length === 0) {
-        console.warn('[PlaybackEngine] Empty timeline — no notes in loop range, aborting');
-        return;
-      }
+    const timeline = loopRange
+      ? buildTimeline(this.osmd, this.bpm, { startTime: loopRange.startTime, endTime: loopRange.endTime })
+      : buildTimeline(this.osmd, this.bpm);
 
-      const playDuration = endTime - startTime;
-      const skipDuration = beatsToSeconds(loopConfig.skipBeats, this.bpm, 4);
-
-      this.part = new Part((time, event: ScheduledNoteEvent) => {
-        this.sampler!.triggerAttackRelease(event.noteName, event.duration, time, 0.7);
-        Draw.schedule(() => {
-          this.emit(PlaybackEvent.ITERATION, event.originalNotes, time);
-        }, time);
-      }, timeline);
-
-      this.part.loop = true;
-      this.part.loopEnd = playDuration + skipDuration;
-
-      console.log(
-        `[PlaybackEngine] Loop playback: range [${loopConfig.startBeat}-${loopConfig.endBeat}] beats, ` +
-        `play=${playDuration.toFixed(2)}s, skip=${skipDuration.toFixed(2)}s, loopEnd=${(playDuration + skipDuration).toFixed(2)}s, events=${timeline.length}`,
-      );
-      console.log('[PlaybackEngine] Part.loop:', this.part.loop, 'Part.loopEnd:', this.part.loopEnd);
-
-      this.part.start(0);
-      Transport.start();
-      console.log('[PlaybackEngine] Transport started in LOOP mode');
-      this.emit(PlaybackEvent.STATE_CHANGE, 'PLAYING');
+    if (timeline.length === 0) {
+      console.warn('[PlaybackEngine] Empty timeline — no notes in range, aborting');
       return;
     }
 
-    // Non-loop playback (original behavior)
-    console.log('[PlaybackEngine] Entering NON-LOOP branch');
-    const timeline = this.buildTimetable();
-    if (timeline.length === 0) return;
-
-    this.part = new Part((time, event: ScheduledNoteEvent) => {
-      this.sampler!.triggerAttackRelease(event.noteName, event.duration, time, 0.7);
+    this.part = new Part((time, event: TimelineEntry) => {
+      sampler.triggerAttackRelease(event.noteName, event.duration, time, 0.7);
       Draw.schedule(() => {
-        this.emit(PlaybackEvent.ITERATION, event.originalNotes, time);
+        this.emit(PlaybackEvent.ITERATION, event);
       }, time);
     }, timeline);
 
-    const totalDuration =
-      timeline[timeline.length - 1].time + timeline[timeline.length - 1].duration;
+    if (loopRange) {
+      const playDuration = loopRange.endTime - loopRange.startTime;
+      this.part.loop = true;
+      this.part.loopEnd = playDuration + loopRange.skipTime;
+      this.part.start(0);
+    } else {
+      const totalDuration = timeline[timeline.length - 1].time + timeline[timeline.length - 1].duration;
 
-    Transport.schedule(() => {
-      Transport.stop();
-      this.emit(PlaybackEvent.STATE_CHANGE, 'STOPPED');
-    }, totalDuration);
+      Transport.schedule(() => {
+        Transport.stop();
+        this.emit(PlaybackEvent.STATE_CHANGE, 'STOPPED');
+      }, totalDuration);
 
-    console.log(`[PlaybackEngine] Total duration: ${totalDuration.toFixed(2)}s, events: ${timeline.length}`);
-    this.part.start(0);
+      this.part.start(0);
+    }
+
     Transport.start();
     this.emit(PlaybackEvent.STATE_CHANGE, 'PLAYING');
   }
@@ -280,101 +248,20 @@ export class PlaybackEngine {
     }
   }
 
-  on(event: PlaybackEvent, callback: (...args: any[]) => void): void {
+  on<E extends PlaybackEvent>(event: E, callback: PlaybackEventCallback[E]): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    this.listeners.get(event)!.add(callback);
+    // The stored Set is typed with unknown[], but we only push callbacks that
+    // conform to the typed map — the cast is safe.
+    (this.listeners.get(event) as Set<PlaybackEventCallback[E]>).add(callback);
   }
 
   // ── Private helpers ─────────────────────────────────
 
-  private emit(event: PlaybackEvent, ...args: any[]): void {
-    this.listeners.get(event)?.forEach((cb) => cb(...args));
-  }
-
-  private buildTimetable(startTime?: number, endTime?: number): ScheduledNoteEvent[] {
-    const osmd = this.osmd!;
-    const cursor = osmd.cursor;
-    cursor.reset();
-
-    const filtering = startTime !== undefined && endTime !== undefined;
-    if (filtering) {
-      console.log(`[PlaybackEngine] buildTimetable filtering: startTime=${startTime!.toFixed(2)}s, endTime=${endTime!.toFixed(2)}s, bpm=${this.bpm}`);
-    }
-
-    const events: ScheduledNoteEvent[] = [];
-    let accumulatedTime = 0;
-    let entryIndex = 0;
-    let skippedCount = 0;
-    let totalEntries = 0;
-
-    while (!cursor.Iterator.EndReached) {
-      const entries = cursor.Iterator.CurrentVoiceEntries;
-      if (!entries || entries.length === 0) {
-        cursor.next();
-        continue;
-      }
-
-      totalEntries++;
-      let maxRealValue = 0;
-      const entryNotes: string[] = [];
-
-      for (const entry of entries) {
-        if (entry.IsGrace) continue;
-
-        for (const note of entry.Notes) {
-          if (note.IsGraceNote) continue;
-
-          // Skip tie continuation notes — handled as part of the start note
-          if (note.NoteTie && note !== note.NoteTie.StartNote) continue;
-
-          const isTied = !!(note.NoteTie);
-          const effectiveRealValue = isTied
-            ? note.NoteTie!.Duration.RealValue
-            : note.Length.RealValue;
-
-          if (effectiveRealValue > maxRealValue) maxRealValue = effectiveRealValue;
-
-          if (note.isRest()) {
-            entryNotes.push(`rest(RV=${effectiveRealValue})`);
-            continue;
-          }
-
-          const duration = realValueToSeconds(effectiveRealValue, this.bpm);
-          const noteName = Frequency(note.halfTone, 'midi').toNote();
-
-          entryNotes.push(
-            `${noteName}(RV=${effectiveRealValue}, tied=${isTied}, dur=${duration.toFixed(3)}s)`,
-          );
-
-          const inRange = !filtering || (accumulatedTime >= startTime! && accumulatedTime < endTime!);
-          if (inRange) {
-            events.push({
-              time: filtering ? accumulatedTime - startTime! : accumulatedTime,
-              duration,
-              noteName,
-              originalNotes: isTied ? note.NoteTie!.Notes : [note],
-            });
-          } else if (filtering) {
-            skippedCount++;
-          }
-        }
-      }
-
-      const advance = realValueToSeconds(maxRealValue, this.bpm);
-      accumulatedTime += advance;
-      entryIndex++;
-
-      if (filtering && accumulatedTime > endTime!) break;
-
-      cursor.next();
-    }
-
-    if (filtering) {
-      console.log(`[PlaybackEngine] buildTimetable result: ${events.length} events in range, ${skippedCount} notes skipped, ${totalEntries} entries processed, final accumulatedTime=${accumulatedTime.toFixed(2)}s`);
-    }
-
-    return events;
+  private emit<E extends PlaybackEvent>(event: E, ...args: Parameters<PlaybackEventCallback[E]>): void {
+    const fns = this.listeners.get(event);
+    if (!fns) return;
+    (fns as Set<(...args: unknown[]) => void>).forEach((cb) => cb(...(args as unknown[])));
   }
 }

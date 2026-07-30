@@ -94,22 +94,18 @@ export function FileLoader({ onScoreLoaded, onError }: FileLoaderProps) {
 
   const handleFileSelectFromHistory = useCallback(
     async (file: StoredFile) => {
-      console.log('[FileLoader] Selected file from history:', file.title);
 
       // If parsedScore is available and valid, use it directly
       if (file.parsedScore && file.parsedScore.measures && file.parsedScore.measures.length > 0) {
-        console.log('[FileLoader] Using cached parsedScore with', file.parsedScore.measures.length, 'measures');
         onScoreLoaded(file.parsedScore, file);
         return;
       }
 
-      console.log('[FileLoader] parsedScore missing or empty, re-parsing from rawContent');
       // Fallback: re-parse from raw content if parsedScore is missing or empty
       if (file.rawContent) {
         setIsLoading(true);
         try {
           const score = parseMusicXML(file.rawContent);
-          console.log('[FileLoader] Parsed score:', score.title, '-', score.measures?.length, 'measures');
           onScoreLoaded(score, file);
         } catch (err) {
           console.error('[FileLoader] Parse error:', err);

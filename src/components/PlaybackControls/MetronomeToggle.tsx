@@ -1,14 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { TranslationSet } from '../../locales';
-import type { MetronomeSoundType } from '../../types/playback';
+import type { MetronomeSoundType, MetronomeConfig } from '../../types/playback';
 
 const SOUND_OPTIONS: MetronomeSoundType[] = ['classic', 'digital', 'kick', 'click'];
 
 interface MetronomeToggleProps {
-  enabled: boolean;
-  sound: MetronomeSoundType;
-  strongVolume: number;
-  weakVolume: number;
+  config: MetronomeConfig;
   onToggle: () => void;
   onSoundChange: (sound: MetronomeSoundType) => void;
   onStrongVolumeChange: (volume: number) => void;
@@ -17,10 +14,7 @@ interface MetronomeToggleProps {
 }
 
 export function MetronomeToggle({
-  enabled,
-  sound,
-  strongVolume,
-  weakVolume,
+  config,
   onToggle,
   onSoundChange,
   onStrongVolumeChange,
@@ -61,12 +55,12 @@ export function MetronomeToggle({
       <button
         onClick={onToggle}
         className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-          enabled
+          config.enabled
             ? 'bg-orange-500 text-white hover:bg-orange-600'
             : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
         }`}
         aria-label={t.metronome}
-        aria-pressed={enabled}
+        aria-pressed={config.enabled}
       >
         {t.metronome}
       </button>
@@ -104,11 +98,11 @@ export function MetronomeToggle({
                       key={s}
                       onClick={() => handleSoundChange(s)}
                       className={`flex-1 px-2 py-1 text-xs rounded font-medium transition-colors ${
-                        sound === s
+                        config.sound === s
                           ? 'bg-orange-500 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
-                      aria-pressed={sound === s}
+                      aria-pressed={config.sound === s}
                     >
                       {t[`metronomeSound_${s}`]}
                     </button>
@@ -125,7 +119,7 @@ export function MetronomeToggle({
                   min="0"
                   max="1"
                   step="0.05"
-                  value={strongVolume}
+                  value={config.strongVolume}
                   onChange={(e) => onStrongVolumeChange(parseFloat(e.target.value))}
                   className="w-full h-1.5 accent-orange-500 cursor-pointer"
                 />
@@ -140,7 +134,7 @@ export function MetronomeToggle({
                   min="0"
                   max="1"
                   step="0.05"
-                  value={weakVolume}
+                  value={config.weakVolume}
                   onChange={(e) => onWeakVolumeChange(parseFloat(e.target.value))}
                   className="w-full h-1.5 accent-orange-500 cursor-pointer"
                 />

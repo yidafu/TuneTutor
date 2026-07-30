@@ -1,10 +1,7 @@
 import type { SelectedNote, PhraseSelection } from '../types/notation';
 import { formatSelectionRange } from '../utils/notation';
 import type { TranslationSet } from '../locales';
-
-interface LoopConfig {
-  skipBeats: number;
-}
+import type { LoopConfig } from '../types/playback';
 
 interface StatusBarProps {
   selectedNotes: SelectedNote[];
@@ -24,7 +21,9 @@ export function StatusBar({
   phraseSelection = null,
 }: StatusBarProps) {
   const selectionText = phraseSelection
-    ? `${t.measure?.replace('{0}', String(phraseSelection.startNote.measureIndex + 1))} - ${t.measure?.replace('{0}', String(phraseSelection.endNote.measureIndex + 1))}`
+    ? phraseSelection.endNote
+      ? `${t.measure?.replace('{0}', String(phraseSelection.startNote.measureIndex + 1))} - ${t.measure?.replace('{0}', String(phraseSelection.endNote.measureIndex + 1))}`
+      : `${t.measure?.replace('{0}', String(phraseSelection.startNote.measureIndex + 1))} (start)`
     : formatSelectionRange(selectedNotes, {
         emptyText: t.noSelection,
         prefix: '',

@@ -4,7 +4,7 @@
 
 import { useCallback } from 'react';
 import type { TranslationSet } from '../../locales';
-import type { LoopConfig } from './PlaybackControls';
+import type { LoopConfig } from '../../types/playback';
 
 interface LoopSkipSelectorProps {
   loopConfig: LoopConfig;

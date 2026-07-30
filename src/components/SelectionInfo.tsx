@@ -34,7 +34,9 @@ export function SelectionInfo({
               ? t.phraseSelected.replace('{0}', '')
               : 'Phrase selected'}
             {' '}
-            ({t.measure?.replace('{0}', String(phraseSelection.startNote.measureIndex + 1))} - {t.measure?.replace('{0}', String(phraseSelection.endNote.measureIndex + 1))})
+            {phraseSelection.endNote
+              ? `(${t.measure?.replace('{0}', String(phraseSelection.startNote.measureIndex + 1))} - ${t.measure?.replace('{0}', String(phraseSelection.endNote.measureIndex + 1))})`
+              : `(${t.measure?.replace('{0}', String(phraseSelection.startNote.measureIndex + 1))} - ?)`}
           </span>
         )}
         {!hasPhrase && displayText}

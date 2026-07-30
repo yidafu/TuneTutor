@@ -2,18 +2,54 @@
  * Playback state types for the Music Notation Player
  */
 
-import type { ParsedScore } from './notation';
 import type { InstrumentType } from './audio';
 
 export type MetronomeSoundType = 'classic' | 'digital' | 'kick' | 'click';
 
 /**
- * Loop range for section looping
+ * Loop skip-beat configuration (UI layer — keeps beat input for user)
+ */
+export interface LoopConfig {
+  skipBeats: number;
+}
+
+/**
+ * Metronome configuration
+ */
+export interface MetronomeConfig {
+  enabled: boolean;
+  sound: MetronomeSoundType;
+  strongVolume: number;
+  weakVolume: number;
+}
+
+/**
+ * A single entry in the shared playback timeline.
+ * Built once from OSMD cursor and used by both audio engine and UI.
+ */
+export interface TimelineEntry {
+  /** Wall-clock offset from score start (seconds) */
+  time: number;
+  /** Duration of this entry (seconds) */
+  duration: number;
+  /** Measure index (0-based) */
+  measureIndex: number;
+  /** Global note index across the entire score (0-based) */
+  noteIndex: number;
+  /** MIDI note name (e.g. "C4") */
+  noteName: string;
+  /** Whether this entry is a rest (no audio) */
+  isRest: boolean;
+}
+
+/**
+ * Loop range for section looping — times in seconds.
+ * Constructed from the shared TimelineEntry[] rather than from beat approximations.
  */
 export interface LoopRange {
-  startBeat: number;    // Start beat index (from 0)
-  endBeat: number;      // End beat index
-  skipBeats?: number;   // Number of beats to skip after playing (M)
+  startTime: number;    // Loop start (seconds)
+  endTime: number;      // Loop end (seconds)
+  skipTime: number;     // Beats to skip after each play cycle (seconds)
 }
 
 export interface PlaybackState {
@@ -43,9 +79,8 @@ export interface PlaybackActions {
   toggleLoop: (range?: LoopRange | null) => void;
   setLoopRange: (range: LoopRange | null) => void;
   seek: (time: number) => void;
-  calculateTotalDuration: (score: ParsedScore, tempo: number) => number;
+  setTimeline: (tl: TimelineEntry[]) => void;
   setInstrument: (type: InstrumentType) => void;
-  setVolume: (volume: number) => void;
   toggleMetronome: () => void;
   setMetronomeSound: (sound: MetronomeSoundType) => void;
   setMetronomeStrongVolume: (volume: number) => void;

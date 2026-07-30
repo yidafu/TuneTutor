@@ -9,10 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:run": "vitest run",
-    "res:build": "rescript",
-    "res:clean": "rescript clean",
-    "res:dev": "rescript watch"
+    "test:run": "vitest run"
   },
   "dependencies": {
     "fake-indexeddb": "^6.2.5",
@@ -22,7 +19,6 @@
     "opensheetmusicdisplay": "^1.9.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "rescript": "12.2.0",
     "standardized-audio-context": "^25.3.77",
     "tone": "^15.1.22",
     "tonejs-instrument-bass-electric-mp3": "^1.1.2",

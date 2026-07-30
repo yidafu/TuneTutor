@@ -26,6 +26,11 @@ body {
   color: #111827; /* gray-900 */
 }
 
+/* Highlighted noteheads in phrase selection */
+.vf-notehead.phrase-selected {
+  fill: #f97316 !important;
+}
+
 /* VexFlow notation container styles */
 .vexflow-container {
   width: 100%;

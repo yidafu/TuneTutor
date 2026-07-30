@@ -5,6 +5,7 @@ import { enUS } from './en-US';
 import { zhCN } from './zh-CN';
 import { zhTW } from './zh-TW';
 import { frFR } from './fr-FR';
+import { isBrowser } from '../utils/isBrowser';
 
 export type Language = 'en-US' | 'zh-CN' | 'zh-TW' | 'fr-FR';
 
@@ -94,7 +95,7 @@ export const languageNames: Record<Language, string> = {
  * Get the default language from browser settings
  */
 export function getDefaultLanguage(): Language {
-  if (typeof window === 'undefined') return 'en-US';
+  if (!isBrowser) return 'en-US';
 
   const saved = localStorage.getItem('note-slice-language') as Language | null;
   if (saved && saved in translations) {
@@ -120,23 +121,8 @@ export function getDefaultLanguage(): Language {
  * Save language preference to localStorage
  */
 export function saveLanguage(lang: Language): void {
-  if (typeof window !== 'undefined') {
+  if (isBrowser) {
     localStorage.setItem('note-slice-language', lang);
   }
 }
 
-/**
- * Create a translate function for the given language
- */
-export function createTranslate(lang: Language): TranslationSet {
-  return translations[lang];
-}
-
-/**
- * Format a translation string with arguments
- */
-export function formatString(str: string, ...args: string[]): string {
-  return args.reduce((result, arg, index) => {
-    return result.replace(`{${index}}`, arg);
-  }, str);
-}

@@ -2,7 +2,7 @@
  * Music Notation Player - Main Application
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { OsmdNotation } from './components/OsmdNotation';
 import { PlaybackControls } from './components/PlaybackControls/PlaybackControls';
@@ -11,30 +11,20 @@ import { ScoreInfo } from './components/ScoreInfo';
 import { SelectionInfo } from './components/SelectionInfo';
 import { StatusBar } from './components/StatusBar';
 import { FileLoaderModal } from './components/FileLoaderModal';
-import { PlaybackEngine, PlaybackEvent } from './audio/PlaybackEngine';
+import { PlaybackEngine, PlaybackEvent, type PlaybackStateType } from './audio/PlaybackEngine';
+import { buildTimeline } from './audio/buildTimeline';
 import { usePlayback } from './hooks/usePlayback';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import type { SelectedNote, ParsedScore, PhraseSelection } from './types/notation';
-import { DURATION_TO_BEATS } from './types/notation';
-import type { LoopRange } from './types/playback';
-import { createDemoScore } from './types/notation';
+import type { LoopRange, TimelineEntry } from './types/playback';
+import { createDemoScore } from './utils/createDemoScore';
 import { parseMusicXML } from './utils/notation';
 import { getAllFiles } from './utils/storage';
 import type { StoredFile } from './types/storedFile';
 import type { InstrumentType } from './types/audio';
-import { INSTRUMENTS, getInstrumentName } from './types/audio';
+import { getSavedInstrument, getInstrumentName, INSTRUMENTS } from './types/audio';
+import { beatsToSeconds } from './audio/TempoConverter';
 import { useTranslation, useSetLanguage, type Language } from './locales/I18nContext';
-
-const STORAGE_KEY = 'note-slice-preferred-instrument';
-
-function getSavedInstrument(): InstrumentType {
-  if (typeof window === 'undefined') return 'piano';
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved && INSTRUMENTS.some(i => i.type === saved)) {
-    return saved as InstrumentType;
-  }
-  return 'piano';
-}
 
 const demoXml = createDemoScore();
 
@@ -48,8 +38,11 @@ function App() {
   const [tempo, setTempo] = useState(60);
   const [selectedInstrument, setSelectedInstrument] = useState<InstrumentType>(getSavedInstrument);
   const [loopConfig, setLoopConfig] = useState({ skipBeats: 0 });
-  const [isPlaying, setIsPlaying] = useState(false);
   const [phraseSelection, setPhraseSelection] = useState<PhraseSelection | null>(null);
+
+  // Shared timeline — single source of truth for playback timing
+  const [timeline, setTimelineState] = useState<TimelineEntry[]>([]);
+  const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
 
   // Load last opened file on mount
   useEffect(() => {
@@ -92,94 +85,80 @@ function App() {
   // PlaybackEngine for actual audio
   const [playbackEngine] = useState(() => new PlaybackEngine());
 
-  // Compute beat position of a note within the score using parsed measure data
-  const getNoteBeatPosition = useCallback((target: SelectedNote): number | null => {
-    if (!score) return null;
-    let totalBeats = 0;
-
-    for (let m = 0; m < score.measures.length; m++) {
-      const measure = score.measures[m];
-      if (m < target.measureIndex) {
-        for (const note of measure.notes) {
-          totalBeats += DURATION_TO_BEATS[note.duration] ?? 0;
-        }
-      } else if (m === target.measureIndex) {
-        for (let n = 0; n < measure.notes.length && n <= target.noteIndex; n++) {
-          totalBeats += DURATION_TO_BEATS[measure.notes[n].duration] ?? 0;
-        }
-        const targetDuration = DURATION_TO_BEATS[measure.notes[target.noteIndex]?.duration] ?? 0;
-        return totalBeats - targetDuration;
-      } else {
-        break;
-      }
-    }
-    return totalBeats;
-  }, [score]);
-
-  // Compute phrase loop range from start/end notes using note-level precision
-  const computePhraseLoopRange = useCallback((phrase: PhraseSelection): LoopRange | null => {
-    if (!score) return null;
-    const startBeat = getNoteBeatPosition(phrase.startNote);
-    const endNoteBeat = getNoteBeatPosition(phrase.endNote);
-    if (startBeat === null || endNoteBeat === null) return null;
-
-    const endMeasure = score.measures[phrase.endNote.measureIndex];
-    const endNote = endMeasure?.notes[phrase.endNote.noteIndex];
-    const endNoteBeats = endNote ? (DURATION_TO_BEATS[endNote.duration] ?? 0) : 0;
-    const endBeat = endNoteBeat + endNoteBeats;
-
-    return { startBeat, endBeat, skipBeats: 0 };
-  }, [score, getNoteBeatPosition]);
-
-  // Derive LoopRange for skip-beat loop
-  const computeLoopRange = useCallback((notes: SelectedNote[], skpBeats: number): LoopRange | null => {
-    if (!score) return null;
-    const [beatsPerMeasure] = score.timeSignature.split('/').map(Number);
-    const bpm = beatsPerMeasure || 4;
-
-    if (notes.length === 0) {
-      const totalBeats = score.measures.length * bpm;
-      return { startBeat: 0, endBeat: totalBeats, skipBeats: skpBeats };
-    }
-
-    const measureIndices = notes.map(n => n.measureIndex);
-    const firstMeasure = Math.min(...measureIndices);
-    const lastMeasure = Math.max(...measureIndices);
-
+  // Derive phrase loop range from timeline (time in seconds)
+  const computePhraseLoopRange = useCallback((phrase: PhraseSelection, tl: TimelineEntry[]): LoopRange | null => {
+    const endNote = phrase.endNote;
+    if (!endNote) return null;
+    const start = tl.find(e =>
+      e.measureIndex === phrase.startNote.measureIndex &&
+      e.noteIndex === phrase.startNote.noteIndex);
+    const end = tl.find(e =>
+      e.measureIndex === endNote.measureIndex &&
+      e.noteIndex === endNote.noteIndex);
+    if (!start || !end) return null;
     return {
-      startBeat: firstMeasure * bpm,
-      endBeat: (lastMeasure + 1) * bpm,
-      skipBeats: skpBeats,
+      startTime: start.time,
+      endTime: end.time + end.duration,
+      skipTime: 0,
     };
-  }, [score]);
+  }, []);
+
+  // Derive skip-beat loop range from timeline (time in seconds)
+  const computeLoopRange = useCallback((notes: SelectedNote[], skipTime: number, tl: TimelineEntry[]): LoopRange | null => {
+    if (tl.length === 0) return null;
+    if (notes.length === 0) {
+      const last = tl[tl.length - 1];
+      return { startTime: 0, endTime: last.time + last.duration, skipTime };
+    }
+    const firstMeasure = notes[0].measureIndex;
+    const lastMeasure = notes[notes.length - 1].measureIndex;
+    const startEntry = tl.find(e => e.measureIndex === firstMeasure);
+    const endEntry = [...tl].reverse().find(e => e.measureIndex === lastMeasure);
+    if (!startEntry || !endEntry) return null;
+    return {
+      startTime: startEntry.time,
+      endTime: endEntry.time + endEntry.duration,
+      skipTime,
+    };
+  }, []);
 
   // Sync loopRange to usePlayback: phrase loop takes priority over skip-beat loop
   useEffect(() => {
-    if (!score) {
+    if (timeline.length === 0) {
       playbackActions.setLoopRange(null);
       return;
     }
 
     if (phraseSelection) {
-      const range = computePhraseLoopRange(phraseSelection);
+      const range = computePhraseLoopRange(phraseSelection, timeline);
       if (range) playbackActions.setLoopRange(range);
     } else if (loopConfig.skipBeats > 0) {
-      const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
+      const skipTime = beatsToSeconds(loopConfig.skipBeats, tempo, 4);
+      const range = computeLoopRange(selectedNotes, skipTime, timeline);
       if (range) playbackActions.setLoopRange(range);
     } else {
       playbackActions.setLoopRange(null);
     }
-  }, [loopConfig.skipBeats, selectedNotes, phraseSelection, score, computeLoopRange, computePhraseLoopRange, playbackActions]);
+  }, [loopConfig.skipBeats, selectedNotes, phraseSelection, timeline, computeLoopRange, computePhraseLoopRange, playbackActions, tempo]);
 
-  // Handle OSMD ready - load score into PlaybackEngine
+  // Handle OSMD ready - load score into PlaybackEngine and build timeline
   const handleOsmdReady = useCallback((osmd: OpenSheetMusicDisplay) => {
+    osmdRef.current = osmd;
     playbackEngine.loadScore(osmd);
-  }, [playbackEngine]);
+    const tl = buildTimeline(osmd, tempo);
+    setTimelineState(tl);
+    playbackActions.setTimeline(tl);
+  }, [playbackEngine, tempo, playbackActions]);
 
-  // Update PlaybackEngine tempo when it changes
+  // Rebuild timeline when tempo changes
   useEffect(() => {
     playbackEngine.setBpm(tempo);
-  }, [tempo, playbackEngine]);
+    if (osmdRef.current) {
+      const tl = buildTimeline(osmdRef.current, tempo);
+      setTimelineState(tl);
+      playbackActions.setTimeline(tl);
+    }
+  }, [tempo, playbackEngine, playbackActions]);
 
   // Sync time signature for metronome beat counting
   useEffect(() => {
@@ -189,31 +168,24 @@ function App() {
     }
   }, [score, playbackEngine]);
 
-  // Sync metronome toggle to engine
+  // Sync metronome config to engine (merged into a single effect)
   useEffect(() => {
     playbackEngine.toggleMetronome(playbackState.metronomeEnabled);
-  }, [playbackState.metronomeEnabled, playbackEngine]);
-
-  // Sync metronome sound to engine
-  useEffect(() => {
     playbackEngine.setMetronomeSound(playbackState.metronomeSound);
-  }, [playbackState.metronomeSound, playbackEngine]);
-
-  // Sync metronome strong volume to engine
-  useEffect(() => {
     playbackEngine.setMetronomeStrongVolume(playbackState.metronomeStrongVolume);
-  }, [playbackState.metronomeStrongVolume, playbackEngine]);
-
-  // Sync metronome weak volume to engine
-  useEffect(() => {
     playbackEngine.setMetronomeWeakVolume(playbackState.metronomeWeakVolume);
-  }, [playbackState.metronomeWeakVolume, playbackEngine]);
+  }, [
+    playbackState.metronomeEnabled,
+    playbackState.metronomeSound,
+    playbackState.metronomeStrongVolume,
+    playbackState.metronomeWeakVolume,
+    playbackEngine,
+  ]);
 
-  // Sync App's isPlaying with PlaybackEngine state (handles natural completion)
+  // Sync with PlaybackEngine state (handles natural completion)
   useEffect(() => {
-    const handleStateChange = (state: unknown) => {
+    const handleStateChange = (state: PlaybackStateType) => {
       if (state === 'STOPPED') {
-        setIsPlaying(false);
         playbackActions.stop();
       }
     };
@@ -261,33 +233,22 @@ function App() {
   // Play: phrase loop > skip-beat loop > normal playback
   const handlePlay = useCallback(async () => {
     // Phrase loop (has start+end notes)
-    if (phraseSelection && score) {
-      const range = computePhraseLoopRange(phraseSelection);
+    if (phraseSelection && timeline.length > 0) {
+      const range = computePhraseLoopRange(phraseSelection, timeline);
       if (range) {
-        await playbackEngine.play({
-          enabled: true,
-          startBeat: range.startBeat,
-          endBeat: range.endBeat,
-          skipBeats: 0,
-        });
+        await playbackEngine.play(range);
         playbackActions.play();
-        setIsPlaying(true);
         return;
       }
     }
 
     // Skip-beat loop
-    if (loopConfig.skipBeats > 0 && score) {
-      const range = computeLoopRange(selectedNotes, loopConfig.skipBeats);
+    if (loopConfig.skipBeats > 0 && timeline.length > 0) {
+      const skipTime = beatsToSeconds(loopConfig.skipBeats, tempo, 4);
+      const range = computeLoopRange(selectedNotes, skipTime, timeline);
       if (range) {
-        await playbackEngine.play({
-          enabled: true,
-          startBeat: range.startBeat,
-          endBeat: range.endBeat,
-          skipBeats: range.skipBeats ?? 0,
-        });
+        await playbackEngine.play(range);
         playbackActions.play();
-        setIsPlaying(true);
         return;
       }
     }
@@ -295,14 +256,12 @@ function App() {
     // Normal playback
     await playbackEngine.play();
     playbackActions.play();
-    setIsPlaying(true);
-  }, [playbackActions, playbackEngine, score, selectedNotes, phraseSelection, loopConfig.skipBeats, computeLoopRange, computePhraseLoopRange]);
+  }, [playbackActions, playbackEngine, timeline, selectedNotes, phraseSelection, loopConfig.skipBeats, computeLoopRange, computePhraseLoopRange, tempo]);
 
   // Stop playback
   const handleStop = useCallback(() => {
     playbackEngine.stop();
     playbackActions.stop();
-    setIsPlaying(false);
   }, [playbackActions, playbackEngine]);
 
   // Keyboard shortcuts
@@ -321,24 +280,23 @@ function App() {
   }, []);
 
   // Handle double-click phrase note selection
+  // First double-click → sets start note only (endNote = null), shows |> bracket
+  // Second double-click → sets end note, completes the phrase selection
   const handlePhraseNoteSelected = useCallback((note: SelectedNote) => {
-    console.log('[App] handlePhraseNoteSelected called with:', note);
     setSelectedNotes([]);
     setPhraseSelection(prev => {
-      console.log('[App] phraseSelection prev:', prev);
-      if (!prev) {
-        console.log('[App] -> FIRST dblclick, setting startNote');
-        return { startNote: note, endNote: note };
+      if (!prev || prev.endNote !== null) {
+        // No phrase or completed phrase → start new selection with start note only
+        return { startNote: note, endNote: null };
       }
+      // Start already set, now setting end note
+      // Ensure end note comes after start note
       const isAfter =
         note.measureIndex > prev.startNote.measureIndex ||
         (note.measureIndex === prev.startNote.measureIndex && note.noteIndex > prev.startNote.noteIndex);
-      console.log('[App] isAfter:', isAfter);
       if (isAfter) {
-        console.log('[App] -> setting endNote');
         return { startNote: prev.startNote, endNote: note };
       }
-      console.log('[App] -> new note is before start, swapping');
       return { startNote: note, endNote: prev.startNote };
     });
   }, []);
@@ -379,7 +337,6 @@ function App() {
               onNoteSelect={handleNoteSelect}
               onOsmdReady={handleOsmdReady}
               playbackEngine={playbackEngine}
-              isPlaying={isPlaying}
               className="min-h-62.5"
               onPhraseNoteSelected={handlePhraseNoteSelected}
               phraseSelection={phraseSelection}
@@ -404,16 +361,18 @@ function App() {
           isPlaying={playbackState.isPlaying}
           canPlay={true}
           onPlay={handlePlay}
-          onPause={handleStop}
+          onStopPlaying={handleStop}
           onStop={handleStop}
           tempo={tempo}
           onTempoChange={setTempo}
           loopConfig={loopConfig}
           onLoopConfigChange={setLoopConfig}
-          metronomeEnabled={playbackState.metronomeEnabled}
-          metronomeSound={playbackState.metronomeSound}
-          metronomeStrongVolume={playbackState.metronomeStrongVolume}
-          metronomeWeakVolume={playbackState.metronomeWeakVolume}
+          metronomeConfig={{
+            enabled: playbackState.metronomeEnabled,
+            sound: playbackState.metronomeSound,
+            strongVolume: playbackState.metronomeStrongVolume,
+            weakVolume: playbackState.metronomeWeakVolume,
+          }}
           onMetronomeToggle={playbackActions.toggleMetronome}
           onMetronomeSoundChange={playbackActions.setMetronomeSound}
           onMetronomeStrongVolumeChange={playbackActions.setMetronomeStrongVolume}

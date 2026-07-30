@@ -1,7 +1,8 @@
 import type { InstrumentType } from '../types/audio';
 import { INSTRUMENTS, getInstrumentName } from '../types/audio';
 import { languageNames, type Language, type TranslationSet } from '../locales';
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface HeaderProps {
   language: Language;
@@ -23,18 +24,7 @@ export function Header({
   t,
 }: HeaderProps) {
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsLangMenuOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const menuRef = useClickOutside<HTMLDivElement>({ onOutsideClick: () => setIsLangMenuOpen(false) });
 
   return (
     <header className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm" role="banner">

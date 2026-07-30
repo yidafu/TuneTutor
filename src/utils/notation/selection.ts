@@ -5,10 +5,10 @@ import type { SelectedNote } from '../../types/notation';
 import type { TranslationSet } from '../../locales';
 
 /**
- * Format selection range for display (supports both measure indices and selected notes)
+ * Format selection range for display
  */
 export function formatSelectionRange(
-  selectedMeasures: number[] | SelectedNote[],
+  selectedNotes: SelectedNote[],
   options?: {
     emptyText?: string;
     prefix?: string;
@@ -18,22 +18,12 @@ export function formatSelectionRange(
   const { emptyText = '', prefix = '' } = options || {};
 
   // Handle empty selection
-  if (selectedMeasures.length === 0) {
+  if (selectedNotes.length === 0) {
     return emptyText;
   }
 
-  // Extract measure indices
-  let measureIndices: number[];
-  const firstItem = selectedMeasures[0];
-  // Check if firstItem is an object with measureIndex property (SelectedNote)
-  // to avoid TypeError when firstItem is a primitive number
-  if (typeof firstItem === 'object' && firstItem !== null && 'measureIndex' in firstItem) {
-    measureIndices = (selectedMeasures as SelectedNote[]).map(n => n.measureIndex);
-  } else {
-    measureIndices = selectedMeasures as number[];
-  }
-
-  // Deduplicate measure indices
+  // Extract and deduplicate measure indices
+  const measureIndices = selectedNotes.map(n => n.measureIndex);
   const uniqueMeasures = [...new Set(measureIndices)].sort((a, b) => a - b);
 
   if (uniqueMeasures.length === 1) {
