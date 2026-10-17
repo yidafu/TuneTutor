@@ -1,0 +1,1365 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TuneTutor 皮肤系统 UI 设计稿 v1.1</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   设计稿页面自身使用 v3「纸墨排练室」chrome（--bg 系列变量）。
+   应用皮肤 mockup 一律走 Tailwind token 命名（--color-* 系列），
+   由页尾 JS 从 SKINS 数据统一注入 [data-skin] 值域，保证
+   「预览 / 总览卡 / Token 表」三者同源、互不漂移。
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #f0ebdd;
+  --surface: #faf7ee;
+  --surface-2: #fffdf7;
+  --surface-3: #efe9d9;
+  --border: rgba(62, 52, 33, 0.13);
+  --border-strong: rgba(62, 52, 33, 0.24);
+  --text: #2f291c;
+  --text-2: #6f6750;
+  --text-3: #9b9179;
+  --ink: #241f15;
+  --verm: #c2431f;
+  --verm-deep: #a53515;
+  --verm-soft: rgba(194, 67, 31, 0.09);
+  --green: #47764f;
+  --red: #b04a3f;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-serif: Palatino, Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0; padding: 40px 20px 80px;
+  background:
+    radial-gradient(1200px 800px at 18% -8%, rgba(255, 253, 246, 0.85), transparent 55%),
+    radial-gradient(1000px 700px at 90% 112%, rgba(194, 67, 31, 0.045), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+/* ── 页头 / 导航 / 说明条（chrome） ───────── */
+.spec-head h1 { font-size: 26px; font-weight: 700; margin: 0; letter-spacing: 0.2px; }
+.spec-head .ver {
+  display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: 99px;
+  font-size: 12px; font-weight: 600; color: var(--verm-deep);
+  background: var(--verm-soft); border: 1px solid rgba(194, 67, 31, 0.3); vertical-align: 4px;
+}
+.spec-head p { color: var(--text-2); margin: 10px 0 0; max-width: 780px; }
+
+.tabs {
+  display: inline-flex; gap: 4px; margin: 28px 0 22px; padding: 5px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 13px;
+  box-shadow: 0 1px 2px rgba(72, 60, 36, 0.08);
+}
+.tabs button {
+  appearance: none; border: 0; cursor: pointer; padding: 8px 18px;
+  border-radius: 9px; background: transparent; color: var(--text-2);
+  font: inherit; font-weight: 500; transition: all 0.16s ease;
+}
+.tabs button:hover { color: var(--text); background: var(--surface-3); }
+.tabs button.on { color: #f8f3e7; background: var(--ink); box-shadow: 0 3px 10px -3px rgba(36, 31, 21, 0.5); }
+
+.panel-note {
+  display: flex; gap: 10px; margin: 0 0 18px; padding: 12px 16px;
+  color: var(--text-2); font-size: 13px;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: 12px;
+}
+.panel-note .dot { color: var(--verm-deep); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.panel-note b { color: var(--text); font-weight: 600; }
+
+/* ── 规范章节（chrome） ─────────────────── */
+.spec-sec { margin-bottom: 34px; }
+.spec-sec > h3 { display: flex; align-items: baseline; gap: 10px; font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+.spec-sec > h3 .no { color: var(--verm-deep); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+.spec-sec > p { margin: 0 0 14px; font-size: 12.5px; color: var(--text-3); }
+.spec-sec code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px;
+}
+.code-block {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.6;
+  background: #26221a; color: #e8e2d2; border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0 0 14px;
+}
+.code-block .cm { color: #9d947c; }
+
+.rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+.rule-card { padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; font-size: 12.5px; color: var(--text-2); }
+.rule-card b { display: block; color: var(--text); font-size: 13px; margin-bottom: 6px; }
+.rule-card .do { color: var(--green); font-weight: 600; }
+.rule-card .dont { color: var(--red); font-weight: 600; }
+
+table.spec-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.spec-table th { text-align: left; padding: 8px 12px; color: var(--text-3); font-weight: 600; font-size: 11.5px; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
+table.spec-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.spec-table tr:last-child td { border-bottom: 0; }
+table.spec-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+
+.kbd {
+  display: inline-block; min-width: 22px; text-align: center; padding: 3px 9px;
+  border: 1px solid var(--border-strong); border-bottom-width: 2.5px; border-radius: 7px;
+  background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--text);
+  font-family: var(--font-sans);
+}
+
+/* ═══ 皮肤 mockup 通用（全部由 --color-* token 驱动） ═══ */
+.app {
+  position: relative; overflow: hidden; border-radius: 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: var(--shadow-paper);
+  color: var(--color-fg);
+}
+.app-open { overflow: visible; }
+
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; padding: 0 22px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-header);
+}
+.mbrand { display: flex; align-items: center; gap: 12px; }
+.mbrand-mark {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center; font-size: 17px; color: var(--color-cream);
+  background: var(--color-ink);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.mbrand-name { font-family: var(--font-serif); font-size: 17px; font-weight: 700; letter-spacing: 0.4px; }
+.mbrand-sub { font-size: 11px; color: var(--color-fg-3); margin-top: 1px; }
+
+.mseg { display: flex; gap: 22px; }
+.mseg a {
+  padding: 6px 2px; font-size: 13.5px; font-weight: 600;
+  color: var(--color-fg-2); text-decoration: none; transition: color 0.16s ease;
+}
+.mseg a.on { color: var(--color-fg); box-shadow: inset 0 -2px 0 var(--color-verm); }
+
+.hdr-right { display: flex; align-items: center; gap: 10px; }
+.hbtn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px;
+  font-size: 13px; font-weight: 500; color: var(--color-fg-2); cursor: pointer;
+  background: transparent; border: 1px solid var(--color-line-strong); border-radius: 10px;
+  font-family: inherit;
+}
+.hbtn:hover, .hbtn.on { color: var(--color-fg); background: var(--color-surface-3); }
+.hbtn .caret { font-size: 10px; color: var(--color-fg-3); }
+
+.app-main { padding: 20px 22px 24px; }
+
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.toolbar h2 {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-size: 15px; font-weight: 700; color: var(--color-fg); margin: 0; letter-spacing: 1.5px;
+}
+.toolbar h2::before { content: ""; width: 3px; height: 15px; border-radius: 2px; background: var(--color-verm); }
+.tb-actions { display: flex; align-items: center; gap: 10px; }
+
+.inst {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px; cursor: pointer;
+  color: var(--color-fg); font-size: 13px; font-weight: 500;
+  background: var(--color-surface-2); border: 1px solid var(--color-line-strong); border-radius: 10px;
+  font-family: inherit;
+}
+.btn-p {
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px;
+  border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--color-cream);
+  background: var(--color-ink);
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--color-ink) 55%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* 纸面乐谱卡 */
+.paper {
+  background: var(--color-paper); border-radius: 12px;
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-paper);
+  padding: 28px 28px 16px; color: var(--color-ink);
+}
+.paper-title { text-align: center; margin-bottom: 6px; }
+.paper-title .t { font-family: var(--font-serif); font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+.paper-title .c { font-family: var(--font-serif); font-size: 12.5px; color: var(--color-ink-2); font-style: italic; margin-top: 3px; }
+.paper .score-svg { display: block; width: 100%; height: auto; margin-top: 8px; }
+.paper-foot {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px;
+  border-top: 1px solid var(--color-line);
+  font-size: 11.5px; color: var(--color-ink-2); font-variant-numeric: tabular-nums;
+}
+.paper-foot .zoom { display: inline-flex; gap: 4px; }
+.paper-foot .zoom span { padding: 2px 8px; border-radius: 6px; background: var(--color-surface-3); color: var(--color-fg-2); }
+
+.selinfo { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
+.sel-chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
+  font-size: 13px; font-weight: 600; color: var(--color-verm-deep);
+  background: var(--color-verm-soft); border: 1px solid var(--color-verm-line); border-radius: 99px;
+}
+.sel-chip .swatch { width: 8px; height: 8px; border-radius: 99px; background: var(--color-verm); box-shadow: 0 0 6px color-mix(in srgb, var(--color-verm) 55%, transparent); }
+.sel-clear { background: none; border: 0; padding: 6px 10px; color: var(--color-fg-3); font: inherit; font-size: 13px; cursor: pointer; border-radius: 8px; }
+.sel-clear:hover { color: var(--color-fg); background: var(--color-surface-3); }
+
+/* 播放控制条 */
+.controls {
+  position: relative; margin-top: 16px; padding: 16px 18px;
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-line); border-radius: 12px;
+  box-shadow: var(--shadow-soft);
+}
+.ctl { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ctl.grow { flex: 1 1 300px; }
+.ctl-label { font-size: 11px; font-weight: 600; color: var(--color-fg-3); letter-spacing: 1.2px; white-space: nowrap; }
+
+.tempo { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 180px; }
+.slider { position: relative; flex: 1; height: 20px; }
+.slider .track { position: absolute; top: 8px; left: 0; right: 0; height: 3px; border-radius: 99px; background: var(--color-track); }
+.slider .fill { position: absolute; top: 8px; left: 0; width: 13%; height: 3px; border-radius: 99px; background: var(--color-ink); }
+.slider .thumb {
+  position: absolute; top: 2px; left: 13%; width: 15px; height: 15px; border-radius: 99px;
+  background: var(--color-paper); border: 2px solid var(--color-ink); transform: translateX(-50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.tempo-val { display: flex; align-items: baseline; gap: 4px; min-width: 74px; }
+.tempo-val .num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+.tempo-val .unit { font-size: 11px; color: var(--color-fg-3); font-weight: 600; }
+
+.transport { display: flex; align-items: center; gap: 10px; }
+.t-btn {
+  position: relative; width: 46px; height: 46px; border-radius: 99px; border: 0; cursor: pointer;
+  display: grid; place-items: center; font-size: 15px; color: var(--color-cream);
+  transition: all 0.16s ease; font-family: inherit;
+}
+.t-play { background: linear-gradient(160deg, var(--color-gold-bright), var(--color-gold)); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--color-gold) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.t-play:hover { filter: brightness(1.06); }
+.t-play .pulse { position: absolute; width: 46px; height: 46px; border-radius: 99px; border: 2px solid color-mix(in srgb, var(--color-gold-bright) 55%, transparent); opacity: 0.5; animation: pulse 1.8s ease-out infinite; }
+@keyframes pulse { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.55); opacity: 0; } }
+.t-stop { background: var(--color-surface-2); box-shadow: inset 0 0 0 1px var(--color-line-strong); color: var(--color-fg-2); }
+.t-stop:hover { color: var(--color-fg); background: var(--color-surface-3); }
+
+.metro { display: flex; align-items: center; gap: 8px; }
+.m-toggle {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid var(--color-verm-line-strong); border-radius: 10px;
+  background: var(--color-verm-soft); color: var(--color-verm-deep); font: inherit; font-size: 13px; font-weight: 600;
+}
+.m-gear {
+  width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--color-line-strong);
+  display: grid; place-items: center; cursor: pointer; color: var(--color-fg-2);
+  background: var(--color-surface-2);
+}
+.m-gear:hover { color: var(--color-fg); background: var(--color-surface-3); }
+.m-gear.on { color: var(--color-verm-deep); border-color: var(--color-verm-line-strong); background: var(--color-verm-soft); }
+
+.metro-pop {
+  position: absolute; right: 168px; bottom: 74px; width: 248px; padding: 16px; z-index: 30;
+  background: var(--color-surface-2); border: 1px solid var(--color-line-strong); border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+}
+.metro-pop::after {
+  content: ""; position: absolute; right: 26px; bottom: -7px; width: 12px; height: 12px;
+  background: var(--color-surface-2); border-right: 1px solid var(--color-line-strong); border-bottom: 1px solid var(--color-line-strong);
+  transform: rotate(45deg);
+}
+.pop-row { margin-bottom: 13px; }
+.pop-row:last-child { margin-bottom: 0; }
+.pop-label { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; color: var(--color-fg-3); margin-bottom: 7px; letter-spacing: 0.4px; }
+.pop-label b { color: var(--color-verm-deep); font-variant-numeric: tabular-nums; }
+.sounds { display: flex; gap: 4px; }
+.sounds span {
+  flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px; cursor: pointer;
+  font-size: 12px; font-weight: 500; color: var(--color-fg-2);
+  background: transparent; border: 1px solid var(--color-line);
+}
+.sounds span:hover { background: var(--color-surface-3); }
+.sounds span.on { color: var(--color-verm-deep); background: var(--color-verm-soft); border-color: var(--color-verm-line-strong); }
+.mini-slider { position: relative; height: 16px; }
+.mini-slider .track { position: absolute; top: 6px; left: 0; right: 0; height: 3px; border-radius: 99px; background: var(--color-track); }
+.mini-slider .fill { position: absolute; top: 6px; left: 0; height: 3px; border-radius: 99px; background: var(--color-verm); }
+.mini-slider.s1 .fill { width: 80%; }
+.mini-slider.s2 .fill { width: 50%; }
+.mini-slider .thumb {
+  position: absolute; top: 1px; width: 13px; height: 13px; border-radius: 99px; background: var(--color-paper);
+  border: 2px solid var(--color-verm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transform: translateX(-50%);
+}
+.mini-slider.s1 .thumb { left: 80%; }
+.mini-slider.s2 .thumb { left: 50%; }
+
+.beats { display: flex; align-items: center; gap: 10px; }
+.beat-set { display: flex; gap: 3px; }
+.beat {
+  width: 27px; height: 27px; border-radius: 8px; border: 0; cursor: pointer;
+  display: grid; place-items: center; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--color-fg-2); background: transparent; box-shadow: inset 0 0 0 1px var(--color-line-strong);
+}
+.beat:hover { color: var(--color-fg); background: var(--color-surface-3); }
+.beat.on { color: var(--color-cream); background: var(--color-verm); box-shadow: 0 3px 8px -2px color-mix(in srgb, var(--color-verm) 55%, transparent); }
+.gap-out { font-size: 12px; color: var(--color-fg-3); min-width: 52px; }
+.gap-out b { color: var(--color-verm-deep); }
+
+.status {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 16px; padding: 11px 18px; font-size: 12.5px;
+  background: var(--color-surface-3); border: 1px solid var(--color-line); border-radius: 12px;
+  color: var(--color-fg-2); font-variant-numeric: tabular-nums;
+}
+.status .grp { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.status .it { display: inline-flex; align-items: center; gap: 7px; }
+.status .k { color: var(--color-fg-3); }
+.status b { color: var(--color-fg); font-weight: 600; }
+.status .phrase { color: var(--color-verm-deep); }
+.status .live { display: inline-flex; align-items: center; gap: 6px; color: var(--color-moss); font-weight: 600; }
+.status .live .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--color-moss); box-shadow: 0 0 6px color-mix(in srgb, var(--color-moss) 60%, transparent); animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.35; } }
+
+/* 乐谱 SVG */
+.notehead { fill: var(--color-ink); }
+.notehead.sel { fill: var(--color-verm); }
+.stem { stroke: var(--color-ink); stroke-width: 1.6; }
+.stem.sel { stroke: var(--color-verm); }
+.staffline { stroke: var(--color-staff); stroke-width: 1.1; }
+.barline { stroke: var(--color-barline); stroke-width: 1.2; }
+.mnum { font-size: 10.5px; fill: var(--color-ink-2); font-family: var(--font-sans); }
+.clef { font-size: 78px; fill: var(--color-ink); }
+.timesig { font-family: var(--font-serif); font-size: 24px; font-weight: 700; fill: var(--color-ink); }
+.rest { stroke: var(--color-ink-2); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.sel-band { fill: var(--color-verm-soft); }
+.sel-bracket { stroke: var(--color-verm); stroke-width: 2.4; fill: none; stroke-linecap: round; }
+.sel-flag { fill: var(--color-verm); }
+.sel-label-bg { fill: var(--color-verm); }
+.sel-label-tx { font-size: 11px; font-weight: 700; fill: var(--color-cream); font-family: var(--font-sans); }
+.playhead { stroke: var(--color-gold-bright); stroke-width: 2; }
+.playhead-glow { stroke: color-mix(in srgb, var(--color-gold-bright) 30%, transparent); stroke-width: 6; }
+.playhead-arrow { fill: var(--color-gold-bright); }
+
+/* 原曲页卡片 */
+.audio-card {
+  padding: 18px; background: var(--color-surface-2);
+  border: 1px solid var(--color-line); border-radius: 12px; box-shadow: var(--shadow-soft);
+}
+.audio-file { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.audio-file .left { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.audio-file .fico {
+  width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; font-size: 17px;
+  background: var(--color-wash); box-shadow: inset 0 0 0 1px var(--color-line);
+}
+.audio-file .t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-file .s { font-size: 12px; color: var(--color-fg-3); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.remove {
+  padding: 7px 14px; border-radius: 9px; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 500;
+  color: var(--color-fg-2); background: transparent; border: 1px solid var(--color-line-strong);
+}
+.remove:hover { color: var(--color-clay); border-color: var(--color-clay-line); background: var(--color-clay-soft); }
+
+.wave-stage { position: relative; height: 150px; border-radius: 10px; background: var(--color-wave-bg); border: 1px solid var(--color-line); overflow: hidden; }
+.wave-bars { position: absolute; inset: 0; display: flex; align-items: center; gap: 3px; padding: 0 10px; }
+.wave-bars i { flex: 1; border-radius: 2px; background: linear-gradient(180deg, var(--color-wave-bar-a), var(--color-wave-bar-b)); min-width: 2px; }
+.wave-dim { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--color-wave-bg) 72%, transparent); }
+.wave-dim.l { left: 0; width: 30%; }
+.wave-dim.r { left: 55%; right: 0; }
+.slice {
+  position: absolute; top: 0; bottom: 0; left: 30%; width: 25%;
+  background: color-mix(in srgb, var(--color-verm) 10%, transparent);
+  border-left: 2.5px solid var(--color-verm); border-right: 2.5px solid var(--color-verm);
+  box-shadow: inset 0 0 20px color-mix(in srgb, var(--color-verm) 14%, transparent);
+}
+.slice .handle {
+  position: absolute; top: 50%; width: 14px; height: 30px; border-radius: 6px;
+  background: var(--color-verm); transform: translateY(-50%); cursor: ew-resize;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-verm) 45%, transparent); display: grid; place-items: center;
+}
+.slice .handle::after { content: ""; width: 2px; height: 12px; border-radius: 2px; background: color-mix(in srgb, var(--color-cream) 90%, transparent); box-shadow: -4px 0 0 color-mix(in srgb, var(--color-cream) 90%, transparent), 4px 0 0 color-mix(in srgb, var(--color-cream) 90%, transparent); }
+.slice .handle.l { left: -8px; }
+.slice .handle.r { right: -8px; }
+.slice .tag {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; color: var(--color-cream);
+  background: var(--color-verm); box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--color-verm) 50%, transparent);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.wave-ph { position: absolute; top: 0; bottom: 0; left: 38%; width: 2px; background: var(--color-gold-bright); box-shadow: 0 0 8px color-mix(in srgb, var(--color-gold-bright) 70%, transparent); }
+.wave-ph::before { content: ""; position: absolute; top: 0; left: -4px; border: 5px solid transparent; border-top: 7px solid var(--color-gold-bright); }
+
+.readout { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13px; color: var(--color-fg-2); font-variant-numeric: tabular-nums; }
+.readout .chip { padding: 4px 11px; border-radius: 99px; font-size: 12px; font-weight: 600; color: var(--color-verm-deep); background: var(--color-verm-soft); border: 1px solid var(--color-verm-line); }
+.readout .hint { margin-left: auto; font-size: 11.5px; color: var(--color-fg-3); }
+.a-actions { display: flex; align-items: center; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+
+/* 皮肤切换动效：mockup 内全局 160ms 级过渡 */
+.app, .app *, .g-view, .g-view * {
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+    fill 0.18s ease, stroke 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* ═══ ① 切换器 mockup ═══════════════════ */
+.stage-wrap { display: flex; justify-content: center; margin-bottom: 30px; }
+.thwrap { position: relative; }
+.thpop {
+  position: absolute; right: 0; top: calc(100% + 8px); width: 272px; z-index: 40;
+  background: var(--color-surface-2); border: 1px solid var(--color-line-strong); border-radius: 12px;
+  box-shadow: var(--shadow-pop); padding: 6px;
+}
+.thpop-head { display: flex; align-items: baseline; justify-content: space-between; padding: 8px 10px 6px; }
+.thpop-head b { font-size: 13px; }
+.thpop-head span { font-size: 11px; color: var(--color-fg-3); }
+.thpop-group { padding: 5px 10px 3px; font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; color: var(--color-fg-3); }
+.thpop-item {
+  display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer;
+  border: 0; background: transparent; border-radius: 8px; font: inherit; font-size: 13px; color: var(--color-fg-2); text-align: left;
+}
+.thpop-item:hover { background: var(--color-surface-3); }
+.thpop-item.on { background: var(--color-surface-3); color: var(--color-fg); font-weight: 600; }
+.thpop-item .ri { display: inline-flex; gap: 3px; flex: none; }
+.thpop-item .ri i { width: 11px; height: 11px; border-radius: 99px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.thpop-item .nm { flex: 1; white-space: nowrap; }
+.thpop-item .nm em { font-style: normal; font-size: 11px; color: var(--color-fg-3); font-weight: 400; margin-left: 6px; }
+.thpop-item .ck { color: var(--color-verm-deep); font-weight: 700; }
+
+/* ═══ ① 皮肤总览卡 ═══════════════════════ */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(256px, 1fr)); gap: 14px; }
+.g-card { background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(72, 60, 36, 0.08); }
+.g-top { display: flex; align-items: baseline; gap: 8px; padding: 11px 14px 9px; }
+.g-top b { font-size: 14px; }
+.g-top span { font-size: 11px; color: var(--text-3); }
+.g-top i { margin-left: auto; font-style: normal; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--text-3); background: var(--surface-3); border-radius: 5px; padding: 1px 6px; }
+.g-view { position: relative; padding: 10px 12px 12px; }
+.g-hd { display: flex; align-items: center; gap: 4px; padding: 5px 8px; border-radius: 7px 7px 0 0; background: var(--color-header); border-bottom: 1px solid var(--color-line); }
+.g-mdot { width: 6px; height: 6px; border-radius: 99px; background: var(--color-ink); }
+.g-pill { margin-left: auto; width: 34px; height: 8px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--color-line-strong); }
+.g-pp { position: relative; height: 58px; background: var(--color-paper); border: 1px solid var(--color-line); border-top: 0; }
+.g-st { position: absolute; left: 8px; right: 8px; height: 1px; background: var(--color-staff); }
+.g-nt { position: absolute; width: 7px; height: 5px; border-radius: 50%; background: var(--color-ink); transform: rotate(-18deg); }
+.g-nt.sel { background: var(--color-verm); }
+.g-cur { position: absolute; top: 5px; bottom: 5px; width: 2px; background: var(--color-gold-bright); box-shadow: 0 0 5px color-mix(in srgb, var(--color-gold-bright) 60%, transparent); }
+.g-ct { display: flex; align-items: center; gap: 6px; padding: 7px 8px; background: var(--color-surface-2); border: 1px solid var(--color-line); border-top: 0; border-radius: 0 0 7px 7px; }
+.g-play { width: 15px; height: 15px; border-radius: 99px; background: linear-gradient(160deg, var(--color-gold-bright), var(--color-gold)); flex: none; }
+.g-pbtn { width: 26px; height: 11px; border-radius: 5px; background: var(--color-ink); flex: none; }
+.g-ln { position: relative; flex: 1; height: 3px; border-radius: 99px; background: var(--color-track); }
+.g-ln i { position: absolute; left: 0; top: 0; width: 35%; height: 3px; border-radius: 99px; background: var(--color-ink); }
+.g-chp { width: 30px; height: 11px; border-radius: 99px; background: var(--color-verm-soft); border: 1px solid var(--color-verm-line); flex: none; }
+.g-sw { display: flex; gap: 6px; padding: 10px 14px 4px; flex-wrap: wrap; }
+.g-sw span { display: inline-flex; flex-direction: column; gap: 2px; font-size: 9.5px; color: var(--text-3); font-family: ui-monospace, Menlo, monospace; }
+.g-sw span i { width: 34px; height: 18px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
+.g-mood { padding: 6px 14px 12px; margin: 0; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+
+/* 品牌标变体展示 */
+.brand-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.bmk-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); }
+.bmk {
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  font-size: 20px; font-family: var(--font-serif); font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* ═══ ② 实机预览皮肤选择器 ═══════════════ */
+.picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.sp {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; cursor: pointer;
+  border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface-2);
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--text-2); transition: all 0.16s ease;
+}
+.sp:hover { color: var(--text); background: var(--surface-3); }
+.sp.on { color: #f8f3e7; background: var(--ink); border-color: var(--ink); box-shadow: 0 3px 10px -3px rgba(36, 31, 21, 0.5); }
+.sp i { width: 13px; height: 13px; border-radius: 99px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18); }
+.sp-group-label { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text-3); padding: 0 2px; }
+
+.live-title { font-size: 13px; font-weight: 700; letter-spacing: 1.2px; color: var(--text-2); margin: 30px 0 12px; display: flex; align-items: center; gap: 9px; }
+.live-title::before { content: ""; width: 3px; height: 14px; border-radius: 2px; background: var(--verm); }
+
+/* ═══ ③ Token 表 ═════════════════════════ */
+.tok-scroll { overflow-x: auto; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-2); }
+.tok { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1080px; }
+.tok th { position: sticky; top: 0; text-align: left; padding: 9px 10px; background: var(--surface-3); color: var(--text-2); font-weight: 700; font-size: 12px; border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
+.tok th .sub { display: block; font-size: 10px; font-weight: 500; color: var(--text-3); }
+.tok td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+.tok tr:last-child td { border-bottom: 0; }
+.tok .tname { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+.tok .tname .star { color: var(--verm-deep); font-weight: 700; }
+.tok .tuse { font-size: 11.5px; color: var(--text-3); }
+.tok .tk { display: inline-flex; align-items: center; gap: 7px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text-2); }
+.tok .tk i { width: 20px; height: 14px; border-radius: 4px; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+
+.newtok-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.audit td:first-child { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+.audit td:nth-child(2) { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--text-2); }
+
+footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="spec-head">
+    <h1>TuneTutor 皮肤系统 UI 设计稿<span class="ver">v1.1 · 2026-10-18</span></h1>
+    <p>在 v3「纸墨排练室」token 体系上扩展皮肤切换：<b>9 款默认皮肤</b>（经典 5 款 + 中式古风 4 款），全部颜色由 <code>--color-*</code> token 承载，皮肤 = 在 <code>:root[data-theme=&lt;id&gt;]</code> 重定义 token 值。语义角色跨皮肤不变——朱砂系=练习循环、金铜系=播放中、墨系=交互主色；古风皮肤允许角色<b>色相</b>重定（如宫墙转石绿、红木转靛蓝），但同一皮肤内全站一致。图标双层主题化：功能图标颜色随 token 自动，品牌标几何恒定、色随 token 自动（①-02）。本稿为皮肤功能的视觉与交互基准，实现后回填 tech.md。</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="设计稿页面">
+    <button class="on" data-panel="p-switch" type="button">① 切换器与皮肤总览</button>
+    <button data-panel="p-live" type="button">② 实机预览（可切换）</button>
+    <button data-panel="p-token" type="button">③ Token 规范</button>
+    <button data-panel="p-spec" type="button">④ 交互与对接</button>
+  </nav>
+
+  <!-- ═══════════ ① 切换器与皮肤总览 ═══════════ -->
+  <section id="p-switch">
+    <div class="panel-note">
+      <span class="dot">状态</span>
+      <span>页头新增<b>「🎨 皮肤」入口</b>（语言切换左侧，双页共用页头），弹层分「经典 / 古风」两组共 9 款；点选<b>即时应用</b>并写入本机记忆，选中项带 ✓。入口按钮显示当前皮肤名（与语言切换器同范式）。</span>
+    </div>
+
+    <div class="stage-wrap">
+      <div class="app app-open" data-skin="paper" style="width:760px;max-width:100%">
+        <header class="app-header">
+          <div class="mbrand">
+            <div class="mbrand-mark"><svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><rect x="14.1" y="8" width="8" height="48" fill="currentColor"/><rect x="29.7" y="8" width="2.6" height="48" fill="currentColor"/><circle cx="44.7" cy="24" r="5.2" fill="currentColor"/><circle cx="44.7" cy="40" r="5.2" fill="currentColor"/></svg></div>
+            <div>
+              <div class="mbrand-name">TuneTutor</div>
+              <div class="mbrand-sub">乐谱练习播放器</div>
+            </div>
+          </div>
+          <nav class="mseg"><a class="on" href="#">乐谱</a><a href="#">原曲</a></nav>
+          <div class="hdr-right">
+            <div class="thwrap">
+              <button class="hbtn on" type="button">🎨 纸墨 <span class="caret">▼</span></button>
+              <div class="thpop" role="listbox" aria-label="皮肤">
+                <div class="thpop-head"><b>皮肤</b><span>即时生效 · 记忆在本机</span></div>
+                <div class="thpop-group">经 典</div>
+                <button class="thpop-item on" type="button"><span class="ri"><i style="background:#f0ebdd"></i><i style="background:#c2431f"></i><i style="background:#241f15"></i></span><span class="nm">纸墨<em>Paper Ink</em></span><span class="ck">✓</span></button>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#12151d"></i><i style="background:#e2693c"></i><i style="background:#ece7d8"></i></span><span class="nm">夜曲<em>Nocturne</em></span></button>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#e8dcc6"></i><i style="background:#b8501f"></i><i style="background:#33261a"></i></span><span class="nm">暖木<em>Walnut</em></span></button>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#dce3da"></i><i style="background:#b3472e"></i><i style="background:#1f2d24"></i></span><span class="nm">青瓷<em>Celadon</em></span></button>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#0b0b0c"></i><i style="background:#ff5c2e"></i><i style="background:#f6f2e6"></i></span><span class="nm">演奏会<em>Stage</em></span></button>
+                <div class="thpop-group">古 风</div>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#dae0ec"></i><i style="background:#ac3a28"></i><i style="background:#234a8c"></i></span><span class="nm">青花<em>Blue &amp; White</em></span></button>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#7c2f1f"></i><i style="background:#4f8a68"></i><i style="background:#f7ecd9"></i></span><span class="nm">宫墙<em>Palace Red</em></span></button>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#54301f"></i><i style="background:#3e63a2"></i><i style="background:#2a1810"></i></span><span class="nm">红木<em>Rosewood</em></span></button>
+                <button class="thpop-item" type="button"><span class="ri"><i style="background:#14100c"></i><i style="background:#d95a30"></i><i style="background:#e8dcc2"></i></span><span class="nm">玄漆<em>Black Lacquer</em></span></button>
+              </div>
+            </div>
+            <button class="hbtn" type="button">简体中文 <span class="caret">▼</span></button>
+          </div>
+        </header>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">01</span>九款默认皮肤总览</h3>
+      <p>每卡：页头 / 纸面乐谱 / 控制条微缩示意（token 驱动，与实机同源）+ 6 个关键色（画布 · 卡面 · 墨 · 练习语义 · 播放语义 · 纸面）+ 一句气质注解。切换器内分组展示。</p>
+      <div class="gallery" id="gallery"></div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">02</span>品牌标与图标主题化</h3>
+      <p>图标走<b>双层机制</b>，品牌标以 [brand.html](./brand.html) 为先决基准：① <b>功能图标只换色不换形</b>——统一内联 SVG（stroke = currentColor），颜色随所在文字的 token 自动跟随皮肤；现有 emoji 字形（🥁🎹🎧🎼）为固定彩色字体字形、不随 token，实现时应替换为 token 描色的 SVG 图标集，替换前 emoji 保持原样、不计入语义色。② <b>品牌标（反复记号）几何恒定、色随 token 自动</b>——几何取自 <code>docs/brand/tunetutor-mark-small.svg</code>（页头 36px 瓦内约 22px，按 brand 尺寸阶梯用 small 版），瓦片底 = 该皮肤墨面（--color-ink），标记描色 = 该皮肤奶白（--color-cream），三部件恒同色；全部由 token 级联实现、零皮肤配置，换肤即自动变色。语义色（练习/播放）禁止上标、不做字形变体（与 brand.html 用色铁律一致）：</p>
+      <div class="brand-grid" id="brandGrid"></div>
+      <table class="spec-table" style="margin-top:14px">
+        <tr><th>资产</th><th>皮肤化处理</th></tr>
+        <tr><td class="mono">页头品牌瓦（36px）</td><td>bg = ink token、标 = cream token（currentColor），换肤自动跟随，无需 JS</td></tr>
+        <tr><td class="mono">favicon / PWA 图标</td><td><b>不随皮肤</b>——构建期由 brandFavicon 从 tunetutor-app-icon.svg 静态生成，运行时换肤不影响</td></tr>
+        <tr><td class="mono">功能图标</td><td>SVG + currentColor，随所在文字 token 自动；emoji 逐步替换</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════ ② 实机预览（可切换） ═══════════ -->
+  <section id="p-live" hidden>
+    <div class="panel-note">
+      <span class="dot">状态</span>
+      <span>乐谱页与 ui-design.html ①同状态：乐句「第 5–8 小节」选定、<b>播放中</b>、空拍 2 拍、节拍器弹层展开、62 BPM。点上方色卡切换皮肤——注意乐谱纸面、朱砂/金铜语义色、弹层与波形同步重映射（真实入口见①页头弹层）。</span>
+    </div>
+
+    <div class="picker" id="picker"></div>
+
+    <div id="live-scope" data-skin="paper">
+      <div class="live-title">乐谱练习页</div>
+      <div class="app">
+        <header class="app-header">
+          <div class="mbrand">
+            <div class="mbrand-mark"><svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><rect x="14.1" y="8" width="8" height="48" fill="currentColor"/><rect x="29.7" y="8" width="2.6" height="48" fill="currentColor"/><circle cx="44.7" cy="24" r="5.2" fill="currentColor"/><circle cx="44.7" cy="40" r="5.2" fill="currentColor"/></svg></div>
+            <div>
+              <div class="mbrand-name">TuneTutor</div>
+              <div class="mbrand-sub">乐谱练习播放器</div>
+            </div>
+          </div>
+          <nav class="mseg"><a class="on" href="#">乐谱</a><a href="#">原曲</a></nav>
+          <div class="hdr-right">
+            <button class="hbtn" type="button">🎨 纸墨 <span class="caret">▼</span></button>
+            <button class="hbtn" type="button">简体中文 <span class="caret">▼</span></button>
+          </div>
+        </header>
+
+        <div class="app-main">
+          <div class="toolbar">
+            <h2>我的乐谱</h2>
+            <div class="tb-actions">
+              <button class="inst" type="button">🎹 钢琴 <span class="caret" style="font-size:10px;color:var(--color-fg-3)">▼</span></button>
+              <button class="btn-p" type="button">＋ 加载乐谱</button>
+            </div>
+          </div>
+
+          <div class="paper">
+            <div class="paper-title">
+              <div class="t">小星星</div>
+              <div class="c">传统童谣 · C 大调 · 4/4 · ♩ = 60</div>
+            </div>
+
+            <svg class="score-svg" viewBox="0 0 980 118" aria-label="乐谱第 1–4 小节，播放中">
+              <line class="playhead-glow" x1="415" y1="6" x2="415" y2="112"/>
+              <line class="playhead" x1="415" y1="6" x2="415" y2="112"/>
+              <polygon class="playhead-arrow" points="409,6 421,6 415,14"/>
+              <polygon class="playhead-arrow" points="409,112 421,112 415,104"/>
+              <g>
+                <line class="staffline" x1="16" y1="30" x2="964" y2="30"/>
+                <line class="staffline" x1="16" y1="42" x2="964" y2="42"/>
+                <line class="staffline" x1="16" y1="54" x2="964" y2="54"/>
+                <line class="staffline" x1="16" y1="66" x2="964" y2="66"/>
+                <line class="staffline" x1="16" y1="78" x2="964" y2="78"/>
+                <text class="clef" x="22" y="78">𝄞</text>
+                <text class="timesig" x="86" y="50">4</text>
+                <text class="timesig" x="86" y="78">4</text>
+                <text class="mnum" x="112" y="16">1</text>
+                <text class="mnum" x="288" y="16">2</text>
+                <text class="mnum" x="505" y="16">3</text>
+                <text class="mnum" x="723" y="16">4</text>
+                <ellipse class="notehead" cx="120" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 120 38)"/><line class="stem" x1="125" y1="37" x2="125" y2="12"/>
+                <ellipse class="notehead" cx="160" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 160 38)"/><line class="stem" x1="165" y1="37" x2="165" y2="12"/>
+                <ellipse class="notehead" cx="205" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 205 62)"/><line class="stem" x1="210" y1="61" x2="210" y2="86"/>
+                <ellipse class="notehead" cx="245" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 245 62)"/><line class="stem" x1="250" y1="61" x2="250" y2="86"/>
+                <line class="barline" x1="268" y1="30" x2="268" y2="78"/>
+                <ellipse class="notehead" cx="300" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 300 54)"/><line class="stem" x1="305" y1="53" x2="305" y2="28"/>
+                <ellipse class="notehead" cx="340" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 340 54)"/><line class="stem" x1="345" y1="53" x2="345" y2="28"/>
+                <ellipse class="notehead" cx="395" cy="62" rx="5.8" ry="4.3" transform="rotate(-18 395 62)"/><line class="stem" x1="400" y1="61" x2="400" y2="86"/>
+                <line class="barline" x1="488" y1="30" x2="488" y2="78"/>
+                <ellipse class="notehead" cx="522" cy="26" rx="5.4" ry="4.1" transform="rotate(-18 522 26)"/><line class="stem" x1="527" y1="25" x2="527" y2="2"/>
+                <ellipse class="notehead" cx="562" cy="26" rx="5.4" ry="4.1" transform="rotate(-18 562 26)"/><line class="stem" x1="567" y1="25" x2="567" y2="2"/>
+                <ellipse class="notehead" cx="612" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 612 34)"/><line class="stem" x1="617" y1="33" x2="617" y2="8"/>
+                <ellipse class="notehead" cx="652" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 652 34)"/><line class="stem" x1="657" y1="33" x2="657" y2="8"/>
+                <line class="barline" x1="706" y1="30" x2="706" y2="78"/>
+                <ellipse class="notehead" cx="745" cy="46" rx="5.8" ry="4.3" transform="rotate(-18 745 46)"/><line class="stem" x1="750" y1="45" x2="750" y2="20"/>
+                <ellipse class="notehead" cx="815" cy="46" rx="5.8" ry="4.3" transform="rotate(-18 815 46)"/><line class="stem" x1="820" y1="45" x2="820" y2="20"/>
+                <ellipse class="notehead" cx="900" cy="38" rx="7.2" ry="4.6"/>
+                <line class="barline" x1="938" y1="30" x2="938" y2="78"/>
+                <line class="barline" x1="943" y1="30" x2="943" y2="78" stroke-width="3"/>
+              </g>
+            </svg>
+
+            <svg class="score-svg" viewBox="0 0 980 118" aria-label="乐谱第 5–8 小节，乐句已选中">
+              <rect class="sel-band" x="92" y="14" width="836" height="82" rx="8"/>
+              <path class="sel-bracket" d="M 96 22 v -8 h 800 v 8"/>
+              <rect class="sel-label-bg" x="420" y="0" width="140" height="18" rx="9"/>
+              <text class="sel-label-tx" x="490" y="13" text-anchor="middle">乐句 · 第 5–8 小节</text>
+              <rect class="sel-flag" x="94" y="26" width="3.5" height="66" rx="1.5"/>
+              <polygon class="sel-flag" points="103,36 111,41 103,46"/>
+              <rect class="sel-flag" x="922" y="26" width="3.5" height="66" rx="1.5"/>
+              <polygon class="sel-flag" points="917,36 909,41 917,46"/>
+              <g>
+                <line class="staffline" x1="16" y1="30" x2="964" y2="30"/>
+                <line class="staffline" x1="16" y1="42" x2="964" y2="42"/>
+                <line class="staffline" x1="16" y1="54" x2="964" y2="54"/>
+                <line class="staffline" x1="16" y1="66" x2="964" y2="66"/>
+                <line class="staffline" x1="16" y1="78" x2="964" y2="78"/>
+                <text class="clef" x="22" y="78">𝄞</text>
+                <text class="timesig" x="86" y="50">4</text>
+                <text class="timesig" x="86" y="78">4</text>
+                <text class="mnum" x="112" y="16">5</text>
+                <text class="mnum" x="288" y="16">6</text>
+                <text class="mnum" x="505" y="16">7</text>
+                <text class="mnum" x="723" y="16">8</text>
+                <ellipse class="notehead sel" cx="120" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 120 62)"/><line class="stem sel" x1="125" y1="61" x2="125" y2="86"/>
+                <ellipse class="notehead sel" cx="160" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 160 62)"/><line class="stem sel" x1="165" y1="61" x2="165" y2="86"/>
+                <ellipse class="notehead sel" cx="205" cy="46" rx="5.4" ry="4.1" transform="rotate(-18 205 46)"/><line class="stem sel" x1="210" y1="45" x2="210" y2="20"/>
+                <ellipse class="notehead sel" cx="245" cy="46" rx="5.4" ry="4.1" transform="rotate(-18 245 46)"/><line class="stem sel" x1="250" y1="45" x2="250" y2="20"/>
+                <line class="barline" x1="268" y1="30" x2="268" y2="78"/>
+                <ellipse class="notehead sel" cx="300" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 300 34)"/><line class="stem sel" x1="305" y1="33" x2="305" y2="8"/>
+                <ellipse class="notehead sel" cx="340" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 340 34)"/><line class="stem sel" x1="345" y1="33" x2="345" y2="8"/>
+                <ellipse class="notehead sel" cx="415" cy="46" rx="5.8" ry="4.3" transform="rotate(-18 415 46)"/><line class="stem sel" x1="420" y1="45" x2="420" y2="20"/>
+                <line class="barline" x1="488" y1="30" x2="488" y2="78"/>
+                <ellipse class="notehead sel" cx="522" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 522 38)"/><line class="stem sel" x1="527" y1="37" x2="527" y2="12"/>
+                <ellipse class="notehead sel" cx="562" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 562 38)"/><line class="stem sel" x1="567" y1="37" x2="567" y2="12"/>
+                <ellipse class="notehead sel" cx="612" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 612 62)"/><line class="stem sel" x1="617" y1="61" x2="617" y2="86"/>
+                <ellipse class="notehead sel" cx="652" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 652 62)"/><line class="stem sel" x1="657" y1="61" x2="657" y2="86"/>
+                <line class="barline" x1="706" y1="30" x2="706" y2="78"/>
+                <ellipse class="notehead sel" cx="745" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 745 54)"/><line class="stem sel" x1="750" y1="53" x2="750" y2="28"/>
+                <ellipse class="notehead sel" cx="785" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 785 54)"/><line class="stem sel" x1="790" y1="53" x2="790" y2="28"/>
+                <ellipse class="notehead sel" cx="850" cy="62" rx="5.8" ry="4.3" transform="rotate(-18 850 62)"/><line class="stem sel" x1="855" y1="61" x2="855" y2="86"/>
+                <path class="rest" d="M 895 32 l 5 9 l -8 9 l 6 9"/>
+                <line class="barline" x1="938" y1="30" x2="938" y2="78"/>
+                <line class="barline" x1="943" y1="30" x2="943" y2="78" stroke-width="3"/>
+              </g>
+            </svg>
+
+            <div class="paper-foot">
+              <span>OSMD · SVG 渲染 · 自适应宽度</span>
+              <span class="zoom"><span>－</span><span>100%</span><span>＋</span></span>
+            </div>
+          </div>
+
+          <div class="selinfo">
+            <span class="sel-chip"><span class="swatch"></span>乐句：第 5 – 8 小节 · 14 个音符 · 循环播放</span>
+            <button class="sel-clear" type="button">清除选择</button>
+          </div>
+
+          <div class="controls">
+            <div class="ctl grow">
+              <span class="ctl-label">速度</span>
+              <div class="tempo">
+                <div class="slider">
+                  <div class="track"></div>
+                  <div class="fill"></div>
+                  <div class="thumb"></div>
+                </div>
+                <div class="tempo-val"><span class="num">62</span><span class="unit">BPM</span></div>
+              </div>
+            </div>
+
+            <div class="ctl">
+              <div class="transport">
+                <button class="t-btn t-play" type="button" title="播放中 · 点击停止">
+                  <span class="pulse"></span><span style="position:relative">⏹</span>
+                </button>
+                <button class="t-btn t-stop" type="button" title="停止">⏹</button>
+              </div>
+            </div>
+
+            <div class="ctl">
+              <span class="ctl-label">节拍器</span>
+              <div class="metro">
+                <button class="m-toggle" type="button">🥁 开</button>
+                <span class="m-gear on" title="节拍器设置">⚙</span>
+              </div>
+            </div>
+
+            <div class="ctl">
+              <span class="ctl-label">空拍</span>
+              <div class="beats">
+                <div class="beat-set">
+                  <span class="beat">1</span><span class="beat on">2</span><span class="beat">3</span><span class="beat">4</span>
+                  <span class="beat">5</span><span class="beat">6</span><span class="beat">7</span><span class="beat">8</span>
+                </div>
+                <span class="gap-out">轮间 <b>2 拍</b></span>
+              </div>
+            </div>
+
+            <div class="metro-pop">
+              <div class="pop-row">
+                <div class="pop-label"><span>音色</span></div>
+                <div class="sounds"><span>经典</span><span>电子</span><span class="on">底鼓</span><span>敲击</span></div>
+              </div>
+              <div class="pop-row">
+                <div class="pop-label"><span>强拍音量</span><b>80%</b></div>
+                <div class="mini-slider s1"><div class="track"></div><div class="fill"></div><div class="thumb"></div></div>
+              </div>
+              <div class="pop-row">
+                <div class="pop-label"><span>弱拍音量</span><b>50%</b></div>
+                <div class="mini-slider s2"><div class="track"></div><div class="fill"></div><div class="thumb"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="status">
+            <div class="grp">
+              <span class="it"><span class="k">选择</span><b class="phrase">乐句 5–8 小节</b></span>
+              <span class="it"><span class="k">🔁 跳过</span><b>2 拍</b></span>
+              <span class="it"><span class="k">乐器</span><b>🎹 钢琴</b></span>
+            </div>
+            <div class="grp">
+              <span class="it live"><span class="dot"></span>播放中 · 乐句循环</span>
+              <span class="it"><span class="k">♩</span><b>62 BPM</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="live-title">原曲练习页（局部）</div>
+      <div class="app">
+        <div class="app-main">
+          <div class="audio-card">
+            <div class="audio-file">
+              <div class="left">
+                <span class="fico">🎧</span>
+                <span>
+                  <div class="t">天使的翅膀 demo.mp3</div>
+                  <div class="s">8.4 MB · 3:24 · 44.1 kHz</div>
+                </span>
+              </div>
+              <button class="remove" type="button">移除音频</button>
+            </div>
+
+            <div class="wave-stage">
+              <div class="wave-bars" data-wave></div>
+              <div class="wave-dim l"></div>
+              <div class="wave-dim r"></div>
+              <div class="slice">
+                <span class="tag">切片 0:42 – 1:05</span>
+                <span class="handle l"></span>
+                <span class="handle r"></span>
+              </div>
+              <div class="wave-ph"></div>
+            </div>
+
+            <div class="readout">
+              <span class="chip">LOOP 23s</span>
+              <span>循环区间 0:42 → 1:05 · 每轮 +2 拍静音（约 1.9s）</span>
+              <span class="hint">拖拽波形新建切片 · 拖动边界微调 · 双击移除</span>
+            </div>
+
+            <div class="a-actions">
+              <div class="ctl">
+                <div class="transport">
+                  <button class="t-btn t-play" type="button" title="循环播放切片">▶</button>
+                  <button class="t-btn t-stop" type="button" title="停止">⏹</button>
+                </div>
+              </div>
+              <div class="ctl">
+                <span class="ctl-label">空拍</span>
+                <div class="beats">
+                  <div class="beat-set">
+                    <span class="beat">1</span><span class="beat on">2</span><span class="beat">3</span><span class="beat">4</span>
+                    <span class="beat">5</span><span class="beat">6</span><span class="beat">7</span><span class="beat">8</span>
+                  </div>
+                  <span class="gap-out">轮间 <b>2 拍</b></span>
+                </div>
+              </div>
+              <div class="ctl" style="margin-left:auto">
+                <span class="ctl-label">速度</span>
+                <div class="tempo" style="width:180px;flex:none">
+                  <div class="slider">
+                    <div class="track"></div>
+                    <div class="fill"></div>
+                    <div class="thumb"></div>
+                  </div>
+                  <div class="tempo-val"><span class="num">62</span><span class="unit">BPM</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ③ Token 规范 ═══════════ -->
+  <section id="p-token" hidden>
+    <div class="spec-sec">
+      <h3><span class="no">01</span>色彩 Token 全表（9 皮肤 × 34 token）</h3>
+      <p>与 <code>src/index.css</code> 的 Tailwind v4 <code>@theme</code> 命名一一对应；带 <span style="color:var(--verm-deep);font-weight:700">★</span> 为皮肤化需新增的 token。实现时默认值置于 <code>:root</code>（= paper），其余皮肤置于 <code>:root[data-theme=&lt;id&gt;]</code> 覆盖块。</p>
+      <div class="tok-scroll">
+        <table class="tok">
+          <thead>
+            <tr>
+              <th>Token</th><th>用途</th>
+              <th>纸墨<span class="sub">paper</span></th>
+              <th>夜曲<span class="sub">nocturne</span></th>
+              <th>暖木<span class="sub">walnut</span></th>
+              <th>青瓷<span class="sub">celadon</span></th>
+              <th>演奏会<span class="sub">stage</span></th>
+              <th>青花<span class="sub">cobalt</span></th>
+              <th>宫墙<span class="sub">palace</span></th>
+              <th>红木<span class="sub">rosewood</span></th>
+              <th>玄漆<span class="sub">lacquer</span></th>
+            </tr>
+          </thead>
+          <tbody id="tokBody"></tbody>
+        </table>
+      </div>
+      <p style="margin-top:12px">阴影与几何：<b>圆角、字体、间距全皮肤共享</b>；三组阴影（shadow-soft / pop / paper）按皮肤换基调——浅色皮肤沿用暖棕投影 + 白色内高光，深色皮肤改纯黑投影（alpha 0.55–0.8）+ 极弱内高光，具体值随皮肤块定义（本页 JS 内 SKINS 数据即为准值）。</p>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">02</span>新增 Token（★ 7 项）</h3>
+      <p>现有组件中的写死颜色提升为 token，皮肤才能整体换色。</p>
+      <div class="newtok-grid">
+        <div class="rule-card"><b>--color-header</b>页头半透明底。页头浮于画布之上，各皮肤需要独立的半透明面（现写死 rgb(255 253 247/0.55)）。</div>
+        <div class="rule-card"><b>--color-ink-hover</b>主按钮悬停色。深色皮肤 ink 为浅色，悬停需向更亮走而非更深。</div>
+        <div class="rule-card"><b>--color-track</b>滑杆轨道底（现写死墨色 14%，深色皮肤下不可见）。</div>
+        <div class="rule-card"><b>--color-wash</b>墨色水洗底：空态占位、图标底、极浅强调面（现写死 rgb(36 31 21/0.02)）。</div>
+        <div class="rule-card"><b>--color-wave-bg</b>波形区底色（现写死 #f3efe2）。</div>
+        <div class="rule-card"><b>--color-wave-bar-a / -b</b>波形条渐变双端（现写死 #b9ae8d → #948a60）。</div>
+        <div class="rule-card"><b>派生色用 color-mix</b>光晕、遮罩、半透明叠加一律 <code>color-mix(in srgb, token n%, transparent)</code> 派生，不新增 token。</div>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">03</span>写死色值审计（皮肤化前置清单）</h3>
+      <p>以下位置的颜色写死在组件里，需在实现时收敛为 token 或 color-mix 派生。</p>
+      <table class="spec-table audit">
+        <tr><th>位置</th><th>现值</th><th>处理</th></tr>
+        <tr><td>src/index.css:75-76</td><td>body 双 radial 渐变</td><td>拆为皮肤级装饰：每皮肤可在 data-theme 块给 body 背景组合，或简化为纯 canvas</td></tr>
+        <tr><td>src/components/Header.tsx:67</td><td>rgb(255 253 247/0.55)</td><td>→ --color-header</td></tr>
+        <tr><td>src/components/Header.tsx:71</td><td>inset 高光 rgb(255 255 255/0.14)</td><td>保留（各皮肤 ink 面上均成立）</td></tr>
+        <tr><td>src/components/PlaybackControls/TransportButtons.tsx:24</td><td>#d9a021（播放键渐变亮端）</td><td>→ var(--color-gold-bright)</td></tr>
+        <tr><td>src/pages/OriginalAudioPage.tsx:179,185</td><td>#f3efe2 / #b9ae8d / #948a60</td><td>→ --color-wave-bg / -a / -b</td></tr>
+        <tr><td>src/pages/OriginalAudioPage.tsx:194-237</td><td>各 rgba（切片/遮罩/阴影）</td><td>→ 既有 token 或 color-mix(verm/gold) 派生，逐一核对</td></tr>
+        <tr><td>src/components/StatusBar.tsx:41</td><td>rgb(…) 活跃点光晕</td><td>→ color-mix(moss 60%, transparent)</td></tr>
+        <tr><td>src/components/OsmdNotation.tsx:12</td><td>rgb(36 31 21/0.02)</td><td>→ --color-wash</td></tr>
+        <tr><td>src/components/FileLoaderModal.tsx:49</td><td>rgb(…) 图标底</td><td>→ --color-wash</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════ ④ 交互与对接 ═══════════ -->
+  <section id="p-spec" hidden>
+    <div class="spec-sec">
+      <h3><span class="no">01</span>切换器交互</h3>
+      <div class="rule-grid">
+        <div class="rule-card"><b>入口</b>页头「🎨 当前皮肤名 ▼」按钮，位于语言切换左侧；双页共用页头，天然两页生效。点击开合弹层。</div>
+        <div class="rule-card"><b>弹层</b>右对齐 272px 列表，分「经典 / 古风」两组；行 = 三色圆点预览（画布/语义/墨）+ 名称 + 英文副标；选中行 surface-3 底 + 朱砂 ✓ + 加粗。</div>
+        <div class="rule-card"><b>应用时机</b><span class="do">✓</span> 点选立即换肤并关闭弹层，无确认步骤<br><span class="dont">✕</span> 「应用 / 取消」双按钮、整页刷新</div>
+        <div class="rule-card"><b>关闭</b><span class="kbd">Esc</span>、点击弹层外、再次点入口；与语言切换器共用 useClickOutside 范式。</div>
+        <div class="rule-card"><b>无障碍</b>role=listbox/option + aria-selected（对齐 Header.tsx LangSwitcher）；焦点环走全局 :focus-visible（金铜）。</div>
+        <div class="rule-card"><b>动效</b>弹层 160ms 淡入 + 4px 上移；换肤时背景/边框/文字 160ms 过渡；prefers-reduced-motion 下全部瞬时。</div>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">02</span>存储与首帧</h3>
+      <p>localStorage 键 <code>note-slice-theme</code>（对齐 <code>note-slice-language</code> 命名），合法值 <code>paper | nocturne | walnut | celadon | stage | cobalt | palace | rosewood | lacquer</code>，缺省 <code>paper</code>；非法值回退默认。首帧防闪白：index.html <code>&lt;head&gt;</code> 内联脚本先于样式应用：</p>
+      <div class="code-block"><span class="cm">&lt;!-- index.html，置于 &lt;head&gt; 内联 --&gt;</span><br>&lt;script&gt;try { var t = localStorage.getItem('note-slice-theme');<br>&nbsp;&nbsp;if (t) document.documentElement.dataset.theme = t; } catch (e) {}&lt;/script&gt;</div>
+      <p>换肤实现：<code>useTheme()</code> hook 写 <code>document.documentElement.dataset.theme</code> + localStorage；不引入 context 重渲染（token 级联由 CSS 完成，React 状态仅用于切换器 UI 的选中态）。</p>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">03</span>i18n 键表（硬约束：四语言全量）</h3>
+      <p>新增键必须同时进 en-US / zh-CN / zh-TW / fr-FR 四文件（tech §8），tests/locales/index.test.ts 补键断言。</p>
+      <table class="spec-table">
+        <tr><th>key</th><th>en-US</th><th>zh-CN</th><th>zh-TW</th><th>fr-FR</th></tr>
+        <tr><td class="mono">theme.label</td><td>Theme</td><td>皮肤</td><td>皮膚</td><td>Thème</td></tr>
+        <tr><td class="mono">theme.group.classic</td><td>Classic</td><td>经典</td><td>經典</td><td>Classiques</td></tr>
+        <tr><td class="mono">theme.group.antique</td><td>Chinese Classic</td><td>古风</td><td>古風</td><td>Classique chinois</td></tr>
+        <tr><td class="mono">theme.paper</td><td>Paper Ink</td><td>纸墨</td><td>紙墨</td><td>Encre &amp; papier</td></tr>
+        <tr><td class="mono">theme.nocturne</td><td>Nocturne</td><td>夜曲</td><td>夜曲</td><td>Nocturne</td></tr>
+        <tr><td class="mono">theme.walnut</td><td>Walnut</td><td>暖木</td><td>暖木</td><td>Noyer</td></tr>
+        <tr><td class="mono">theme.celadon</td><td>Celadon</td><td>青瓷</td><td>青瓷</td><td>Céladon</td></tr>
+        <tr><td class="mono">theme.stage</td><td>Stage</td><td>演奏会</td><td>演奏會</td><td>Scène</td></tr>
+        <tr><td class="mono">theme.cobalt</td><td>Blue &amp; White</td><td>青花</td><td>青花</td><td>Bleu &amp; blanc</td></tr>
+        <tr><td class="mono">theme.palace</td><td>Palace Red</td><td>宫墙</td><td>宮牆</td><td>Palais</td></tr>
+        <tr><td class="mono">theme.rosewood</td><td>Rosewood</td><td>红木</td><td>紅木</td><td>Palissandre</td></tr>
+        <tr><td class="mono">theme.lacquer</td><td>Black Lacquer</td><td>玄漆</td><td>玄漆</td><td>Laque noire</td></tr>
+        <tr><td class="mono">theme.appliedHint</td><td>Applied instantly · saved locally</td><td>即时生效 · 记忆在本机</td><td>即時生效 · 記憶在本機</td><td>Appliqué immédiatement · mémorisé localement</td></tr>
+      </table>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">04</span>乐谱域契约（OSMD）</h3>
+      <div class="rule-grid">
+        <div class="rule-card"><b>取色</b>OSMD 集成落地时（tech §6.1），EngravingRules 颜色一律读 token：谱线 staff、小节线 barline、符干/符头/文字 ink、辅助文字 ink-2；纸面底色由乐谱卡 CSS（--color-paper）承担，OSMD 保持透明背景。</div>
+        <div class="rule-card"><b>换肤时机</b>皮肤切换触发 osmd.render() 重建 + 选择/乐句覆盖层按既有 graphicIndex 重建；切换为低频显式操作，一次性重排可接受，不做过渡动画。</div>
+        <div class="rule-card"><b>光标与语义</b>播放光标 gold-bright（含 color-mix 光晕）；选中符头/括号 verm；深纸面皮肤（夜曲/玄漆/演奏会）符头自动转浅色（ink 在该皮肤为浅色值），无需单独「夜间谱面」分支。</div>
+        <div class="rule-card"><b>宫墙特例</b>练习语义为石绿，选中符头/括号/标签随之转绿；<b>角色分配不变</b>（仍是「练习循环」这一语义角色），不产生第二种选中色。</div>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">05</span>决策记录 T1–T10</h3>
+      <table class="spec-table">
+        <tr><th>#</th><th>决策</th></tr>
+        <tr><td class="mono">T1</td><td>承载方式：全部颜色走 CSS 自定义属性（Tailwind v4 @theme 即自定义属性，可直接被更高优先级选择器覆盖）；皮肤 = :root[data-theme] 重定义 token，组件零改动、不写死色值。</td></tr>
+        <tr><td class="mono">T2</td><td>语义角色分配跨皮肤不变（哪类元素用哪个角色）；角色<b>色相</b>允许随皮肤整体重定，同一皮肤内全站一致。例：宫墙练习语义转石绿（青绿对朱砂的传统配色）、青花交互主色转钴青。</td></tr>
+        <tr><td class="mono">T3</td><td>9 款默认皮肤，id 固定：paper / nocturne / walnut / celadon / stage / cobalt / palace / rosewood / lacquer。不做「跟随系统」——明暗已由夜曲/玄漆/演奏会手动覆盖，避免组合爆炸；新增皮肤走同一 token 契约。</td></tr>
+        <tr><td class="mono">T4</td><td>存储 localStorage「note-slice-theme」，缺省 paper，非法值回退；index.html 首帧内联脚本写 data-theme 防闪白（FOUC）。</td></tr>
+        <tr><td class="mono">T5</td><td>入口：页头弹层（复刻 LangSwitcher 交互与 a11y 范式），分组「经典 / 古风」；不设独立设置页。</td></tr>
+        <tr><td class="mono">T6</td><td>OSMD：EngravingRules 读 token，换肤触发重渲染（见 04 节契约）；乐谱纸面底色走 CSS 不走 OSMD。</td></tr>
+        <tr><td class="mono">T7</td><td>换肤过渡 160ms ease（对齐 v3 动效基准），OSMD 重渲染不动画；prefers-reduced-motion 全瞬时。</td></tr>
+        <tr><td class="mono">T8</td><td>无障碍底线：正文对所在面 ≥ 4.5:1；「演奏会」对标 WCAG AAA（正文 ≥ 7:1）作高对比选项；语义色光晕/淡底仅作装饰不作唯一信息载体。</td></tr>
+        <tr><td class="mono">T9</td><td>古风四款取材传统工艺：青花（青花瓷：瓷白纸面、钴青交互、釉里红练习、泥金播放）；宫墙（宫墙红+金瓦：漆黑交互、石绿练习、金系播放与进行中指示）；红木（酸枝家具：深棕红画布、绢黄纸面、黄铜播放、靛蓝练习——蓝染对植木，与宫墙的红墙绿语义区分）；玄漆（黑漆描金：暖黑底、漆白交互、描金播放、朱砂练习）。token 名保留 verm/gold 历史角色名，值随皮肤走、类名不变。</td></tr>
+        <tr><td class="mono">T10</td><td>图标双层主题化（以 brand.html 为先决基准）：功能图标统一内联 SVG、stroke=currentColor，只换色不换形，随 token 自动跟随（现有 emoji 字形逐步替换为 SVG 图标集，替换前不计入语义色）；品牌标（反复记号）几何恒定、零皮肤配置——瓦片底 = ink token、标记描色 = cream token（currentColor，三部件同色），由 CSS 级联自动跟随换肤；语义色禁止上标、不做字形/形制变体；favicon 与 PWA 图标不随皮肤（构建期静态生成）。</td></tr>
+      </table>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">06</span>实现对接清单</h3>
+      <div class="rule-grid">
+        <div class="rule-card"><b>1 · index.css</b>@theme 保留（供 Tailwind 类生成）；皮肤值域改为 :root（默认 paper）+ :root[data-theme=…] 覆盖块；新增 7 个 ★ token。</div>
+        <div class="rule-card"><b>2 · useTheme</b>src/hooks/useTheme.ts：读写 localStorage + dataset.theme + 合法值校验；React 状态仅驱动切换器选中态。</div>
+        <div class="rule-card"><b>3 · ThemeSwitcher</b>Header.tsx 内新增（复刻 LangSwitcher 结构 + useClickOutside），分组渲染 9 项。</div>
+        <div class="rule-card"><b>4 · 图标 SVG 化</b>品牌标换 docs/brand 反复记号 inline SVG（瓦 = ink、标 = cream currentColor）；功能 emoji（🥁🎹🎧🎼🗑）替换为 token 描色的内联 SVG 集（stroke=currentColor）；未替换项跨皮肤保持原样。</div>
+        <div class="rule-card"><b>5 · 写死色值清理</b>按 ③-03 审计表逐项收敛为 token / color-mix。</div>
+        <div class="rule-card"><b>6 · 防闪白</b>index.html head 内联脚本（见 02 节）。</div>
+        <div class="rule-card"><b>7 · i18n + 测试</b>四语言文件补 theme.* 13 键；tests/locales 补全量断言。</div>
+        <div class="rule-card"><b>8 · OSMD 预留</b>EngravingRules 取色走 token 的接入点写进 OsmdNotation 集成（audio/tech 文档随实现回填）。</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="spec-foot">TuneTutor 皮肤系统 UI 设计稿 v1.1 · 2026-10-18 · 配套：docs/ui-design.html（v3 基准）· docs/brand.html（品牌基准）· docs/prd.md · docs/tech.md · 本稿为皮肤功能的视觉与交互基准</footer>
+</div>
+
+<script>
+// ═══ 皮肤数据（唯一事实源）：注入 [data-skin] 样式 + 总览卡 + Token 表 ═══
+var SKINS = {
+  paper: {
+    name: '纸墨', en: 'Paper Ink', group: 'classic',
+    mood: '印刷乐谱的纸墨编辑感 · 现行默认',
+    vals: {
+      canvas: '#f0ebdd', surface: '#faf7ee', surface2: '#fffdf7', surface3: '#efe9d9',
+      line: 'rgb(62 52 33 / 0.13)', lineStrong: 'rgb(62 52 33 / 0.24)',
+      header: 'rgb(255 253 247 / 0.55)', backdrop: 'rgb(43 36 24 / 0.35)',
+      fg: '#2f291c', fg2: '#6f6750', fg3: '#9b9179',
+      ink: '#241f15', inkHover: '#3a3225', ink2: '#8d8570', cream: '#f8f3e7',
+      verm: '#c2431f', vermDeep: '#a53515', vermSoft: 'rgb(194 67 31 / 0.09)', vermLine: 'rgb(194 67 31 / 0.3)', vermLineStrong: 'rgb(194 67 31 / 0.45)',
+      gold: '#b07a0c', goldBright: '#cd840f',
+      moss: '#47764f', clay: '#b04a3f', claySoft: 'rgb(176 74 63 / 0.1)', clayLine: 'rgb(176 74 63 / 0.45)',
+      paper: '#fffdf6', staff: '#d8d1ba', barline: '#b0a78a',
+      track: 'rgb(36 31 21 / 0.14)', wash: 'rgb(36 31 21 / 0.02)',
+      waveBg: '#f3efe2', waveBarA: '#b9ae8d', waveBarB: '#948a60'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(72 60 36 / 0.08), 0 0 0 1px rgb(62 52 33 / 0.04)',
+      pop: '0 24px 56px -16px rgb(72 60 36 / 0.35), 0 0 0 1px rgb(62 52 33 / 0.06)',
+      paper: '0 14px 36px -14px rgb(72 60 36 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.8)'
+    }
+  },
+  nocturne: {
+    name: '夜曲', en: 'Nocturne', group: 'classic',
+    mood: '深夜练习室 · 蓝黑底暖白谱，夜间练琴不刺眼',
+    vals: {
+      canvas: '#12151d', surface: '#1a1f2a', surface2: '#212734', surface3: '#2b3242',
+      line: 'rgb(196 206 232 / 0.1)', lineStrong: 'rgb(196 206 232 / 0.24)',
+      header: 'rgb(26 31 42 / 0.6)', backdrop: 'rgb(4 7 13 / 0.62)',
+      fg: '#e9e6dc', fg2: '#aab1c2', fg3: '#767e92',
+      ink: '#ece7d8', inkHover: '#ffffff', ink2: '#9099ad', cream: '#1b202b',
+      verm: '#e2693c', vermDeep: '#ef9166', vermSoft: 'rgb(226 105 60 / 0.14)', vermLine: 'rgb(226 105 60 / 0.38)', vermLineStrong: 'rgb(226 105 60 / 0.55)',
+      gold: '#d9a13c', goldBright: '#f2bb54',
+      moss: '#85b393', clay: '#e08377', claySoft: 'rgb(224 131 119 / 0.14)', clayLine: 'rgb(224 131 119 / 0.5)',
+      paper: '#1e2430', staff: '#454f63', barline: '#5d6a83',
+      track: 'rgb(233 230 220 / 0.18)', wash: 'rgb(233 230 220 / 0.05)',
+      waveBg: '#161b25', waveBarA: '#4d5a76', waveBarB: '#36425a'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(0 0 0 / 0.25)',
+      pop: '0 24px 56px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(0 0 0 / 0.4)',
+      paper: '0 14px 36px -14px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.05)'
+    }
+  },
+  walnut: {
+    name: '暖木', en: 'Walnut', group: 'classic',
+    mood: '琴房胡桃木 · 暖沙底奶油谱，木质乐器的温度',
+    vals: {
+      canvas: '#e8dcc6', surface: '#f1e8d4', surface2: '#f9f3e3', surface3: '#e3d5b8',
+      line: 'rgb(96 66 30 / 0.15)', lineStrong: 'rgb(96 66 30 / 0.28)',
+      header: 'rgb(249 243 227 / 0.6)', backdrop: 'rgb(48 32 12 / 0.4)',
+      fg: '#3a2d1a', fg2: '#7c6a4c', fg3: '#a6956f',
+      ink: '#33261a', inkHover: '#4a3826', ink2: '#8d7c5e', cream: '#f8f1e0',
+      verm: '#b8501f', vermDeep: '#933f12', vermSoft: 'rgb(184 80 31 / 0.1)', vermLine: 'rgb(184 80 31 / 0.32)', vermLineStrong: 'rgb(184 80 31 / 0.48)',
+      gold: '#ad7712', goldBright: '#c68a1a',
+      moss: '#55743f', clay: '#a84a38', claySoft: 'rgb(168 74 56 / 0.1)', clayLine: 'rgb(168 74 56 / 0.45)',
+      paper: '#fdf9ec', staff: '#dccaa6', barline: '#ab9370',
+      track: 'rgb(51 38 26 / 0.16)', wash: 'rgb(51 38 26 / 0.03)',
+      waveBg: '#efe6cf', waveBarA: '#b5a077', waveBarB: '#8f7a52'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(74 52 26 / 0.1), 0 0 0 1px rgb(96 66 30 / 0.05)',
+      pop: '0 24px 56px -16px rgb(74 52 26 / 0.38), 0 0 0 1px rgb(96 66 30 / 0.07)',
+      paper: '0 14px 36px -14px rgb(74 52 26 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.8)'
+    }
+  },
+  celadon: {
+    name: '青瓷', en: 'Celadon', group: 'classic',
+    mood: '雨过天青 · 灰青釉底，冷色护眼',
+    vals: {
+      canvas: '#dce3da', surface: '#e9eee6', surface2: '#f4f7f0', surface3: '#dbe2d4',
+      line: 'rgb(50 76 58 / 0.14)', lineStrong: 'rgb(50 76 58 / 0.26)',
+      header: 'rgb(244 247 240 / 0.6)', backdrop: 'rgb(20 34 26 / 0.38)',
+      fg: '#24322a', fg2: '#5c6f61', fg3: '#86968a',
+      ink: '#1f2d24', inkHover: '#34473a', ink2: '#7a8a7e', cream: '#f4f8f0',
+      verm: '#b3472e', vermDeep: '#93371d', vermSoft: 'rgb(179 71 46 / 0.1)', vermLine: 'rgb(179 71 46 / 0.32)', vermLineStrong: 'rgb(179 71 46 / 0.48)',
+      gold: '#9c7c14', goldBright: '#b8951a',
+      moss: '#3f7350', clay: '#a34b3c', claySoft: 'rgb(163 75 60 / 0.1)', clayLine: 'rgb(163 75 60 / 0.45)',
+      paper: '#f7faf2', staff: '#c3cfba', barline: '#91a48c',
+      track: 'rgb(31 45 36 / 0.15)', wash: 'rgb(31 45 36 / 0.03)',
+      waveBg: '#e3eadd', waveBarA: '#93a88b', waveBarB: '#6f866c'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(40 62 48 / 0.1), 0 0 0 1px rgb(50 76 58 / 0.05)',
+      pop: '0 24px 56px -16px rgb(40 62 48 / 0.36), 0 0 0 1px rgb(50 76 58 / 0.06)',
+      paper: '0 14px 36px -14px rgb(40 62 48 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.8)'
+    }
+  },
+  stage: {
+    name: '演奏会', en: 'Stage', group: 'classic',
+    mood: '黑场聚光 · 最高对比（无障碍选项）',
+    vals: {
+      canvas: '#0b0b0c', surface: '#121213', surface2: '#191919', surface3: '#242424',
+      line: 'rgb(255 255 255 / 0.18)', lineStrong: 'rgb(255 255 255 / 0.36)',
+      header: 'rgb(18 18 19 / 0.7)', backdrop: 'rgb(0 0 0 / 0.66)',
+      fg: '#f6f4ec', fg2: '#c8c6bd', fg3: '#94928a',
+      ink: '#f6f2e6', inkHover: '#ffffff', ink2: '#9a978c', cream: '#101011',
+      verm: '#ff5c2e', vermDeep: '#ff8557', vermSoft: 'rgb(255 92 46 / 0.16)', vermLine: 'rgb(255 92 46 / 0.45)', vermLineStrong: 'rgb(255 92 46 / 0.65)',
+      gold: '#ffb224', goldBright: '#ffca4d',
+      moss: '#52c98d', clay: '#ff8375', claySoft: 'rgb(255 131 117 / 0.14)', clayLine: 'rgb(255 131 117 / 0.5)',
+      paper: '#101011', staff: '#4d4d4d', barline: '#6f6f6f',
+      track: 'rgb(246 244 236 / 0.22)', wash: 'rgb(246 244 236 / 0.05)',
+      waveBg: '#131314', waveBarA: '#565656', waveBarB: '#3a3a3a'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.08)',
+      pop: '0 24px 56px -16px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.1)',
+      paper: '0 14px 36px -14px rgb(0 0 0 / 0.8), inset 0 1px 0 rgb(255 255 255 / 0.06)'
+    }
+  },
+  cobalt: {
+    name: '青花', en: 'Blue & White', group: 'antique',
+    mood: '素瓷雪色 · 钴青为墨、釉里红点练习、泥金示播放',
+    vals: {
+      canvas: '#dae0ec', surface: '#e9edf2', surface2: '#f6f8fb', surface3: '#dde3ec',
+      line: 'rgb(38 62 96 / 0.14)', lineStrong: 'rgb(38 62 96 / 0.26)',
+      header: 'rgb(246 248 251 / 0.6)', backdrop: 'rgb(16 30 52 / 0.38)',
+      fg: '#1f2c40', fg2: '#5a6b82', fg3: '#8794a6',
+      ink: '#234a8c', inkHover: '#2f5ca8', ink2: '#7c89a0', cream: '#f6f8fb',
+      verm: '#ac3a28', vermDeep: '#8c2c1c', vermSoft: 'rgb(172 58 40 / 0.1)', vermLine: 'rgb(172 58 40 / 0.32)', vermLineStrong: 'rgb(172 58 40 / 0.48)',
+      gold: '#9c761c', goldBright: '#ba9026',
+      moss: '#45765d', clay: '#a84a3c', claySoft: 'rgb(168 74 60 / 0.1)', clayLine: 'rgb(168 74 60 / 0.45)',
+      paper: '#f9fbfd', staff: '#c9d4e2', barline: '#92a4bd',
+      track: 'rgb(29 44 64 / 0.14)', wash: 'rgb(29 44 64 / 0.03)',
+      waveBg: '#e8edf4', waveBarA: '#9fb0c6', waveBarB: '#75879f'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(30 52 88 / 0.1), 0 0 0 1px rgb(38 62 96 / 0.05)',
+      pop: '0 24px 56px -16px rgb(30 52 88 / 0.36), 0 0 0 1px rgb(38 62 96 / 0.06)',
+      paper: '0 14px 36px -14px rgb(30 52 88 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.85)'
+    }
+  },
+  palace: {
+    name: '宫墙', en: 'Palace Red', group: 'antique',
+    mood: '宫墙红配金瓦 · 漆黑交互、练习转石绿（青绿对朱砂）',
+    vals: {
+      canvas: '#7c2f1f', surface: '#8a3927', surface2: '#954430', surface3: '#a1503b',
+      line: 'rgb(255 226 196 / 0.14)', lineStrong: 'rgb(255 226 196 / 0.3)',
+      header: 'rgb(138 56 38 / 0.6)', backdrop: 'rgb(28 6 3 / 0.55)',
+      fg: '#f7ecd9', fg2: '#e0c4a2', fg3: '#c99f80',
+      ink: '#241511', inkHover: '#3a241b', ink2: '#a1845c', cream: '#f7ecd9',
+      verm: '#4f8a68', vermDeep: '#b2d8bf', vermSoft: 'rgb(79 138 104 / 0.18)', vermLine: 'rgb(79 138 104 / 0.42)', vermLineStrong: 'rgb(79 138 104 / 0.6)',
+      gold: '#b07f1a', goldBright: '#c9921c',
+      moss: '#e2b862', clay: '#ffb09c', claySoft: 'rgb(255 176 156 / 0.16)', clayLine: 'rgb(255 176 156 / 0.5)',
+      paper: '#f9efdb', staff: '#dbc69e', barline: '#b39a6d',
+      track: 'rgb(247 236 217 / 0.18)', wash: 'rgb(247 236 217 / 0.06)',
+      waveBg: '#742c1d', waveBarA: '#cf9a70', waveBarB: '#9e6444'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(30 8 4 / 0.4), 0 0 0 1px rgb(255 226 196 / 0.08)',
+      pop: '0 24px 56px -16px rgb(30 8 4 / 0.6), 0 0 0 1px rgb(255 226 196 / 0.1)',
+      paper: '0 14px 36px -14px rgb(30 8 4 / 0.55), inset 0 1px 0 rgb(255 244 224 / 0.25)'
+    }
+  },
+  rosewood: {
+    name: '红木', en: 'Rosewood', group: 'antique',
+    mood: '酸枝红木 × 黄铜件 · 深棕红底绢黄谱，练习转靛蓝（蓝染对植木）',
+    vals: {
+      canvas: '#54301f', surface: '#5e3823', surface2: '#663f28', surface3: '#71482e',
+      line: 'rgb(244 222 192 / 0.13)', lineStrong: 'rgb(244 222 192 / 0.28)',
+      header: 'rgb(102 63 40 / 0.6)', backdrop: 'rgb(20 8 3 / 0.5)',
+      fg: '#f3e4cf', fg2: '#d3b795', fg3: '#ac8f6d',
+      ink: '#2a1810', inkHover: '#3d2417', ink2: '#a98e6c', cream: '#f3e4cf',
+      verm: '#3e63a2', vermDeep: '#7d9fd0', vermSoft: 'rgb(62 99 162 / 0.16)', vermLine: 'rgb(62 99 162 / 0.4)', vermLineStrong: 'rgb(62 99 162 / 0.58)',
+      gold: '#b28a2e', goldBright: '#c9a13c',
+      moss: '#7fa87b', clay: '#d98a76', claySoft: 'rgb(217 138 118 / 0.14)', clayLine: 'rgb(217 138 118 / 0.5)',
+      paper: '#f0e3c8', staff: '#c2a87e', barline: '#96774e',
+      track: 'rgb(243 228 207 / 0.16)', wash: 'rgb(243 228 207 / 0.05)',
+      waveBg: '#4d2c1b', waveBarA: '#a8845a', waveBarB: '#7c5c3a'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(22 8 2 / 0.45), 0 0 0 1px rgb(244 222 192 / 0.07)',
+      pop: '0 24px 56px -16px rgb(22 8 2 / 0.65), 0 0 0 1px rgb(244 222 192 / 0.09)',
+      paper: '0 14px 36px -14px rgb(22 8 2 / 0.6), inset 0 1px 0 rgb(255 236 200 / 0.12)'
+    }
+  },
+  lacquer: {
+    name: '玄漆', en: 'Black Lacquer', group: 'antique',
+    mood: '黑漆描金 · 暖黑底、描金示播放、朱砂印练习',
+    vals: {
+      canvas: '#14100c', surface: '#1c1712', surface2: '#241d16', surface3: '#2f261d',
+      line: 'rgb(233 214 182 / 0.1)', lineStrong: 'rgb(233 214 182 / 0.24)',
+      header: 'rgb(28 23 18 / 0.6)', backdrop: 'rgb(5 3 2 / 0.62)',
+      fg: '#ede4d3', fg2: '#bdae94', fg3: '#8a7d66',
+      ink: '#e8dcc2', inkHover: '#f7efdd', ink2: '#93876e', cream: '#241d16',
+      verm: '#d95a30', vermDeep: '#e8845c', vermSoft: 'rgb(217 90 48 / 0.15)', vermLine: 'rgb(217 90 48 / 0.4)', vermLineStrong: 'rgb(217 90 48 / 0.58)',
+      gold: '#c9a13f', goldBright: '#e3bb56',
+      moss: '#90b695', clay: '#e08a78', claySoft: 'rgb(224 138 120 / 0.14)', clayLine: 'rgb(224 138 120 / 0.5)',
+      paper: '#211a13', staff: '#4a3f30', barline: '#645540',
+      track: 'rgb(237 228 211 / 0.18)', wash: 'rgb(237 228 211 / 0.05)',
+      waveBg: '#1a1510', waveBarA: '#5c4d38', waveBarB: '#42372a'
+    },
+    shadows: {
+      soft: '0 1px 2px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(233 214 182 / 0.06)',
+      pop: '0 24px 56px -16px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(233 214 182 / 0.08)',
+      paper: '0 14px 36px -14px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 240 210 / 0.06)'
+    }
+  }
+};
+
+// token → CSS 自定义属性名映射（对齐 src/index.css @theme）
+var TOKEN_MAP = {
+  canvas: '--color-canvas', surface: '--color-surface', surface2: '--color-surface-2', surface3: '--color-surface-3',
+  line: '--color-line', lineStrong: '--color-line-strong',
+  header: '--color-header', backdrop: '--color-backdrop',
+  fg: '--color-fg', fg2: '--color-fg-2', fg3: '--color-fg-3',
+  ink: '--color-ink', inkHover: '--color-ink-hover', ink2: '--color-ink-2', cream: '--color-cream',
+  verm: '--color-verm', vermDeep: '--color-verm-deep', vermSoft: '--color-verm-soft', vermLine: '--color-verm-line', vermLineStrong: '--color-verm-line-strong',
+  gold: '--color-gold', goldBright: '--color-gold-bright',
+  moss: '--color-moss', clay: '--color-clay', claySoft: '--color-clay-soft', clayLine: '--color-clay-line',
+  paper: '--color-paper', staff: '--color-staff', barline: '--color-barline',
+  track: '--color-track', wash: '--color-wash',
+  waveBg: '--color-wave-bg', waveBarA: '--color-wave-bar-a', waveBarB: '--color-wave-bar-b'
+};
+
+var TOKEN_ROWS = [
+  ['canvas', '页面画布'], ['surface', '应用壳'], ['surface2', '卡面 / 弹层'], ['surface3', '三级面 / 悬停'],
+  ['line', '细边线'], ['lineStrong', '强边线'], ['header', '页头半透明底 ★'], ['backdrop', '弹层遮罩'],
+  ['fg', '正文'], ['fg2', '次级文本'], ['fg3', '弱文本 / 标签'],
+  ['ink', '交互主色 / 符头'], ['inkHover', '主按钮悬停 ★'], ['ink2', '谱面辅助文字'], ['cream', '墨面上文字'],
+  ['verm', '练习语义（朱砂角色）'], ['vermDeep', '练习语义文字'], ['vermSoft', '练习语义淡底'], ['vermLine', '练习语义边线'], ['vermLineStrong', '练习语义强边线'],
+  ['gold', '播放语义（金铜角色）'], ['goldBright', '播放光标 / 进度线'],
+  ['moss', '进行中指示'], ['clay', '危险 / 删除'], ['claySoft', '危险淡底'], ['clayLine', '危险边线'],
+  ['paper', '乐谱纸面'], ['staff', '五线谱线'], ['barline', '小节线'],
+  ['track', '滑杆轨道 ★'], ['wash', '墨色水洗底 ★'],
+  ['waveBg', '波形区底 ★'], ['waveBarA', '波形条渐变亮端 ★'], ['waveBarB', '波形条渐变暗端 ★']
+];
+
+// 1) 注入 [data-skin] 样式
+(function () {
+  var css = '';
+  Object.keys(SKINS).forEach(function (id) {
+    css += '[data-skin="' + id + '"]{';
+    var vals = SKINS[id].vals;
+    Object.keys(vals).forEach(function (k) { css += TOKEN_MAP[k] + ':' + vals[k] + ';'; });
+    css += '--shadow-soft:' + SKINS[id].shadows.soft + ';';
+    css += '--shadow-pop:' + SKINS[id].shadows.pop + ';';
+    css += '--shadow-paper:' + SKINS[id].shadows.paper + ';';
+    css += '}';
+  });
+  var style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
+// 2) 皮肤总览卡
+(function () {
+  var host = document.getElementById('gallery');
+  var html = '';
+  Object.keys(SKINS).forEach(function (id) {
+    var s = SKINS[id];
+    var v = s.vals;
+    var swatches = ['canvas', 'surface2', 'ink', 'verm', 'gold', 'paper'].map(function (k) {
+      return '<span><i style="background:' + v[k] + '"></i>' + v[k] + '</span>';
+    }).join('');
+    html += '<div class="g-card">'
+      + '<div class="g-top"><b>' + s.name + '</b><span>' + s.en + '</span><i>' + id + '</i></div>'
+      + '<div class="g-view" data-skin="' + id + '">'
+      + '<div class="g-hd"><span class="g-mdot"></span><span class="g-mdot"></span><span class="g-pill"></span></div>'
+      + '<div class="g-pp">'
+      + '<i class="g-st" style="top:22%"></i><i class="g-st" style="top:48%"></i><i class="g-st" style="top:74%"></i>'
+      + '<span class="g-nt" style="left:12%;top:30%"></span><span class="g-nt" style="left:24%;top:55%"></span>'
+      + '<span class="g-nt" style="left:38%;top:24%"></span><span class="g-nt" style="left:52%;top:48%"></span>'
+      + '<span class="g-nt sel" style="left:70%;top:36%"></span>'
+      + '<span class="g-cur" style="left:60%"></span>'
+      + '</div>'
+      + '<div class="g-ct"><span class="g-play"></span><span class="g-pbtn"></span><span class="g-ln"><i></i></span><span class="g-chp"></span></div>'
+      + '</div>'
+      + '<div class="g-sw">' + swatches + '</div>'
+      + '<p class="g-mood">' + s.mood + '</p>'
+      + '</div>';
+  });
+  host.innerHTML = html;
+})();
+
+// 2b) 品牌标瓦片墙：几何恒定（反复记号，docs/brand.html），色随各皮肤 ink/cream token 自动
+(function () {
+  var host = document.getElementById('brandGrid');
+  var mark = '<svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true">'
+    + '<rect x="14.1" y="8" width="8" height="48" fill="currentColor"/>'
+    + '<rect x="29.7" y="8" width="2.6" height="48" fill="currentColor"/>'
+    + '<circle cx="44.7" cy="24" r="5.2" fill="currentColor"/>'
+    + '<circle cx="44.7" cy="40" r="5.2" fill="currentColor"/></svg>';
+  var html = '';
+  Object.keys(SKINS).forEach(function (id) {
+    var s = SKINS[id];
+    html += '<div class="bmk-wrap">'
+      + '<span class="bmk" style="background:' + s.vals.ink + ';color:' + s.vals.cream + '">' + mark + '</span>'
+      + s.name + '</div>';
+  });
+  host.innerHTML = html;
+})();
+
+// 3) Token 全表
+(function () {
+  var tbody = document.getElementById('tokBody');
+  var ids = Object.keys(SKINS);
+  var html = '';
+  TOKEN_ROWS.forEach(function (row) {
+    var key = row[0], use = row[1];
+    html += '<tr><td class="tname">--color-' + key.replace(/[A-Z0-9]/g, function (m) { return '-' + m.toLowerCase(); }) + '</td><td class="tuse">' + use + '</td>';
+    ids.forEach(function (id) {
+      var v = SKINS[id].vals[key];
+      html += '<td><span class="tk"><i style="background:' + v + '"></i>' + v + '</span></td>';
+    });
+    html += '</tr>';
+  });
+  // 阴影汇总行
+  html += '<tr><td class="tname">--shadow-soft / pop / paper</td><td class="tuse">三组阴影（全皮肤同结构换基调）</td>';
+  ids.forEach(function (id) {
+    var base = { paper: '棕影 0.3 + 白高光', nocturne: '黑影 0.7 + 弱高光', walnut: '深棕影 0.32 + 白高光', celadon: '绿棕影 0.3 + 白高光', stage: '纯黑影 0.8 + 弱高光', cobalt: '蓝棕影 0.3 + 白高光', palace: '深红黑影 0.55 + 暖高光', rosewood: '深木黑影 0.6 + 暖高光', lacquer: '黑影 0.7 + 暖高光' }[id];
+    html += '<td><span class="tk">' + base + '</span></td>';
+  });
+  html += '</tr>';
+  tbody.innerHTML = html;
+})();
+
+// 4) 实机预览皮肤选择器
+(function () {
+  var picker = document.getElementById('picker');
+  var scope = document.getElementById('live-scope');
+  var html = '<span class="sp-group-label">经典</span>';
+  var first = true;
+  Object.keys(SKINS).forEach(function (id) {
+    var s = SKINS[id];
+    if (id === 'cobalt') html += '<span class="sp-group-label">古风</span>';
+    html += '<button class="sp' + (first ? ' on' : '') + '" type="button" data-set="' + id + '">'
+      + '<i style="background:' + s.vals.canvas + '"></i>' + s.name + '</button>';
+    first = false;
+  });
+  picker.innerHTML = html;
+  picker.addEventListener('click', function (e) {
+    var btn = e.target.closest('.sp');
+    if (!btn) return;
+    scope.dataset.skin = btn.dataset.set;
+    picker.querySelectorAll('.sp').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  });
+})();
+
+// 5) 波形条（确定性伪随机，保证每次打开一致）
+(function () {
+  var el = document.querySelector('[data-wave]');
+  if (!el) return;
+  var seed = 7;
+  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  var html = '';
+  for (var i = 0; i < 96; i++) {
+    var env = 0.35 + 0.65 * Math.abs(Math.sin(i / 9));
+    var h = Math.round((10 + rnd() * 118) * env);
+    html += '<i style="height:' + h + 'px"></i>';
+  }
+  el.innerHTML = html;
+})();
+
+// 6) 标签页切换
+document.querySelectorAll('.tabs button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b === btn); });
+    ['p-switch', 'p-live', 'p-token', 'p-spec'].forEach(function (id) {
+      document.getElementById(id).hidden = id !== btn.dataset.panel;
+    });
+  });
+});
+</script>
+</body>
+</html>

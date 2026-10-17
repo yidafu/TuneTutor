@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TuneTutor UI 设计稿 v3</title>
+<link rel="icon" type="image/svg+xml" href="brand/tunetutor-app-icon.svg">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   TuneTutor 设计系统 v3 — 「纸墨排练室」
+   米纸暖底 + 白玉卡面 + 墨色交互 + 朱砂练习语义 + 金铜播放态
+   印刷乐谱的编辑感：细线框、软投影、衬线谱题
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* 画布与表面 */
+  --bg: #f0ebdd;
+  --surface: #faf7ee;
+  --surface-2: #fffdf7;
+  --surface-3: #efe9d9;
+  --border: rgba(62, 52, 33, 0.13);
+  --border-strong: rgba(62, 52, 33, 0.24);
+  /* 文本 */
+  --text: #2f291c;
+  --text-2: #6f6750;
+  --text-3: #9b9179;
+  /* 墨：交互主色（主按钮 / 符头 / 强调） */
+  --ink: #241f15;
+  --ink-2: #8d8570;
+  /* 练习语义：朱砂（乐句循环 / 节拍器 / 空拍 / 切片） */
+  --verm: #c2431f;
+  --verm-deep: #a53515;
+  --verm-soft: rgba(194, 67, 31, 0.09);
+  /* 播放态：金铜 */
+  --gold: #b07a0c;
+  --gold-bright: #cd840f;
+  --gold-soft: rgba(205, 132, 15, 0.14);
+  /* 状态 */
+  --green: #47764f;
+  --red: #b04a3f;
+  --red-soft: rgba(176, 74, 63, 0.10);
+  /* 纸面（乐谱） */
+  --paper: #fffdf6;
+  --staff: #d8d1ba;
+  --barline: #b0a78a;
+  /* 几何与阴影 */
+  --r-s: 7px;
+  --r-m: 12px;
+  --r-l: 18px;
+  --shadow-1: 0 1px 2px rgba(72, 60, 36, 0.08), 0 0 0 1px rgba(62, 52, 33, 0.04);
+  --shadow-2: 0 14px 36px -14px rgba(72, 60, 36, 0.30);
+  --shadow-pop: 0 24px 56px -16px rgba(72, 60, 36, 0.35), 0 0 0 1px rgba(62, 52, 33, 0.06);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-serif: Palatino, Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 40px 20px 80px;
+  background:
+    radial-gradient(1200px 800px at 18% -8%, rgba(255, 253, 246, 0.85), transparent 55%),
+    radial-gradient(1000px 700px at 90% 112%, rgba(194, 67, 31, 0.045), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1120px; margin: 0 auto; }
+
+/* ── 设计稿页头 ─────────────────────────── */
+.spec-head h1 { font-size: 26px; font-weight: 700; margin: 0; letter-spacing: 0.2px; }
+.spec-head .ver {
+  display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: 99px;
+  font-size: 12px; font-weight: 600; color: var(--verm-deep);
+  background: var(--verm-soft); border: 1px solid rgba(194, 67, 31, 0.3); vertical-align: 4px;
+}
+.spec-head p { color: var(--text-2); margin: 10px 0 0; max-width: 720px; }
+
+/* ── 标签导航 ───────────────────────────── */
+.tabs {
+  display: inline-flex; gap: 4px; margin: 28px 0 22px; padding: 5px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 13px;
+  box-shadow: var(--shadow-1);
+}
+.tabs button {
+  appearance: none; border: 0; cursor: pointer; padding: 8px 18px;
+  border-radius: 9px; background: transparent; color: var(--text-2);
+  font: inherit; font-weight: 500; transition: all 0.16s ease;
+}
+.tabs button:hover { color: var(--text); background: var(--surface-3); }
+.tabs button.on {
+  color: #f8f3e7;
+  background: var(--ink);
+  box-shadow: 0 3px 10px -3px rgba(36, 31, 21, 0.5);
+}
+
+.panel-note {
+  display: flex; gap: 10px; margin: 0 0 18px; padding: 12px 16px;
+  color: var(--text-2); font-size: 13px;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--r-m);
+}
+.panel-note .dot { color: var(--verm-deep); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.panel-note b { color: var(--text); font-weight: 600; }
+
+/* ═══ 应用壳（各标签页共用） ═══════════════ */
+.app {
+  position: relative; overflow: hidden; border-radius: var(--r-l);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-2), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; padding: 0 22px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 253, 247, 0.55);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+  width: 36px; height: 36px; border-radius: 10px; overflow: hidden;
+  display: grid; place-items: center;
+  background: var(--ink);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 2px 6px rgba(72, 60, 36, 0.3);
+}
+.brand-mark svg { display: block; width: 100%; height: 100%; }
+.brand-name { font-family: var(--font-serif); font-size: 17px; font-weight: 700; letter-spacing: 0.4px; }
+.brand-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+.seg { display: flex; gap: 22px; }
+.seg a {
+  padding: 6px 2px; font-size: 13.5px; font-weight: 600;
+  color: var(--text-2); text-decoration: none; transition: color 0.16s ease;
+}
+.seg a.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--verm); }
+.seg a:not(.on):hover { color: var(--text); }
+
+.lang {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px;
+  font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer;
+  background: transparent; border: 1px solid var(--border-strong); border-radius: 10px;
+}
+.lang:hover { color: var(--text); background: var(--surface-3); }
+.lang .caret { font-size: 10px; color: var(--text-3); }
+
+.app-main { padding: 20px 22px 24px; }
+
+/* ── 页工具栏 ───────────────────────────── */
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.toolbar h2 {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-size: 15px; font-weight: 700; color: var(--text); margin: 0; letter-spacing: 1.5px;
+}
+.toolbar h2::before { content: ""; width: 3px; height: 15px; border-radius: 2px; background: var(--verm); }
+.toolbar-actions { display: flex; align-items: center; gap: 10px; }
+
+.inst {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px; cursor: pointer;
+  color: var(--text); font-size: 13px; font-weight: 500;
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 10px;
+}
+.inst:hover { background: var(--surface-3); }
+.inst .caret { font-size: 10px; color: var(--text-3); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px;
+  border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: #f8f3e7;
+  transition: all 0.16s ease;
+}
+.btn-primary { background: var(--ink); box-shadow: 0 6px 14px -6px rgba(36, 31, 21, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.btn-primary:hover { background: #3a3225; }
+.btn-ghost { color: var(--text-2); background: transparent; border-color: var(--border-strong); font-weight: 500; }
+.btn-ghost:hover { color: var(--text); background: var(--surface-3); }
+
+/* ═══ ① 乐谱练习页 ═══════════════════════ */
+/* 纸面乐谱卡 */
+.paper {
+  background: var(--paper); border-radius: var(--r-m);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--shadow-2);
+  padding: 28px 28px 16px; color: var(--ink);
+}
+.paper-title { text-align: center; margin-bottom: 6px; }
+.paper-title .t { font-family: var(--font-serif); font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+.paper-title .c { font-family: var(--font-serif); font-size: 12.5px; color: var(--ink-2); font-style: italic; margin-top: 3px; }
+.paper .score-svg { display: block; width: 100%; height: auto; margin-top: 8px; }
+.paper .sys + .sys { margin-top: 6px; }
+.paper-foot {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.paper-foot .zoom { display: inline-flex; gap: 4px; }
+.paper-foot .zoom span { padding: 2px 8px; border-radius: 6px; background: var(--surface-3); color: var(--text-2); }
+
+/* 选择信息行 */
+.selinfo { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
+.sel-chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
+  font-size: 13px; font-weight: 600; color: var(--verm-deep);
+  background: var(--verm-soft); border: 1px solid rgba(194, 67, 31, 0.3); border-radius: 99px;
+}
+.sel-chip .swatch { width: 8px; height: 8px; border-radius: 99px; background: var(--verm); box-shadow: 0 0 6px rgba(194, 67, 31, 0.55); }
+.sel-clear { background: none; border: 0; padding: 6px 10px; color: var(--text-3); font: inherit; font-size: 13px; cursor: pointer; border-radius: 8px; }
+.sel-clear:hover { color: var(--text); background: var(--surface-3); }
+
+/* ── 播放控制条 ─────────────────────────── */
+.controls {
+  position: relative; margin-top: 16px; padding: 16px 18px;
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--r-m);
+  box-shadow: var(--shadow-1);
+}
+.ctl { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ctl.grow { flex: 1 1 300px; }
+.ctl-label { font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 1.2px; white-space: nowrap; }
+
+/* 速度滑杆 */
+.tempo { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 180px; }
+.slider { position: relative; flex: 1; height: 20px; }
+.slider .track {
+  position: absolute; top: 8px; left: 0; right: 0; height: 3px; border-radius: 99px;
+  background: rgba(36, 31, 21, 0.14);
+}
+.slider .fill {
+  position: absolute; top: 8px; left: 0; width: 13%; height: 3px; border-radius: 99px;
+  background: var(--ink);
+}
+.slider .thumb {
+  position: absolute; top: 2px; left: 13%; width: 15px; height: 15px; border-radius: 99px;
+  background: var(--paper); border: 2px solid var(--ink); transform: translateX(-50%);
+  box-shadow: 0 1px 4px rgba(72, 60, 36, 0.35);
+}
+.tempo-val { display: flex; align-items: baseline; gap: 4px; min-width: 74px; }
+.tempo-val .num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+.tempo-val .unit { font-size: 11px; color: var(--text-3); font-weight: 600; }
+
+/* 走带按钮 */
+.transport { display: flex; align-items: center; gap: 10px; }
+.t-btn {
+  width: 46px; height: 46px; border-radius: 99px; border: 0; cursor: pointer;
+  display: grid; place-items: center; font-size: 15px; color: #fff;
+  transition: all 0.16s ease;
+}
+.t-play { background: linear-gradient(160deg, #d9a021, var(--gold)); box-shadow: 0 6px 16px -6px rgba(176, 122, 12, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4); }
+.t-play:hover { filter: brightness(1.05); }
+.t-play .pulse { position: absolute; width: 46px; height: 46px; border-radius: 99px; border: 2px solid var(--gold-bright); opacity: 0.5; animation: pulse 1.8s ease-out infinite; }
+@keyframes pulse { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.55); opacity: 0; } }
+.t-stop { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text-2); }
+.t-stop:hover { color: var(--text); background: var(--surface-3); }
+
+/* 节拍器 */
+.metro { display: flex; align-items: center; gap: 8px; }
+.m-toggle {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid rgba(194, 67, 31, 0.4); border-radius: 10px;
+  background: var(--verm-soft); color: var(--verm-deep); font: inherit; font-size: 13px; font-weight: 600;
+}
+.m-gear {
+  width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border-strong);
+  display: grid; place-items: center; cursor: pointer; color: var(--text-2);
+  background: var(--surface-2);
+}
+.m-gear:hover { color: var(--text); background: var(--surface-3); }
+.m-gear.on { color: var(--verm-deep); border-color: rgba(194, 67, 31, 0.4); background: var(--verm-soft); }
+
+/* 节拍器设置弹层 */
+.metro-pop {
+  position: absolute; right: 168px; bottom: 74px; width: 248px; padding: 16px; z-index: 30;
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--r-m);
+  box-shadow: var(--shadow-pop);
+}
+.metro-pop::after {
+  content: ""; position: absolute; right: 26px; bottom: -7px; width: 12px; height: 12px;
+  background: var(--surface-2); border-right: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong);
+  transform: rotate(45deg);
+}
+.pop-row { margin-bottom: 13px; }
+.pop-row:last-child { margin-bottom: 0; }
+.pop-label { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; color: var(--text-3); margin-bottom: 7px; letter-spacing: 0.4px; }
+.pop-label b { color: var(--verm-deep); font-variant-numeric: tabular-nums; }
+.sounds { display: flex; gap: 4px; }
+.sounds span {
+  flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px; cursor: pointer;
+  font-size: 12px; font-weight: 500; color: var(--text-2);
+  background: transparent; border: 1px solid var(--border);
+}
+.sounds span:hover { background: var(--surface-3); }
+.sounds span.on { color: var(--verm-deep); background: var(--verm-soft); border-color: rgba(194, 67, 31, 0.45); }
+.mini-slider { position: relative; height: 16px; }
+.mini-slider .track { position: absolute; top: 6px; left: 0; right: 0; height: 3px; border-radius: 99px; background: rgba(36, 31, 21, 0.14); }
+.mini-slider .fill { position: absolute; top: 6px; left: 0; height: 3px; border-radius: 99px; background: var(--verm); }
+.mini-slider.s1 .fill { width: 80%; }
+.mini-slider.s2 .fill { width: 50%; }
+.mini-slider .thumb {
+  position: absolute; top: 1px; width: 13px; height: 13px; border-radius: 99px; background: var(--paper);
+  border: 2px solid var(--verm);
+  box-shadow: 0 1px 3px rgba(72, 60, 36, 0.3); transform: translateX(-50%);
+}
+.mini-slider.s1 .thumb { left: 80%; }
+.mini-slider.s2 .thumb { left: 50%; }
+
+/* 空拍（循环跳过） */
+.beats { display: flex; align-items: center; gap: 10px; }
+.beat-set { display: flex; gap: 3px; }
+.beat {
+  width: 27px; height: 27px; border-radius: 8px; border: 0; cursor: pointer;
+  display: grid; place-items: center; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--text-2); background: transparent; box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.beat:hover { color: var(--text); background: var(--surface-3); }
+.beat.on { color: #fff; background: var(--verm); box-shadow: 0 3px 8px -2px rgba(165, 53, 21, 0.55); }
+.gap-out { font-size: 12px; color: var(--text-3); min-width: 52px; }
+.gap-out b { color: var(--verm-deep); }
+
+/* 状态栏 */
+.status {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 16px; padding: 11px 18px; font-size: 12.5px;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--r-m);
+  color: var(--text-2); font-variant-numeric: tabular-nums;
+}
+.status .grp { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.status .it { display: inline-flex; align-items: center; gap: 7px; }
+.status .k { color: var(--text-3); }
+.status b { color: var(--text); font-weight: 600; }
+.status .phrase { color: var(--verm-deep); }
+.status .live { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 600; }
+.status .live .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--green); box-shadow: 0 0 6px rgba(71, 118, 79, 0.8); animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: 0.35; } }
+
+/* ── 乐谱 SVG 公共 ──────────────────────── */
+.notehead { fill: var(--ink); }
+.notehead.sel { fill: var(--verm); }
+.stem { stroke: var(--ink); stroke-width: 1.6; }
+.stem.sel { stroke: var(--verm); }
+.staffline { stroke: var(--staff); stroke-width: 1.1; }
+.barline { stroke: var(--barline); stroke-width: 1.2; }
+.mnum { font-size: 10.5px; fill: #a89e83; font-family: var(--font-sans); }
+.clef { font-size: 78px; fill: var(--ink); }
+.timesig { font-family: var(--font-serif); font-size: 24px; font-weight: 700; fill: var(--ink); }
+.sel-band { fill: rgba(194, 67, 31, 0.07); }
+.sel-bracket { stroke: var(--verm); stroke-width: 2.4; fill: none; stroke-linecap: round; }
+.sel-flag { fill: var(--verm); }
+.sel-label-bg { fill: var(--verm); }
+.sel-label-tx { font-size: 11px; font-weight: 700; fill: #fff; font-family: var(--font-sans); }
+.playhead { stroke: var(--gold-bright); stroke-width: 2; }
+.playhead-glow { stroke: rgba(205, 132, 15, 0.3); stroke-width: 6; }
+.playhead-arrow { fill: var(--gold-bright); }
+
+/* ═══ ② 加载乐谱弹窗 ═════════════════════ */
+.modal-stage { position: relative; }
+.modal-stage .app { filter: saturate(0.5); pointer-events: none; }
+.backdrop { position: absolute; inset: 0; background: rgba(43, 36, 24, 0.35); border-radius: var(--r-l); z-index: 5; }
+.modal {
+  position: absolute; z-index: 10; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 460px; max-width: calc(100% - 48px); padding: 22px;
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 16px;
+  box-shadow: var(--shadow-pop);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 9px; }
+.modal-head h3 .ico {
+  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 14px;
+  background: rgba(36, 31, 21, 0.06); box-shadow: inset 0 0 0 1px var(--border);
+}
+.modal-x { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-3); cursor: pointer; display: grid; place-items: center; }
+.modal-x:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-3); }
+
+.drop {
+  border: 1.5px dashed rgba(194, 67, 31, 0.45); border-radius: var(--r-m);
+  padding: 26px 16px 22px; text-align: center; cursor: pointer;
+  background: rgba(194, 67, 31, 0.04); transition: all 0.16s ease;
+}
+.drop:hover { background: var(--verm-soft); border-color: var(--verm); }
+.drop .big { font-size: 30px; }
+.drop .p1 { margin-top: 8px; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.drop .p1 em { color: var(--verm-deep); font-style: normal; }
+.drop .p2 { margin-top: 3px; font-size: 12px; color: var(--text-3); }
+
+.history { margin-top: 16px; }
+.history h4 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; }
+.history h4 span:last-child { font-weight: 500; }
+.flist { display: flex; flex-direction: column; gap: 4px; }
+.fitem {
+  display: flex; align-items: center; gap: 11px; padding: 9px 11px; cursor: pointer;
+  border-radius: 10px; border: 1px solid transparent; transition: all 0.14s ease;
+}
+.fitem:hover { background: var(--surface-3); border-color: var(--border); }
+.fitem .fico {
+  width: 34px; height: 34px; flex: none; border-radius: 9px; display: grid; place-items: center;
+  font-size: 15px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border);
+}
+.fitem .meta { min-width: 0; flex: 1; }
+.fitem .t { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fitem .s { font-size: 11.5px; color: var(--text-3); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.fitem .del { flex: none; width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent; color: var(--text-3); cursor: pointer; display: grid; place-items: center; }
+.fitem .del:hover { color: var(--red); background: var(--red-soft); }
+
+.modal-foot { margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--text-3); }
+.modal-foot .kbd-row { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ═══ ③ 原曲练习页 ═══════════════════════ */
+.audio-card {
+  padding: 18px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--r-m); box-shadow: var(--shadow-1);
+}
+.audio-file { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.audio-file .left { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.audio-file .fico {
+  width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; font-size: 17px;
+  background: rgba(36, 31, 21, 0.06); box-shadow: inset 0 0 0 1px var(--border);
+}
+.audio-file .t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-file .s { font-size: 12px; color: var(--text-3); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.remove {
+  padding: 7px 14px; border-radius: 9px; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 500;
+  color: var(--text-2); background: transparent; border: 1px solid var(--border-strong);
+}
+.remove:hover { color: var(--red); border-color: rgba(176, 74, 63, 0.45); background: var(--red-soft); }
+
+/* 波形 */
+.wave-stage { position: relative; height: 150px; border-radius: 10px; background: #f3efe2; border: 1px solid var(--border); overflow: hidden; }
+.wave-bars { position: absolute; inset: 0; display: flex; align-items: center; gap: 3px; padding: 0 10px; }
+.wave-bars i { flex: 1; border-radius: 2px; background: linear-gradient(180deg, #b9ae8d, #948a60); min-width: 2px; }
+.wave-dim { position: absolute; top: 0; bottom: 0; background: rgba(243, 239, 226, 0.72); }
+.wave-dim.l { left: 0; width: 30%; }
+.wave-dim.r { left: 55%; right: 0; }
+.slice {
+  position: absolute; top: 0; bottom: 0; left: 30%; width: 25%;
+  background: rgba(194, 67, 31, 0.10);
+  border-left: 2.5px solid var(--verm); border-right: 2.5px solid var(--verm);
+  box-shadow: 0 0 20px rgba(194, 67, 31, 0.14) inset;
+}
+.slice .handle {
+  position: absolute; top: 50%; width: 14px; height: 30px; border-radius: 6px;
+  background: var(--verm); transform: translateY(-50%); cursor: ew-resize;
+  box-shadow: 0 2px 8px rgba(122, 39, 15, 0.45); display: grid; place-items: center;
+}
+.slice .handle::after { content: ""; width: 2px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.9); box-shadow: -4px 0 0 rgba(255, 255, 255, 0.9), 4px 0 0 rgba(255, 255, 255, 0.9); }
+.slice .handle.l { left: -8px; }
+.slice .handle.r { right: -8px; }
+.slice .tag {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; color: #fff;
+  background: var(--verm); box-shadow: 0 2px 8px -2px rgba(165, 53, 21, 0.5);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.wave-ph { position: absolute; top: 0; bottom: 0; left: 38%; width: 2px; background: var(--gold-bright); box-shadow: 0 0 8px rgba(205, 132, 15, 0.7); }
+.wave-ph::before { content: ""; position: absolute; top: 0; left: -4px; border: 5px solid transparent; border-top: 7px solid var(--gold-bright); }
+
+.slice-readout { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.slice-readout .chip {
+  padding: 4px 11px; border-radius: 99px; font-size: 12px; font-weight: 600; color: var(--verm-deep);
+  background: var(--verm-soft); border: 1px solid rgba(194, 67, 31, 0.35);
+}
+.slice-readout .hint { margin-left: auto; font-size: 11.5px; color: var(--text-3); }
+
+.audio-actions { display: flex; align-items: center; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+
+/* ═══ ④ 设计规范 ═══════════════════════ */
+.spec-sec { margin-bottom: 34px; }
+.spec-sec > h3 { display: flex; align-items: baseline; gap: 10px; font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+.spec-sec > h3 .no { color: var(--verm-deep); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+.spec-sec > p { margin: 0 0 14px; font-size: 12.5px; color: var(--text-3); }
+
+.swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; }
+.swatch { border-radius: 10px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); }
+.swatch .chip { height: 52px; position: relative; }
+.swatch .chip.light-text::after { content: ""; }
+.swatch .info { padding: 8px 11px; }
+.swatch .nm { font-size: 12px; font-weight: 600; }
+.swatch .hex { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; margin-top: 1px; }
+.swatch .use { font-size: 10.5px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
+
+.token-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.token-table th { text-align: left; padding: 8px 12px; color: var(--text-3); font-weight: 600; font-size: 11.5px; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-strong); }
+.token-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.token-table tr:last-child td { border-bottom: 0; }
+.token-table .ex { color: var(--text-2); }
+.demo-rad { display: inline-block; width: 34px; height: 34px; background: var(--surface-3); border: 1px solid var(--border-strong); vertical-align: middle; }
+.demo-shadow { display: inline-block; width: 60px; height: 34px; border-radius: 10px; background: var(--surface-2); vertical-align: middle; }
+
+.comp-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-m); margin-bottom: 10px; }
+.comp-row .lbl { font-size: 11.5px; color: var(--text-3); width: 130px; flex: none; font-weight: 600; letter-spacing: 0.4px; }
+.comp-row .items { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.btn-danger-ghost { color: var(--red); background: var(--red-soft); border-color: rgba(176, 74, 63, 0.35); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+.kbd {
+  display: inline-block; min-width: 22px; text-align: center; padding: 3px 9px;
+  border: 1px solid var(--border-strong); border-bottom-width: 2.5px; border-radius: 7px;
+  background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.type-demo .row { display: flex; align-items: baseline; gap: 18px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.type-demo .row:last-child { border-bottom: 0; }
+.type-demo .tag { width: 170px; flex: none; font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.rule-card { padding: 14px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-m); font-size: 12.5px; color: var(--text-2); }
+.rule-card b { display: block; color: var(--text); font-size: 13px; margin-bottom: 6px; }
+.rule-card .do { color: var(--green); font-weight: 600; }
+.rule-card .dont { color: var(--red); font-weight: 600; }
+
+footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="spec-head">
+    <h1>TuneTutor UI 设计稿<span class="ver">v3 · 2026-10-17</span></h1>
+    <p>「纸墨排练室」视觉方案：米纸暖底上以白玉卡面承载内容，墨色承载交互；朱砂专用于练习语义（乐句循环 / 节拍器 / 空拍 / 音频切片），金铜表示播放中。整体走印刷乐谱的编辑感：细线框、软投影、衬线谱题。品牌标志为「反复记号」，基准见 docs/brand.html。取代 v2 的「深夜练习室」深色方案。</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="设计稿页面">
+    <button class="on" data-panel="p-score" type="button">① 乐谱练习页</button>
+    <button data-panel="p-modal" type="button">② 加载乐谱弹窗</button>
+    <button data-panel="p-audio" type="button">③ 原曲练习页</button>
+    <button data-panel="p-spec" type="button">④ 设计规范</button>
+  </nav>
+
+  <!-- ═══════════ ① 乐谱练习页 ═══════════ -->
+  <section id="p-score">
+    <div class="panel-note">
+      <span class="dot">状态</span>
+      <span>乐句「第 5–8 小节」已双击选定（朱砂括号标记 + 音符头高亮）；<b>播放中</b>（走带主按钮呈金铜态，金铜色光标位于第 2 小节）；空拍 = 2 拍；节拍器开启且设置弹层展开；速度 62 BPM。</span>
+    </div>
+
+    <div class="app">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><g transform="translate(8.32,8.32) scale(0.74)"><rect x="14.1" y="8" width="8" height="48" fill="#f8f3e7"/><rect x="29.7" y="8" width="2.6" height="48" fill="#f8f3e7"/><circle cx="44.7" cy="24" r="5.2" fill="#f8f3e7"/><circle cx="44.7" cy="40" r="5.2" fill="#f8f3e7"/></g></svg></div>
+          <div>
+            <div class="brand-name">TuneTutor</div>
+            <div class="brand-sub">乐谱练习播放器</div>
+          </div>
+        </div>
+        <nav class="seg"><a class="on" href="#">乐谱</a><a href="#">原曲</a></nav>
+        <button class="lang" type="button">简体中文 <span class="caret">▼</span></button>
+      </header>
+
+      <div class="app-main">
+        <div class="toolbar">
+          <h2>我的乐谱</h2>
+          <div class="toolbar-actions">
+            <button class="inst" type="button">🎹 钢琴 <span class="caret">▼</span></button>
+            <button class="btn btn-primary" type="button">＋ 加载乐谱</button>
+          </div>
+        </div>
+
+        <!-- 纸面乐谱卡 -->
+        <div class="paper">
+          <div class="paper-title">
+            <div class="t">小星星</div>
+            <div class="c">传统童谣 · C 大调 · 4/4 · ♩ = 60</div>
+          </div>
+
+          <!-- 第一行谱（第 1–4 小节，播放中） -->
+          <svg class="score-svg sys" viewBox="0 0 980 118" aria-label="乐谱第 1–4 小节">
+            <line class="playhead-glow" x1="415" y1="6" x2="415" y2="112"/>
+            <line class="playhead" x1="415" y1="6" x2="415" y2="112"/>
+            <polygon class="playhead-arrow" points="409,6 421,6 415,14"/>
+            <polygon class="playhead-arrow" points="409,112 421,112 415,104"/>
+            <g>
+              <line class="staffline" x1="16" y1="30" x2="964" y2="30"/>
+              <line class="staffline" x1="16" y1="42" x2="964" y2="42"/>
+              <line class="staffline" x1="16" y1="54" x2="964" y2="54"/>
+              <line class="staffline" x1="16" y1="66" x2="964" y2="66"/>
+              <line class="staffline" x1="16" y1="78" x2="964" y2="78"/>
+              <text class="clef" x="22" y="78">𝄞</text>
+              <text class="timesig" x="86" y="50">4</text>
+              <text class="timesig" x="86" y="78">4</text>
+              <text class="mnum" x="112" y="16">1</text>
+              <text class="mnum" x="288" y="16">2</text>
+              <text class="mnum" x="505" y="16">3</text>
+              <text class="mnum" x="723" y="16">4</text>
+              <!-- m1: C C G G -->
+              <ellipse class="notehead" cx="120" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 120 38)"/><line class="stem" x1="125" y1="37" x2="125" y2="12"/>
+              <ellipse class="notehead" cx="160" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 160 38)"/><line class="stem" x1="165" y1="37" x2="165" y2="12"/>
+              <ellipse class="notehead" cx="205" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 205 62)"/><line class="stem" x1="210" y1="61" x2="210" y2="86"/>
+              <ellipse class="notehead" cx="245" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 245 62)"/><line class="stem" x1="250" y1="61" x2="250" y2="86"/>
+              <line class="barline" x1="268" y1="30" x2="268" y2="78"/>
+              <!-- m2: A A G(2) -->
+              <ellipse class="notehead" cx="300" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 300 54)"/><line class="stem" x1="305" y1="53" x2="305" y2="28"/>
+              <ellipse class="notehead" cx="340" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 340 54)"/><line class="stem" x1="345" y1="53" x2="345" y2="28"/>
+              <ellipse class="notehead" cx="395" cy="62" rx="5.8" ry="4.3" transform="rotate(-18 395 62)"/><line class="stem" x1="400" y1="61" x2="400" y2="86"/>
+              <line class="barline" x1="488" y1="30" x2="488" y2="78"/>
+              <!-- m3: F F E E -->
+              <ellipse class="notehead" cx="522" cy="26" rx="5.4" ry="4.1" transform="rotate(-18 522 26)"/><line class="stem" x1="527" y1="25" x2="527" y2="2"/>
+              <ellipse class="notehead" cx="562" cy="26" rx="5.4" ry="4.1" transform="rotate(-18 562 26)"/><line class="stem" x1="567" y1="25" x2="567" y2="2"/>
+              <ellipse class="notehead" cx="612" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 612 34)"/><line class="stem" x1="617" y1="33" x2="617" y2="8"/>
+              <ellipse class="notehead" cx="652" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 652 34)"/><line class="stem" x1="657" y1="33" x2="657" y2="8"/>
+              <line class="barline" x1="706" y1="30" x2="706" y2="78"/>
+              <!-- m4: D(2) C(4) -->
+              <ellipse class="notehead" cx="745" cy="46" rx="5.8" ry="4.3" transform="rotate(-18 745 46)"/><line class="stem" x1="750" y1="45" x2="750" y2="20"/>
+              <ellipse class="notehead" cx="815" cy="46" rx="5.8" ry="4.3" transform="rotate(-18 815 46)"/><line class="stem" x1="820" y1="45" x2="820" y2="20"/>
+              <ellipse class="notehead" cx="900" cy="38" rx="7.2" ry="4.6"/>
+              <line class="barline" x1="938" y1="30" x2="938" y2="78"/>
+              <line class="barline" x1="943" y1="30" x2="943" y2="78" stroke-width="3"/>
+            </g>
+          </svg>
+
+          <!-- 第二行谱（第 5–8 小节，乐句选中） -->
+          <svg class="score-svg sys" viewBox="0 0 980 118" aria-label="乐谱第 5–8 小节，乐句已选中">
+            <rect class="sel-band" x="92" y="14" width="836" height="82" rx="8"/>
+            <path class="sel-bracket" d="M 96 22 v -8 h 800 v 8"/>
+            <rect class="sel-label-bg" x="420" y="0" width="140" height="18" rx="9"/>
+            <text class="sel-label-tx" x="490" y="13" text-anchor="middle">乐句 · 第 5–8 小节</text>
+            <!-- START |▶ -->
+            <rect class="sel-flag" x="94" y="26" width="3.5" height="66" rx="1.5"/>
+            <polygon class="sel-flag" points="103,36 111,41 103,46"/>
+            <!-- END ◀| -->
+            <rect class="sel-flag" x="922" y="26" width="3.5" height="66" rx="1.5"/>
+            <polygon class="sel-flag" points="917,36 909,41 917,46"/>
+            <g>
+              <line class="staffline" x1="16" y1="30" x2="964" y2="30"/>
+              <line class="staffline" x1="16" y1="42" x2="964" y2="42"/>
+              <line class="staffline" x1="16" y1="54" x2="964" y2="54"/>
+              <line class="staffline" x1="16" y1="66" x2="964" y2="66"/>
+              <line class="staffline" x1="16" y1="78" x2="964" y2="78"/>
+              <text class="clef" x="22" y="78">𝄞</text>
+              <text class="timesig" x="86" y="50">4</text>
+              <text class="timesig" x="86" y="78">4</text>
+              <text class="mnum" x="112" y="16">5</text>
+              <text class="mnum" x="288" y="16">6</text>
+              <text class="mnum" x="505" y="16">7</text>
+              <text class="mnum" x="723" y="16">8</text>
+              <!-- m5: G G D D -->
+              <ellipse class="notehead sel" cx="120" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 120 62)"/><line class="stem sel" x1="125" y1="61" x2="125" y2="86"/>
+              <ellipse class="notehead sel" cx="160" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 160 62)"/><line class="stem sel" x1="165" y1="61" x2="165" y2="86"/>
+              <ellipse class="notehead sel" cx="205" cy="46" rx="5.4" ry="4.1" transform="rotate(-18 205 46)"/><line class="stem sel" x1="210" y1="45" x2="210" y2="20"/>
+              <ellipse class="notehead sel" cx="245" cy="46" rx="5.4" ry="4.1" transform="rotate(-18 245 46)"/><line class="stem sel" x1="250" y1="45" x2="250" y2="20"/>
+              <line class="barline" x1="268" y1="30" x2="268" y2="78"/>
+              <!-- m6: E E D(2) -->
+              <ellipse class="notehead sel" cx="300" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 300 34)"/><line class="stem sel" x1="305" y1="33" x2="305" y2="8"/>
+              <ellipse class="notehead sel" cx="340" cy="34" rx="5.4" ry="4.1" transform="rotate(-18 340 34)"/><line class="stem sel" x1="345" y1="33" x2="345" y2="8"/>
+              <ellipse class="notehead sel" cx="415" cy="46" rx="5.8" ry="4.3" transform="rotate(-18 415 46)"/><line class="stem sel" x1="420" y1="45" x2="420" y2="20"/>
+              <line class="barline" x1="488" y1="30" x2="488" y2="78"/>
+              <!-- m7: C C G G -->
+              <ellipse class="notehead sel" cx="522" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 522 38)"/><line class="stem sel" x1="527" y1="37" x2="527" y2="12"/>
+              <ellipse class="notehead sel" cx="562" cy="38" rx="5.4" ry="4.1" transform="rotate(-18 562 38)"/><line class="stem sel" x1="567" y1="37" x2="567" y2="12"/>
+              <ellipse class="notehead sel" cx="612" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 612 62)"/><line class="stem sel" x1="617" y1="61" x2="617" y2="86"/>
+              <ellipse class="notehead sel" cx="652" cy="62" rx="5.4" ry="4.1" transform="rotate(-18 652 62)"/><line class="stem sel" x1="657" y1="61" x2="657" y2="86"/>
+              <line class="barline" x1="706" y1="30" x2="706" y2="78"/>
+              <!-- m8: A A G(2) + 休止 -->
+              <ellipse class="notehead sel" cx="745" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 745 54)"/><line class="stem sel" x1="750" y1="53" x2="750" y2="28"/>
+              <ellipse class="notehead sel" cx="785" cy="54" rx="5.4" ry="4.1" transform="rotate(-18 785 54)"/><line class="stem sel" x1="790" y1="53" x2="790" y2="28"/>
+              <ellipse class="notehead sel" cx="850" cy="62" rx="5.8" ry="4.3" transform="rotate(-18 850 62)"/><line class="stem sel" x1="855" y1="61" x2="855" y2="86"/>
+              <path d="M 895 32 l 5 9 l -8 9 l 6 9" fill="none" stroke="#8d8570" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line class="barline" x1="938" y1="30" x2="938" y2="78"/>
+              <line class="barline" x1="943" y1="30" x2="943" y2="78" stroke-width="3"/>
+            </g>
+          </svg>
+
+          <div class="paper-foot">
+            <span>OSMD · SVG 渲染 · 自适应宽度</span>
+            <span class="zoom"><span>－</span><span>100%</span><span>＋</span></span>
+          </div>
+        </div>
+
+        <!-- 选择信息 -->
+        <div class="selinfo">
+          <span class="sel-chip"><span class="swatch"></span>乐句：第 5 – 8 小节 · 14 个音符 · 循环播放</span>
+          <button class="sel-clear" type="button">清除选择</button>
+        </div>
+
+        <!-- 播放控制条 -->
+        <div class="controls">
+          <div class="ctl grow">
+            <span class="ctl-label">速度</span>
+            <div class="tempo">
+              <div class="slider">
+                <div class="track"></div>
+                <div class="fill"></div>
+                <div class="thumb"></div>
+              </div>
+              <div class="tempo-val"><span class="num">62</span><span class="unit">BPM</span></div>
+            </div>
+          </div>
+
+          <div class="ctl">
+            <div class="transport">
+              <button class="t-btn t-play" type="button" style="position:relative" title="播放中 · 点击停止">
+                <span class="pulse"></span><span style="position:relative">⏹</span>
+              </button>
+              <button class="t-btn t-stop" type="button" title="停止">⏹</button>
+            </div>
+          </div>
+
+          <div class="ctl">
+            <span class="ctl-label">节拍器</span>
+            <div class="metro">
+              <button class="m-toggle" type="button">🥁 开</button>
+              <span class="m-gear on" title="节拍器设置">⚙</span>
+            </div>
+          </div>
+
+          <div class="ctl">
+            <span class="ctl-label">空拍</span>
+            <div class="beats">
+              <div class="beat-set">
+                <span class="beat">1</span><span class="beat on">2</span><span class="beat">3</span><span class="beat">4</span>
+                <span class="beat">5</span><span class="beat">6</span><span class="beat">7</span><span class="beat">8</span>
+              </div>
+              <span class="gap-out">轮间 <b>2 拍</b></span>
+            </div>
+          </div>
+
+          <!-- 节拍器设置弹层 -->
+          <div class="metro-pop">
+            <div class="pop-row">
+              <div class="pop-label"><span>音色</span></div>
+              <div class="sounds"><span>经典</span><span>电子</span><span class="on">底鼓</span><span>敲击</span></div>
+            </div>
+            <div class="pop-row">
+              <div class="pop-label"><span>强拍音量</span><b>80%</b></div>
+              <div class="mini-slider s1"><div class="track"></div><div class="fill"></div><div class="thumb"></div></div>
+            </div>
+            <div class="pop-row">
+              <div class="pop-label"><span>弱拍音量</span><b>50%</b></div>
+              <div class="mini-slider s2"><div class="track"></div><div class="fill"></div><div class="thumb"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status">
+          <div class="grp">
+            <span class="it"><span class="k">选择</span><b class="phrase">乐句 5–8 小节</b></span>
+            <span class="it"><span class="k">🔁 跳过</span><b>2 拍</b></span>
+            <span class="it"><span class="k">乐器</span><b>🎹 钢琴</b></span>
+          </div>
+          <div class="grp">
+            <span class="it live"><span class="dot"></span>播放中 · 乐句循环</span>
+            <span class="it"><span class="k">♩</span><b>62 BPM</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ② 加载乐谱弹窗 ═══════════ -->
+  <section id="p-modal" hidden>
+    <div class="panel-note">
+      <span class="dot">状态</span>
+      <span>主界面压暗置后；弹窗含<b>拖放上传区</b>与<b>最近文件</b>（IndexedDB 历史，悬停显示删除）。支持 <b>.musicxml / .xml / .mxl</b>。</span>
+    </div>
+
+    <div class="modal-stage">
+      <div class="app" aria-hidden="true">
+        <header class="app-header">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><g transform="translate(8.32,8.32) scale(0.74)"><rect x="14.1" y="8" width="8" height="48" fill="#f8f3e7"/><rect x="29.7" y="8" width="2.6" height="48" fill="#f8f3e7"/><circle cx="44.7" cy="24" r="5.2" fill="#f8f3e7"/><circle cx="44.7" cy="40" r="5.2" fill="#f8f3e7"/></g></svg></div>
+            <div><div class="brand-name">TuneTutor</div><div class="brand-sub">乐谱练习播放器</div></div>
+          </div>
+          <nav class="seg"><a class="on" href="#">乐谱</a><a href="#">原曲</a></nav>
+          <button class="lang" type="button">简体中文 <span class="caret">▼</span></button>
+        </header>
+        <div class="app-main">
+          <div class="toolbar">
+            <h2>我的乐谱</h2>
+            <div class="toolbar-actions">
+              <button class="inst" type="button">🎹 钢琴 <span class="caret">▼</span></button>
+              <button class="btn btn-primary" type="button">＋ 加载乐谱</button>
+            </div>
+          </div>
+          <div class="paper" style="min-height:300px"></div>
+        </div>
+      </div>
+      <div class="backdrop"></div>
+
+      <div class="modal" role="dialog" aria-label="加载乐谱">
+        <div class="modal-head">
+          <h3><span class="ico">📂</span>加载乐谱</h3>
+          <button class="modal-x" type="button">✕</button>
+        </div>
+
+        <div class="drop">
+          <div class="big">🎼</div>
+          <div class="p1">拖放文件到此处，或 <em>浏览文件</em></div>
+          <div class="p2">支持 .musicxml · .xml · .mxl，在浏览器本地解析</div>
+        </div>
+
+        <div class="history">
+          <h4><span>最近文件</span><span>3</span></h4>
+          <div class="flist">
+            <div class="fitem">
+              <span class="fico">🎵</span>
+              <span class="meta">
+                <span class="t">刻在我心底的名字</span><br>
+                <span class="s">2.1 MB · 今天 14:32</span>
+              </span>
+              <button class="del" type="button" title="删除">🗑</button>
+            </div>
+            <div class="fitem">
+              <span class="fico">🎵</span>
+              <span class="meta">
+                <span class="t">连音符</span><br>
+                <span class="s">840 KB · 昨天</span>
+              </span>
+              <button class="del" type="button" title="删除">🗑</button>
+            </div>
+            <div class="fitem">
+              <span class="fico">🎵</span>
+              <span class="meta">
+                <span class="t">小星星</span><br>
+                <span class="s">120 KB · 3 天前</span>
+              </span>
+              <button class="del" type="button" title="删除">🗑</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-foot">
+          <span>文件保存在本机浏览器（IndexedDB）</span>
+          <span class="kbd-row"><span class="kbd">Esc</span> 关闭</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ③ 原曲练习页 ═══════════ -->
+  <section id="p-audio" hidden>
+    <div class="panel-note">
+      <span class="dot">状态</span>
+      <span>已导入音频，波形上拖出<b>朱砂切片</b>（0:42 – 1:05，可拖动边界微调，双击移除）；空拍 = 2 拍；金铜色为播放进度线。速度值与乐谱页共享。</span>
+    </div>
+
+    <div class="app">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><g transform="translate(8.32,8.32) scale(0.74)"><rect x="14.1" y="8" width="8" height="48" fill="#f8f3e7"/><rect x="29.7" y="8" width="2.6" height="48" fill="#f8f3e7"/><circle cx="44.7" cy="24" r="5.2" fill="#f8f3e7"/><circle cx="44.7" cy="40" r="5.2" fill="#f8f3e7"/></g></svg></div>
+          <div><div class="brand-name">TuneTutor</div><div class="brand-sub">乐谱练习播放器</div></div>
+        </div>
+        <nav class="seg"><a href="#">乐谱</a><a class="on" href="#">原曲</a></nav>
+        <button class="lang" type="button">简体中文 <span class="caret">▼</span></button>
+      </header>
+
+      <div class="app-main">
+        <div class="audio-card">
+          <div class="audio-file">
+            <div class="left">
+              <span class="fico">🎧</span>
+              <span>
+                <div class="t">天使的翅膀 demo.mp3</div>
+                <div class="s">8.4 MB · 3:24 · 44.1 kHz</div>
+              </span>
+            </div>
+            <button class="remove" type="button">移除音频</button>
+          </div>
+
+          <div class="wave-stage">
+            <div class="wave-bars" data-wave></div>
+            <div class="wave-dim l"></div>
+            <div class="wave-dim r"></div>
+            <div class="slice">
+              <span class="tag">切片 0:42 – 1:05</span>
+              <span class="handle l"></span>
+              <span class="handle r"></span>
+            </div>
+            <div class="wave-ph"></div>
+          </div>
+
+          <div class="slice-readout">
+            <span class="chip">LOOP 23s</span>
+            <span>循环区间 0:42 → 1:05 · 每轮 +2 拍静音（约 1.9s）</span>
+            <span class="hint">拖拽波形新建切片 · 拖动边界微调 · 双击移除</span>
+          </div>
+
+          <div class="audio-actions">
+            <div class="ctl">
+              <div class="transport">
+                <button class="t-btn t-play" type="button" title="循环播放切片">▶</button>
+                <button class="t-btn t-stop" type="button" title="停止">⏹</button>
+              </div>
+            </div>
+            <div class="ctl">
+              <span class="ctl-label">空拍</span>
+              <div class="beats">
+                <div class="beat-set">
+                  <span class="beat">1</span><span class="beat on">2</span><span class="beat">3</span><span class="beat">4</span>
+                  <span class="beat">5</span><span class="beat">6</span><span class="beat">7</span><span class="beat">8</span>
+                </div>
+                <span class="gap-out">轮间 <b>2 拍</b></span>
+              </div>
+            </div>
+            <div class="ctl" style="margin-left:auto">
+              <span class="ctl-label">速度</span>
+              <div class="tempo" style="width:180px">
+                <div class="slider">
+                  <div class="track"></div>
+                  <div class="fill" style="width:13%"></div>
+                  <div class="thumb" style="left:13%"></div>
+                </div>
+                <div class="tempo-val"><span class="num">62</span><span class="unit">BPM</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ④ 设计规范 ═══════════ -->
+  <section id="p-spec" hidden>
+    <div class="spec-sec">
+      <h3><span class="no">01</span>色彩</h3>
+      <p>米纸暖底 + 白玉卡面 + 墨色字。交互只用墨色（主按钮 / 选中态）；朱砂严格保留给「练习循环」语义（乐句 / 节拍器 / 空拍 / 切片）；金铜仅表示播放中。禁止再引入新的彩色按钮。</p>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="chip" style="background:#f0ebdd"></div><div class="info"><div class="nm">Canvas 画布</div><div class="hex">#F0EBDD</div><div class="use">页面背景</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#faf7ee"></div><div class="info"><div class="nm">Surface</div><div class="hex">#FAF7EE</div><div class="use">应用壳层</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#fffdf7;border-bottom:1px solid rgba(255,255,255,.1)"></div><div class="info"><div class="nm">Surface-2</div><div class="hex">#FFFDF7</div><div class="use">卡面 / 控制条 / 弹窗</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#241f15"></div><div class="info"><div class="nm">墨 Ink</div><div class="hex">#241F15</div><div class="use">主按钮 / 正文 / 符头</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#c2431f"></div><div class="info"><div class="nm">朱砂</div><div class="hex">#C2431F</div><div class="use">乐句 / 空拍 / 节拍器 / 切片</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#a53515"></div><div class="info"><div class="nm">朱砂深</div><div class="hex">#A53515</div><div class="use">朱砂文字 / hover</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#b07a0c"></div><div class="info"><div class="nm">金铜</div><div class="hex">#B07A0C</div><div class="use">播放中状态</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#cd840f"></div><div class="info"><div class="nm">金铜亮</div><div class="hex">#CD840F</div><div class="use">播放光标 / 进度线</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#47764f"></div><div class="info"><div class="nm">苔绿</div><div class="hex">#47764F</div><div class="use">进行中指示灯</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#b04a3f"></div><div class="info"><div class="nm">陶红</div><div class="hex">#B04A3F</div><div class="use">危险 / 删除</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#fffdf6;border-bottom:1px solid rgba(255,255,255,.1)"></div><div class="info"><div class="nm">纸面</div><div class="hex">#FFFDF6</div><div class="use">乐谱卡背景</div></div></div>
+        <div class="swatch"><div class="chip" style="background:#d8d1ba"></div><div class="info"><div class="nm">谱线</div><div class="hex">#D8D1BA</div><div class="use">五线谱线</div></div></div>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">02</span>字体</h3>
+      <p>系统字体栈；品牌名与谱面标题用衬线体，呼应印刷乐谱的雕版感。数字一律 <b>tabular-nums</b>（BPM、时间码）。</p>
+      <div class="comp-row type-demo">
+        <div class="items" style="flex:1">
+          <div class="row" style="width:100%"><span class="tag">Display 22 / Bold · 数字</span><span style="font-size:22px;font-weight:700;font-variant-numeric:tabular-nums">62 BPM</span></div>
+          <div class="row" style="width:100%"><span class="tag">Title 16 / Bold</span><span style="font-size:16px;font-weight:700">TuneTutor 乐谱练习播放器</span></div>
+          <div class="row" style="width:100%"><span class="tag">Body 14 / Regular</span><span>拖放文件到此处，或浏览文件</span></div>
+          <div class="row" style="width:100%"><span class="tag">Label 11 / Semibold · 字距 1.2</span><span style="font-size:11px;font-weight:600;letter-spacing:1.2px;color:var(--text-3)">速 度 · 空 拍 · 节 拍 器</span></div>
+          <div class="row" style="width:100%"><span class="tag">Caption 11.5 / Regular</span><span style="font-size:11.5px;color:var(--text-3)">文件保存在本机浏览器（IndexedDB）</span></div>
+          <div class="row" style="width:100%"><span class="tag">谱面标题 · 衬线 22</span><span class="paper-title" style="margin:0"><span class="t" style="font-family:var(--font-serif);font-size:22px;font-weight:700">小星星</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">03</span>几何与阴影</h3>
+      <table class="token-table">
+        <tr><th>Token</th><th>值</th><th>示例</th><th>用途</th></tr>
+        <tr><td>radius-s</td><td class="ex">7px</td><td><span class="demo-rad" style="border-radius:7px"></span></td><td>小按钮 / 输入框 / chips</td></tr>
+        <tr><td>radius-m</td><td class="ex">12px</td><td><span class="demo-rad" style="border-radius:12px"></span></td><td>卡片 / 控制条 / 弹层</td></tr>
+        <tr><td>radius-l</td><td class="ex">18px</td><td><span class="demo-rad" style="border-radius:18px"></span></td><td>应用壳外框</td></tr>
+        <tr><td>shadow-1</td><td class="ex">0 1px 2px rgb(72 60 36 / .08)</td><td><span class="demo-shadow" style="box-shadow:var(--shadow-1)"></span></td><td>静态卡片</td></tr>
+        <tr><td>shadow-2</td><td class="ex">0 14px 36px -14px rgb(72 60 36 / .30)</td><td><span class="demo-shadow" style="box-shadow:var(--shadow-2)"></span></td><td>应用壳 / 纸面卡</td></tr>
+        <tr><td>shadow-pop</td><td class="ex">0 24px 56px -16px rgb(72 60 36 / .35)</td><td><span class="demo-shadow" style="box-shadow:var(--shadow-pop)"></span></td><td>弹窗 / 浮层</td></tr>
+        <tr><td>间距</td><td class="ex">4 基数：8 / 12 / 16 / 22 / 24</td><td>—</td><td>页面留白 22，卡片内 16–18，控件间 10–12</td></tr>
+      </table>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">04</span>组件</h3>
+      <div class="comp-row">
+        <span class="lbl">按钮</span>
+        <div class="items">
+          <button class="btn btn-primary" type="button">＋ 加载乐谱</button>
+          <button class="btn btn-ghost" type="button">取消</button>
+          <button class="btn btn-danger-ghost btn-sm" type="button">移除音频</button>
+          <button class="btn btn-ghost btn-sm" type="button">清除选择</button>
+        </div>
+      </div>
+      <div class="comp-row">
+        <span class="lbl">走带</span>
+        <div class="items">
+          <button class="t-btn t-play" type="button">▶</button>
+          <button class="t-btn t-stop" type="button">⏹</button>
+          <span style="font-size:12px;color:var(--text-3)">主按钮播放中转金铜并显示 ⏹（语义 = 停止）；副按钮常驻停止</span>
+        </div>
+      </div>
+      <div class="comp-row">
+        <span class="lbl">档位 / 计数</span>
+        <div class="items">
+          <div class="beat-set">
+            <span class="beat">1</span><span class="beat on">2</span><span class="beat">3</span><span class="beat">4</span><span class="beat">5</span><span class="beat">6</span><span class="beat">7</span><span class="beat">8</span>
+          </div>
+          <span style="font-size:12px;color:var(--text-3)">空拍 1–8；再次点击当前值归零</span>
+        </div>
+      </div>
+      <div class="comp-row">
+        <span class="lbl">状态标签</span>
+        <div class="items">
+          <span class="sel-chip"><span class="swatch"></span>乐句：第 5 – 8 小节</span>
+          <span class="slice-readout" style="margin:0"><span class="chip">LOOP 23s</span></span>
+          <span class="it live" style="color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:6px"><span class="dot" style="width:7px;height:7px;border-radius:99px;background:var(--green)"></span>播放中</span>
+        </div>
+      </div>
+      <div class="comp-row">
+        <span class="lbl">快捷键</span>
+        <div class="items">
+          <span><span class="kbd">Space</span> 播放 / 停止</span>
+          <span><span class="kbd">Esc</span> 停止并清除</span>
+          <span style="font-size:12px;color:var(--text-3)">输入框聚焦时忽略</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">05</span>交互与动效</h3>
+      <div class="rule-grid">
+        <div class="rule-card"><b>悬停</b><span class="do">✓</span> 底色加深 / 边框强化，160ms ease；卡片上浮 1px<br><span class="dont">✕</span> 位移抖动、旋转等花哨变换</div>
+        <div class="rule-card"><b>按压</b><span class="do">✓</span> scale(0.98) + 阴影收紧<br><span class="dont">✕</span> 无反馈的纯色变化</div>
+        <div class="rule-card"><b>浮层</b><span class="do">✓</span> 160ms 淡入 + 4px 上移；点击外部 / Esc 关闭<br><span class="dont">✕</span> 阻塞式系统弹窗</div>
+        <div class="rule-card"><b>播放反馈</b><span class="do">✓</span> 金铜脉冲环 + 光标逐音推进<br><span class="dont">✕</span> 闪烁整卡背景</div>
+        <div class="rule-card"><b>练习语义色</b><span class="do">✓</span> 乐句 / 空拍 / 切片 / 节拍器统一朱砂色系<br><span class="dont">✕</span> 同一语义多种颜色</div>
+        <div class="rule-card"><b>触达</b><span class="do">✓</span> 可点目标 ≥ 34×34；控制条吸底<br><span class="dont">✕</span> 纯图标无 title / aria-label</div>
+      </div>
+    </div>
+
+    <div class="spec-sec">
+      <h3><span class="no">06</span>品牌标志</h3>
+      <p>标志「反复记号」：一粗一细两道界线加右侧两点——正是产品的核心动作，框一段乐句，来回练。纯墨单色两值（墨 #241F15 / 米白 #F8F3E7），靠粗线 / 发丝线 / 实点立形体，不依赖渐变与第二色。应用内品牌位固定用「墨底米白标」圆角方块（见各页页眉与 PWA 图标），浅色底 / 印刷场景用墨色标；不要给标志加投影、描边或换色。构成比例、变体清单、尺寸下限与安全区以 <b>docs/brand.html</b>（视觉资产基准）为准，矢量源文件在 docs/brand/。</p>
+      <div class="comp-row">
+        <span class="lbl">标志用法</span>
+        <div class="items">
+          <span class="brand-mark" style="width:44px;height:44px;border-radius:12px" aria-hidden="true"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><g transform="translate(8.32,8.32) scale(0.74)"><rect x="14.1" y="8" width="8" height="48" fill="#f8f3e7"/><rect x="29.7" y="8" width="2.6" height="48" fill="#f8f3e7"/><circle cx="44.7" cy="24" r="5.2" fill="#f8f3e7"/><circle cx="44.7" cy="40" r="5.2" fill="#f8f3e7"/></g></svg></span>
+          <svg viewBox="0 0 64 64" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="14.1" y="8" width="8" height="48" fill="#241f15"/><rect x="29.7" y="8" width="2.6" height="48" fill="#241f15"/><circle cx="44.7" cy="24" r="5.2" fill="#241f15"/><circle cx="44.7" cy="40" r="5.2" fill="#241f15"/></svg>
+          <span style="font-size:12px;color:var(--text-3)">左：墨底米白标（应用内品牌位 / 应用图标）；右：浅底墨标（印刷、浅色背景）</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="spec-foot">TuneTutor UI 设计稿 v3 · 2026-10-17 · 配套文档：docs/prd.md · docs/tech.md · docs/brand.html · 本稿为视觉与交互的唯一基准</footer>
+</div>
+
+<script>
+// 标签切换
+document.querySelectorAll('.tabs button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b === btn); });
+    ['p-score', 'p-modal', 'p-audio', 'p-spec'].forEach(function (id) {
+      document.getElementById(id).hidden = id !== btn.dataset.panel;
+    });
+  });
+});
+
+// 波形条（确定性伪随机，保证每次打开一致）
+(function () {
+  var el = document.querySelector('[data-wave]');
+  if (!el) return;
+  var seed = 7;
+  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  var html = '';
+  for (var i = 0; i < 96; i++) {
+    var env = 0.35 + 0.65 * Math.abs(Math.sin(i / 9));
+    var h = Math.round((10 + rnd() * 118) * env);
+    html += '<i style="height:' + h + 'px"></i>';
+  }
+  el.innerHTML = html;
+})();
+</script>
+</body>
+</html>

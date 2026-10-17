@@ -1,41 +1,35 @@
 # TuneTutor
 
-A web-based music notation player designed to help beginners practice sheet music. Load MusicXML files, select specific measures or notes, and play them back with adjustable tempo and instrument selection.
+A web-based music notation practice player. Load MusicXML scores, select measures or phrases, and practice with adjustable tempo, seven sampled instruments, a customizable metronome, and gap-beat loop training.
+
+> **🚧 Re-implementation in progress (2026-10-17).** The codebase is being rebuilt from the v2 baselines: [docs/tech.md](docs/tech.md) (technical), [docs/prd.md](docs/prd.md) (product), [docs/ui-design.html](docs/ui-design.html) (visual). The previous implementation lives in git history (commits up to `666183c`). Pre-rewrite validation results: [tech.md §13](docs/tech.md).
 
 ## Demo
 
 [https://yidafu.github.io/TuneTutor/](https://yidafu.github.io/TuneTutor/)
 
-## Features
+## Features (baseline for the rewrite)
 
-- **MusicXML Support** - Load and parse standard MusicXML files
-- **Professional Notation** - Render sheet music with VexFlow
-- **Smart Selection** - Click or Shift+Click to select measures and individual notes
-- **Multi-Instrument Playback** - Piano, saxophone, flute, violin, trumpet, guitar, bass, and more
-- **Tempo Control** - Adjustable 40-240 BPM with presets (Largo, Andante, Moderato, Allegro)
-- **Practice Tools** - Add pause beats between measures for practice time
-- **Loop Playback** - Repeat selected sections for focused practice
-- **Keyboard Shortcuts** - Efficient navigation without mouse
-- **File History** - IndexedDB storage for recently loaded files
-
-## Keyboard Shortcuts
-
-| Key    | Action                         |
-| ------ | ------------------------------ |
-| Space  | Play / Pause                   |
-| Escape | Clear selection                |
-| ← / →  | Navigate to previous / next    |
-| ↑ / ↓  | Adjust tempo                   |
+- **MusicXML support** — `.musicxml` / `.xml` / zipped `.mxl`, parsed locally in the browser
+- **Professional notation** — OpenSheetMusicDisplay (SVG) with a playback cursor
+- **Phrase loop** — double-click two notes to loop any phrase; click to loop a measure range
+- **Gap-beat loop** — insert 1–8 silent beats between loop rounds for response training
+- **Original-audio practice** — import audio, drag a slice on the waveform, loop it with the same gap-beat scheme
+- **7 sampled instruments** — piano, saxophone, guitar, bass, violin, flute, trumpet (Tone.js)
+- **Tempo control** — 40–240 BPM, shared between the score and audio pages
+- **Metronome** — four sounds, independent strong/weak beat volume
+- **File history** — recent scores and audio persisted in IndexedDB; restores on launch
+- **4 languages** — English / 简体中文 / 繁體中文 / Français
+- **PWA** — installable, offline-capable (GitHub Pages)
 
 ## Tech Stack
 
-- **UI Framework**: React 19 + TypeScript
-- **Build Tool**: Vite 7
-- **Notation Rendering**: VexFlow 5.0.0
-- **Audio Engine**: Tone.js 15
-- **Instruments**: tonejs-instrument-* packages
-- **File Parsing**: musicxml-io, xml-js
-- **Styling**: Tailwind CSS 4
+- **UI**: React 19 + TypeScript (strict) + Tailwind CSS 4
+- **Build**: Vite 7 + vite-plugin-pwa
+- **Notation**: OpenSheetMusicDisplay
+- **Audio**: Tone.js + tonejs-instrument-* samples + wavesurfer.js v7
+- **Parsing**: musicxml-io (+ jszip for `.mxl`)
+- **Routing**: react-router-dom (HashRouter)
 - **Testing**: Vitest
 
 ## Getting Started
@@ -43,7 +37,7 @@ A web-based music notation player designed to help beginners practice sheet musi
 ### Prerequisites
 
 - Node.js 18+
-- pnpm (recommended) or npm
+- pnpm
 
 ### Installation
 
@@ -57,7 +51,7 @@ pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open the printed local URL (base path `/TuneTutor/`) in your browser.
 
 ### Build
 
@@ -73,29 +67,10 @@ The built files will be in the `dist` directory.
 pnpm test        # Run tests with UI
 pnpm test:run    # Run tests in CI mode
 ```
+
 ## Project Structure
 
-```text
-src/
-├── components/          # React components
-│   ├── FileLoader/     # File upload and history
-│   ├── Header/         # App header
-│   ├── NotationDisplay/# VexFlow notation renderer
-│   ├── PlaybackControls/# Playback UI
-│   ├── ScoreInfo/      # Score metadata display
-│   ├── SelectionInfo/  # Selection status
-│   └── StatusBar/      # Bottom status bar
-├── hooks/               # Custom React hooks
-│   ├── useAudioEngine.ts
-│   ├── useNoteSelection.ts
-│   └── usePlayback.ts
-├── utils/               # Utility functions
-│   ├── audio/          # Audio-related helpers
-│   └── notation/       # MusicXML parsing
-├── types/               # TypeScript type definitions
-├── App.tsx              # Main application component
-└── main.tsx             # Entry point
-```
+See [docs/tech.md §2.1](docs/tech.md) for the normative module layout of the rewrite.
 
 ## License
 
