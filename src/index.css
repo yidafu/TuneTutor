@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   TuneTutor 设计系统 v3 —「纸墨排练室」（docs/ui-design.html 为基准）
+   米纸暖底 + 白玉卡面 + 墨色交互 + 朱砂练习语义 + 金铜播放态
+   ═══════════════════════════════════════════════════════════════ */
+@theme {
+  /* 画布与表面 */
+  --color-canvas: #f0ebdd;
+  --color-surface: #faf7ee;
+  --color-surface-2: #fffdf7;
+  --color-surface-3: #efe9d9;
+  --color-line: rgb(62 52 33 / 0.13);
+  --color-line-strong: rgb(62 52 33 / 0.24);
+  --color-backdrop: rgb(43 36 24 / 0.35);
+  /* 文本 */
+  --color-fg: #2f291c;
+  --color-fg-2: #6f6750;
+  --color-fg-3: #9b9179;
+  /* 墨：交互主色（主按钮 / 符头 / 强调） */
+  --color-ink: #241f15;
+  --color-ink-2: #8d8570;
+  --color-cream: #f8f3e7;
+  /* 朱砂：练习语义（乐句循环 / 节拍器 / 空拍 / 切片），禁止挪作他用 */
+  --color-verm: #c2431f;
+  --color-verm-deep: #a53515;
+  --color-verm-soft: rgb(194 67 31 / 0.09);
+  --color-verm-line: rgb(194 67 31 / 0.3);
+  --color-verm-line-strong: rgb(194 67 31 / 0.45);
+  /* 金铜：仅表示播放中 */
+  --color-gold: #b07a0c;
+  --color-gold-bright: #cd840f;
+  /* 状态 */
+  --color-moss: #47764f;
+  --color-clay: #b04a3f;
+  --color-clay-soft: rgb(176 74 63 / 0.1);
+  --color-clay-line: rgb(176 74 63 / 0.45);
+  /* 纸面（乐谱） */
+  --color-paper: #fffdf6;
+  --color-staff: #d8d1ba;
+  --color-barline: #b0a78a;
+
+  --radius-btn: 10px;
+  --radius-card: 12px;
+  --radius-pop: 16px;
+
+  --shadow-paper: 0 14px 36px -14px rgb(72 60 36 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.8);
+  --shadow-soft: 0 1px 2px rgb(72 60 36 / 0.08), 0 0 0 1px rgb(62 52 33 / 0.04);
+  --shadow-pop: 0 24px 56px -16px rgb(72 60 36 / 0.35), 0 0 0 1px rgb(62 52 33 / 0.06);
+  --shadow-btn-ink: 0 6px 14px -6px rgb(36 31 21 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  --shadow-btn-gold: 0 6px 16px -6px rgb(176 122 12 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.4);
+  --shadow-btn-beat: 0 3px 8px -2px rgb(165 53 21 / 0.55);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-serif: Palatino, Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+
+  --animate-pulse-ring: pulse-ring 1.8s ease-out infinite;
+  --animate-blink: blink 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+@keyframes blink {
+  50% { opacity: 0.35; }
+}
+
+@layer base {
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 800px at 18% -8%, rgb(255 253 246 / 0.85), transparent 55%),
+      radial-gradient(1000px 700px at 90% 112%, rgb(194 67 31 / 0.045), transparent 60%),
+      var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .ctl-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-fg-3);
+    letter-spacing: 1.2px;
+    white-space: nowrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-cream);
+    transition: all 0.16s ease;
+  }
+  .btn-primary {
+    background: var(--color-ink);
+    box-shadow: var(--shadow-btn-ink);
+  }
+  .btn-primary:hover {
+    background: #3a3225;
+  }
+  .btn-ghost {
+    color: var(--color-fg-2);
+    background: transparent;
+    border-color: var(--color-line-strong);
+    font-weight: 500;
+  }
+  .btn-ghost:hover {
+    color: var(--color-fg);
+    background: var(--color-surface-3);
+  }
+
+  /* 滑杆：--fill 由内联样式按当前值百分比写入；--range-color 选墨/朱砂 */
+  .tt-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+    --range-color: var(--color-ink);
+  }
+  .tt-range[data-tone="verm"] {
+    --range-color: var(--color-verm);
+  }
+  .tt-range::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--range-color) var(--fill, 50%),
+      rgb(36 31 21 / 0.14) var(--fill, 50%)
+    );
+  }
+  .tt-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -6px;
+    height: 15px;
+    width: 15px;
+    border-radius: 999px;
+    background: var(--color-paper);
+    border: 2px solid var(--range-color);
+    box-shadow: 0 1px 4px rgb(72 60 36 / 0.35);
+  }
+  .tt-range::-moz-range-track {
+    height: 3px;
+    border-radius: 999px;
+    background: rgb(36 31 21 / 0.14);
+  }
+  .tt-range::-moz-range-progress {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--range-color);
+  }
+  .tt-range::-moz-range-thumb {
+    height: 13px;
+    width: 13px;
+    border-radius: 999px;
+    background: var(--color-paper);
+    border: 2px solid var(--range-color);
+    box-shadow: 0 1px 4px rgb(72 60 36 / 0.35);
+  }
+  .tt-range:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+}
