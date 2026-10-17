@@ -1,5 +1,4 @@
-import type { InstrumentType } from '../types/audio';
-import { INSTRUMENTS, getInstrumentName } from '../types/audio';
+import { NavLink } from 'react-router-dom';
 import { languageNames, type Language, type TranslationSet } from '../locales';
 import { useState } from 'react';
 import { useClickOutside } from '../hooks/useClickOutside';
@@ -7,22 +6,17 @@ import { useClickOutside } from '../hooks/useClickOutside';
 interface HeaderProps {
   language: Language;
   onLanguageChange: (lang: Language) => void;
-  selectedInstrument: InstrumentType;
-  onSelectInstrument: (instrument: InstrumentType) => void;
-  onOpenFileLoader: () => void;
   t: TranslationSet;
 }
 
 const LANGUAGES: Language[] = ['en-US', 'zh-CN', 'zh-TW', 'fr-FR'];
 
-export function Header({
-  language,
-  onLanguageChange,
-  selectedInstrument,
-  onSelectInstrument,
-  onOpenFileLoader,
-  t,
-}: HeaderProps) {
+const NAV_LINKS = [
+  { to: '/', key: 'navScore' as const },
+  { to: '/audio', key: 'navOriginalAudio' as const },
+];
+
+export function Header({ language, onLanguageChange, t }: HeaderProps) {
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const menuRef = useClickOutside<HTMLDivElement>({ onOutsideClick: () => setIsLangMenuOpen(false) });
 
@@ -37,6 +31,24 @@ export function Header({
 
           {/* Toolbar */}
           <div className="flex items-center space-x-4">
+            {/* Page Navigation */}
+            <nav className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg" aria-label="Page navigation">
+              {NAV_LINKS.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  end={link.to === '/'}
+                  className={({ isActive }) =>
+                    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      isActive ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-200'
+                    }`
+                  }
+                >
+                  {t[link.key]}
+                </NavLink>
+              ))}
+            </nav>
+
             {/* Language Switcher */}
             <div className="relative" ref={menuRef}>
               <button
@@ -69,35 +81,6 @@ export function Header({
                 </div>
               )}
             </div>
-
-            {/* Instrument Selector */}
-            <div className="relative">
-              <select
-                value={selectedInstrument}
-                onChange={(e) => onSelectInstrument(e.target.value as InstrumentType)}
-                className="px-8 py-2 pr-8 text-white transition-colors bg-purple-600 rounded-lg appearance-none cursor-pointer hover:bg-purple-700"
-                aria-label="Select instrument"
-              >
-                {INSTRUMENTS.map(inst => (
-                  <option key={inst.type} value={inst.type} className="text-gray-900 bg-white">
-                    {inst.icon} {getInstrumentName(inst.type, t)}
-                  </option>
-                ))}
-              </select>
-              {/* Custom dropdown arrow */}
-              <span className="absolute text-white -translate-y-1/2 pointer-events-none select-none right-3 top-1/2">
-                ▼
-              </span>
-            </div>
-
-            <button
-              onClick={onOpenFileLoader}
-              className="flex items-center gap-2 px-4 py-2 text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
-              aria-label="Load sheet music file"
-            >
-              <span aria-hidden="true">📁</span>
-              {t.loadFile}
-            </button>
           </div>
         </div>
       </div>

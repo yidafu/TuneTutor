@@ -71,3 +71,11 @@ export function getInstrumentName(type: InstrumentType, t: TranslationSet): stri
   const key = `instrument_${inst.nameKey}` as keyof TranslationSet;
   return t[key] || instrumentNamesEn[type] || instrumentNamesZh[type] || inst.nameKey;
 }
+
+/**
+ * A time range (seconds) of the imported original audio selected for slice-loop playback.
+ */
+export interface AudioSlice {
+  startTime: number;
+  endTime: number;
+}

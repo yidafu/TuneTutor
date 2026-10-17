@@ -2,11 +2,12 @@
  * IndexedDB utilities for storing and retrieving files
  */
 
-import type { StoredFile } from '../../types/storedFile';
+import type { StoredFile, StoredAudioFile } from '../../types/storedFile';
 
 const DB_NAME = 'tune-tutor-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'files';
+const AUDIO_STORE_NAME = 'audioFiles';
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -37,6 +38,11 @@ async function initDB(): Promise<IDBDatabase> {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         store.createIndex('uploadedAt', 'uploadedAt', { unique: false });
         store.createIndex('title', 'title', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(AUDIO_STORE_NAME)) {
+        const audioStore = db.createObjectStore(AUDIO_STORE_NAME, { keyPath: 'id' });
+        audioStore.createIndex('uploadedAt', 'uploadedAt', { unique: false });
+        audioStore.createIndex('fileName', 'fileName', { unique: false });
       }
     };
   });
@@ -110,4 +116,66 @@ export async function deleteFile(id: string): Promise<void> {
  */
 export function generateFileId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+// ── Audio files ─────────────────────────────────────────
+
+/**
+ * Save an imported original-audio file to IndexedDB.
+ */
+export async function saveAudioFile(file: StoredAudioFile): Promise<void> {
+  const db = await getDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([AUDIO_STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(AUDIO_STORE_NAME);
+    const request = store.put(file);
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(new Error('Failed to save audio file'));
+  });
+}
+
+/**
+ * Get all saved audio files, sorted by upload date (newest first).
+ */
+export async function getAllAudioFiles(): Promise<StoredAudioFile[]> {
+  const db = await getDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([AUDIO_STORE_NAME], 'readonly');
+    const store = transaction.objectStore(AUDIO_STORE_NAME);
+    const index = store.index('uploadedAt');
+    const request = index.getAll();
+
+    request.onsuccess = () => {
+      const files = request.result.sort((a, b) => b.uploadedAt - a.uploadedAt);
+      resolve(files);
+    };
+    request.onerror = () => reject(new Error('Failed to get audio files'));
+  });
+}
+
+/**
+ * Get the most recently uploaded audio file, or null when none is stored.
+ */
+export async function getLatestAudioFile(): Promise<StoredAudioFile | null> {
+  const files = await getAllAudioFiles();
+  return files[0] ?? null;
+}
+
+/**
+ * Delete a saved audio file by id.
+ */
+export async function deleteAudioFile(id: string): Promise<void> {
+  const db = await getDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([AUDIO_STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(AUDIO_STORE_NAME);
+    const request = store.delete(id);
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(new Error('Failed to delete audio file'));
+  });
 }

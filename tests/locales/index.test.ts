@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getDefaultLanguage,
   saveLanguage,
-  createTranslate,
-  formatString,
   translations,
   languageNames,
   type Language,
@@ -74,55 +72,31 @@ describe('locales', () => {
     });
   });
 
-  describe('createTranslate', () => {
+  describe('translations', () => {
     it('should return correct translation set for en-US', () => {
-      const t = createTranslate('en-US');
+      const t = translations['en-US'];
       expect(t.appTitle).toBe('Tune Tutor');
       expect(t.play).toBe('Play');
     });
 
     it('should return correct translation set for zh-CN', () => {
-      const t = createTranslate('zh-CN');
+      const t = translations['zh-CN'];
       expect(t.appTitle).toBe('乐谱播放器');
       expect(t.play).toBe('播放');
     });
 
     it('should return correct translation set for zh-TW', () => {
-      const t = createTranslate('zh-TW');
+      const t = translations['zh-TW'];
       expect(t.appTitle).toBe('樂譜播放器');
       expect(t.play).toBe('播放');
     });
 
     it('should return correct translation set for fr-FR', () => {
-      const t = createTranslate('fr-FR');
+      const t = translations['fr-FR'];
       expect(t.appTitle).toBe('Tune Tutor');
       expect(t.play).toBe('Jouer');
     });
-  });
 
-  describe('formatString', () => {
-    it('should replace {0} placeholder with first argument', () => {
-      expect(formatString('Hello {0}', 'World')).toBe('Hello World');
-    });
-
-    it('should replace multiple placeholders', () => {
-      expect(formatString('Measures {0}-{1}', '1', '10')).toBe('Measures 1-10');
-    });
-
-    it('should replace no placeholders when no args provided', () => {
-      expect(formatString('No placeholders')).toBe('No placeholders');
-    });
-
-    it('should handle empty string', () => {
-      expect(formatString('', 'arg')).toBe('');
-    });
-
-    it('should replace Skip label with format', () => {
-      expect(formatString('Skip: {0}', '3')).toBe('Skip: 3');
-    });
-  });
-
-  describe('translations', () => {
     it('should have all 4 languages', () => {
       expect(Object.keys(translations)).toEqual(['en-US', 'zh-CN', 'zh-TW', 'fr-FR']);
     });

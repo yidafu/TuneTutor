@@ -66,6 +66,24 @@ export const zhTW = {
   // Loop modes
   loopPhrase: '樂句循環',
   phraseSelected: '樂句',
+
+  // Navigation
+  navScore: '樂譜',
+  navOriginalAudio: '原曲',
+
+  // OriginalAudio page
+  originalAudio: '原曲練習',
+  importAudio: '匯入音訊',
+  importAudioHint: '將音訊拖到這裡或點擊選擇（mp3、wav、ogg、m4a）',
+  removeAudio: '移除',
+  audioDuration: '時長: {0}',
+  sliceRange: '{0} – {1}',
+  sliceDurationLabel: '片段: {0}',
+  gapBeats: '空拍',
+  dragToSelect: '在波形上拖動以選擇循環片段',
+  audioPlayLoop: '循環播放片段',
+  audioPlayWhole: '播放完整音訊',
+  unsupportedAudioFormat: '不支援的音訊格式，請嘗試 mp3、wav、ogg 或 m4a。',
 } as const;
 
 export type TraditionalChinese = typeof zhTW;

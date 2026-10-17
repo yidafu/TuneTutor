@@ -66,6 +66,24 @@ export const frFR = {
   // Loop modes
   loopPhrase: 'Phrase',
   phraseSelected: 'Phrase',
+
+  // Navigation
+  navScore: 'Partition',
+  navOriginalAudio: 'Audio original',
+
+  // OriginalAudio page
+  originalAudio: 'Pratique audio original',
+  importAudio: 'Importer un audio',
+  importAudioHint: 'Déposez un audio ici ou cliquez pour parcourir (mp3, wav, ogg, m4a)',
+  removeAudio: 'Retirer',
+  audioDuration: 'Durée: {0}',
+  sliceRange: '{0} – {1}',
+  sliceDurationLabel: 'Extrait: {0}',
+  gapBeats: 'Temps vides',
+  dragToSelect: 'Glissez sur la forme d\'onde pour sélectionner un extrait à répéter',
+  audioPlayLoop: 'Répéter l\'extrait',
+  audioPlayWhole: 'Lecture complète',
+  unsupportedAudioFormat: 'Format audio non pris en charge. Essayez mp3, wav, ogg ou m4a.',
 } as const;
 
 export type French = typeof frFR;

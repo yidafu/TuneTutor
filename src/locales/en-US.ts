@@ -66,6 +66,24 @@ export const enUS = {
   // Loop modes
   loopPhrase: 'Phrase',
   phraseSelected: 'Phrase',
+
+  // Navigation
+  navScore: 'Score',
+  navOriginalAudio: 'Original Audio',
+
+  // OriginalAudio page
+  originalAudio: 'Original Audio Practice',
+  importAudio: 'Import audio',
+  importAudioHint: 'Drop audio here or click to browse (mp3, wav, ogg, m4a)',
+  removeAudio: 'Remove',
+  audioDuration: 'Duration: {0}',
+  sliceRange: '{0} – {1}',
+  sliceDurationLabel: 'Slice: {0}',
+  gapBeats: 'Empty beats',
+  dragToSelect: 'Drag on the waveform to select a slice to loop',
+  audioPlayLoop: 'Loop slice',
+  audioPlayWhole: 'Play full',
+  unsupportedAudioFormat: 'Unsupported audio format. Try mp3, wav, ogg, or m4a.',
 } as const;
 
 export type English = typeof enUS;

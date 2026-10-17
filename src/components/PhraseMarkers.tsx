@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import type { PhraseSelection } from '../types/notation';
 import { getOsmdNotePositions } from '../utils/notation/NoteInteraction';
+import { getOsmdInstance } from '../utils/notation/OsmdRender';
 
 interface PhraseMarkersProps {
   phraseSelection: PhraseSelection;
@@ -19,6 +20,11 @@ interface NotePos {
   x: number;
   y: number;
   width: number;
+  height: number;
+}
+
+interface StaffBounds {
+  top: number;
   height: number;
 }
 
@@ -67,18 +73,101 @@ function findNotePosition(
 }
 
 /**
- * A `|>` marker placed before the start note.
- * The bar is on the left, arrow points right into the selection.
+ * Find the pixel positions of the top and bottom staff lines for the staff
+ * containing a note at the given position. Uses OSMD internal data to find
+ * the SVG elements for the 5 staff lines, then reads their bounding rects
+ * for accurate pixel coordinates.
  */
-function StartBracket({ x, y, h }: { x: number; y: number; h: number }) {
-  const top = y - PAD_V;
-  const height = h + PAD_V * 2;
-  const barLeft = x - GAP - BAR;
-  const arrowLeft = barLeft - ARROW;
+function findStaffBounds(
+  container: HTMLElement,
+  noteY: number,
+  measureIndex: number,
+): StaffBounds | null {
+  const osmd = getOsmdInstance();
+  if (!osmd) return null;
+
+  try {
+    const graphic = osmd as unknown as {
+      graphic: { measureList: unknown[][] };
+    };
+    if (!graphic?.graphic?.measureList) return null;
+
+    const measureList = graphic.graphic.measureList;
+    if (measureIndex >= measureList.length) return null;
+
+    const staffMeasures = measureList[measureIndex];
+    if (!staffMeasures?.length) return null;
+
+    const checkedStaffLines = new Set<unknown>();
+    const containerRect = container.getBoundingClientRect();
+
+    for (const measure of staffMeasures) {
+      if (!measure) continue;
+
+      // Navigate: GraphicalMeasure → ParentStaffLine → StaffLines[] → SVGElement
+      const m = measure as { ParentStaffLine?: { StaffLines?: { SVGElement?: Node }[] } };
+      const staffLine = m.ParentStaffLine;
+      if (!staffLine || checkedStaffLines.has(staffLine)) continue;
+      checkedStaffLines.add(staffLine);
+
+      const staffLines = staffLine.StaffLines;
+      if (!staffLines || staffLines.length < 5) continue;
+
+      const topLineEl = staffLines[0].SVGElement;
+      const bottomLineEl = staffLines[4].SVGElement;
+      if (!topLineEl || !bottomLineEl) continue;
+
+      const topRect = (topLineEl as Element).getBoundingClientRect();
+      const bottomRect = (bottomLineEl as Element).getBoundingClientRect();
+
+      const staffTop = topRect.top - containerRect.top;
+      const staffBottom = bottomRect.top - containerRect.top;
+      const staffHeight = staffBottom - staffTop;
+
+      // Check if the note is within this staff (with tolerance)
+      const tolerance = 20;
+      if (noteY >= staffTop - tolerance && noteY <= staffBottom + tolerance) {
+        return { top: staffTop, height: staffHeight };
+      }
+    }
+
+    // Fallback: return bounds from the first found staff
+    const firstLine = Array.from(checkedStaffLines)[0] as
+      | { StaffLines?: { SVGElement?: Node }[] }
+      | undefined;
+    if (firstLine?.StaffLines && firstLine.StaffLines.length >= 5) {
+      const topEl = firstLine.StaffLines[0].SVGElement;
+      const bottomEl = firstLine.StaffLines[4].SVGElement;
+      if (topEl && bottomEl) {
+        const topRect = (topEl as Element).getBoundingClientRect();
+        const bottomRect = (bottomEl as Element).getBoundingClientRect();
+        return {
+          top: topRect.top - containerRect.top,
+          height: bottomRect.top - topRect.top,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[PhraseMarkers] findStaffBounds error:', e);
+  }
+
+  return null;
+}
+
+/**
+ * A `|>` marker placed before the start note.
+ * The bar spans the full staff height when staff bounds are available,
+ * otherwise falls back to a fixed height around the note.
+ */
+function StartBracket({ x, noteY, staffTop, staffHeight }: { x: number; noteY: number; staffTop?: number; staffHeight?: number }) {
+  const top = staffTop ?? (noteY - PAD_V);
+  const height = staffHeight ?? 60;
+  const arrowLeft = x - GAP;                          // arrow tip at GAP from note
+  const barLeft = arrowLeft - ARROW - BAR;              // bar left of the arrow
 
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none', zIndex: 8 }}>
-      {/* Vertical bar */}
+      {/* Vertical bar (leftmost) */}
       <div
         style={{
           position: 'absolute',
@@ -90,7 +179,7 @@ function StartBracket({ x, y, h }: { x: number; y: number; h: number }) {
           borderRadius: 2,
         }}
       />
-      {/* Arrow pointing right (border triangle) */}
+      {/* Arrow pointing right (border-left triangle → points right) */}
       <div
         style={{
           position: 'absolute',
@@ -100,14 +189,14 @@ function StartBracket({ x, y, h }: { x: number; y: number; h: number }) {
           height: 0,
           borderTop: `${ARROW / 2}px solid transparent`,
           borderBottom: `${ARROW / 2}px solid transparent`,
-          borderRight: `${ARROW}px solid #f97316`,
+          borderLeft: `${ARROW}px solid #f97316`,
         }}
       />
       {/* Label */}
       <span
         style={{
           position: 'absolute',
-          left: arrowLeft - 2,
+          left: barLeft - 2,
           top: top - 16,
           fontSize: 10,
           fontWeight: 700,
@@ -124,29 +213,18 @@ function StartBracket({ x, y, h }: { x: number; y: number; h: number }) {
 
 /**
  * A `<|` marker placed after the end note.
- * The arrow points left into the selection, bar is on the right.
+ * The bar spans the full staff height when staff bounds are available,
+ * otherwise falls back to a fixed height around the note.
  */
-function EndBracket({ x, y, h }: { x: number; y: number; h: number }) {
-  const top = y - PAD_V;
-  const height = h + PAD_V * 2;
-  const barLeft = x + GAP;
-  const arrowLeft = barLeft + BAR;
+function EndBracket({ x, noteY, staffTop, staffHeight }: { x: number; noteY: number; staffTop?: number; staffHeight?: number }) {
+  const top = staffTop ?? (noteY - PAD_V);
+  const height = staffHeight ?? 60;
+  const arrowLeft = x + GAP;                          // arrow tip at GAP from note
+  const barLeft = arrowLeft + ARROW;                   // bar right of the arrow
 
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none', zIndex: 8 }}>
-      {/* Vertical bar */}
-      <div
-        style={{
-          position: 'absolute',
-          left: barLeft,
-          top,
-          width: BAR,
-          height,
-          backgroundColor: '#ef4444',
-          borderRadius: 2,
-        }}
-      />
-      {/* Arrow pointing left (border triangle) */}
+      {/* Arrow pointing left (border-right triangle → points left) */}
       <div
         style={{
           position: 'absolute',
@@ -156,7 +234,19 @@ function EndBracket({ x, y, h }: { x: number; y: number; h: number }) {
           height: 0,
           borderTop: `${ARROW / 2}px solid transparent`,
           borderBottom: `${ARROW / 2}px solid transparent`,
-          borderLeft: `${ARROW}px solid #ef4444`,
+          borderRight: `${ARROW}px solid #ef4444`,
+        }}
+      />
+      {/* Vertical bar (rightmost) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: barLeft,
+          top,
+          width: BAR,
+          height,
+          backgroundColor: '#ef4444',
+          borderRadius: 2,
         }}
       />
       {/* Label */}
@@ -185,12 +275,10 @@ function RangeHighlight({
   startX,
   endX,
   y,
-  h,
 }: {
   startX: number;
   endX: number;
   y: number;
-  h: number;
 }) {
   const left = startX;
   const width = endX - startX;
@@ -203,7 +291,7 @@ function RangeHighlight({
         left,
         top: y - PAD_V + 2,
         width,
-        height: h + PAD_V * 2 - 4,
+        height: 60,
         backgroundColor: 'rgba(249, 115, 22, 0.08)',
         pointerEvents: 'none',
         zIndex: 7,
@@ -239,20 +327,53 @@ export function PhraseMarkers({ phraseSelection, onClearPhrase, container }: Phr
     [phraseSelection.endNote?.measureIndex, phraseSelection.endNote?.noteIndex, container],
   );
 
+  const startStaffBounds = useMemo(
+    () => {
+      if (!container || !startPos) return null;
+      return findStaffBounds(
+        container,
+        startPos.y,
+        phraseSelection.startNote.measureIndex,
+      );
+    },
+    [container, startPos, phraseSelection.startNote.measureIndex],
+  );
+
+  const endStaffBounds = useMemo(
+    () => {
+      if (!container || !endPos) return null;
+      return findStaffBounds(
+        container,
+        endPos.y,
+        phraseSelection.endNote!.measureIndex,
+      );
+    },
+    [container, endPos, phraseSelection.endNote?.measureIndex],
+  );
+
   return (
     <>
       {startPos && (
-        <StartBracket x={startPos.x} y={startPos.y} h={startPos.height} />
+        <StartBracket
+          x={startPos.x}
+          noteY={startPos.y}
+          staffTop={startStaffBounds?.top}
+          staffHeight={startStaffBounds?.height}
+        />
       )}
       {endPos && (
-        <EndBracket x={endPos.x + endPos.width} y={endPos.y} h={endPos.height} />
+        <EndBracket
+          x={endPos.x + endPos.width}
+          noteY={endPos.y}
+          staffTop={endStaffBounds?.top}
+          staffHeight={endStaffBounds?.height}
+        />
       )}
       {startPos && endPos && (
         <RangeHighlight
           startX={startPos.x}
           endX={endPos.x + endPos.width}
           y={startPos.y}
-          h={startPos.height}
         />
       )}
       {endPos && (
@@ -264,7 +385,7 @@ export function PhraseMarkers({ phraseSelection, onClearPhrase, container }: Phr
             top: endPos.y - 8,
             zIndex: 20,
           }}
-          className="text-xs bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+          className="flex items-center justify-center w-5 h-5 text-xs text-white bg-red-500 rounded-full hover:bg-red-600"
           aria-label="Clear phrase selection"
         >
           ×

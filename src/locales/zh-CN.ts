@@ -66,6 +66,24 @@ export const zhCN = {
   // Loop modes
   loopPhrase: '乐句循环',
   phraseSelected: '乐句',
+
+  // Navigation
+  navScore: '乐谱',
+  navOriginalAudio: '原曲',
+
+  // OriginalAudio page
+  originalAudio: '原曲练习',
+  importAudio: '导入音频',
+  importAudioHint: '将音频拖到此处或点击选择（mp3、wav、ogg、m4a）',
+  removeAudio: '移除',
+  audioDuration: '时长: {0}',
+  sliceRange: '{0} – {1}',
+  sliceDurationLabel: '片段: {0}',
+  gapBeats: '空拍',
+  dragToSelect: '在波形上拖动以选择循环片段',
+  audioPlayLoop: '循环播放片段',
+  audioPlayWhole: '播放完整音频',
+  unsupportedAudioFormat: '不支持的音频格式，请尝试 mp3、wav、ogg 或 m4a。',
 } as const;
 
 export type Chinese = typeof zhCN;

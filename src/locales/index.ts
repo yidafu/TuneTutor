@@ -75,6 +75,24 @@ export interface TranslationSet {
   chinese: string;
   english: string;
   french: string;
+
+  // Navigation
+  navScore: string;
+  navOriginalAudio: string;
+
+  // OriginalAudio page
+  originalAudio: string;
+  importAudio: string;
+  importAudioHint: string;
+  removeAudio: string;
+  audioDuration: string;
+  sliceRange: string;
+  sliceDurationLabel: string;
+  gapBeats: string;
+  dragToSelect: string;
+  audioPlayLoop: string;
+  audioPlayWhole: string;
+  unsupportedAudioFormat: string;
 }
 
 export const translations: Record<Language, TranslationSet> = {
