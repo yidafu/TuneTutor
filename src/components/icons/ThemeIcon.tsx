@@ -3,19 +3,21 @@ import type { InstrumentType } from '../../types/audio'
 import type { ThemeId } from '../../themes'
 import type { StyleXStyles } from '@stylexjs/stylex'
 import * as stylex from '@stylexjs/stylex'
-import { ICON_GEOMETRY, type ThemeIconName } from './geometry'
+import { THEME_ICON_SETS, type ThemeIconName } from './geometry'
 import { THEME_ICON_STYLES } from './styles'
 import { THEME_GLYPHS } from './themeGlyphs'
 
 /**
- * 主题图标渲染器：读当前皮肤，按该皮肤的笔触（THEME_ICON_STYLES）渲染
- * v1.2 定稿几何（ICON_GEOMETRY），换肤时随 Provider 状态整体重渲染，
- * 得到每主题观感不同的一套图标。颜色一律 currentColor，随所在文字的 token。
+ * 主题图标渲染器：读当前皮肤，取该皮肤专形专绘的整套图标
+ * （geometry.tsx THEME_ICON_SETS，2026-10-18 用户决策），再以该皮肤的
+ * 笔触（THEME_ICON_STYLES）渲染。换肤时随 Provider 状态整体重渲染，
+ * 得到每主题观感、字形皆不同的一套图标。颜色一律 currentColor，
+ * 随所在文字的 token。
  */
 export function ThemeIcon({ name, style }: { name: ThemeIconName; style?: StyleXStyles }) {
   const { theme } = useTheme()
   const iconStyle = THEME_ICON_STYLES[theme]
-  const geometry = ICON_GEOMETRY[name]
+  const geometry = THEME_ICON_SETS[theme][name]
 
   return (
     <svg

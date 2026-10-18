@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TuneTutor 皮肤系统 UI 设计稿 v1.3</title>
+<title>TuneTutor 皮肤系统 UI 设计稿 v1.4</title>
 <style>
 /* ═══════════════════════════════════════════════════════════════
    设计稿页面自身使用 v3「纸墨排练室」chrome（--bg 系列变量）。
@@ -517,8 +517,8 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
 <div class="wrap">
 
   <header class="spec-head">
-    <h1>TuneTutor 皮肤系统 UI 设计稿<span class="ver">v1.3 · 2026-10-18</span></h1>
-    <p>在 v3「纸墨排练室」token 体系上扩展皮肤切换：<b>9 款默认皮肤</b>（经典 5 款 + 中式古风 4 款），全部颜色由 <code>--color-*</code> token 承载，皮肤 = 在 <code>:root[data-theme=&lt;id&gt;]</code> 重定义 token 值。语义角色跨皮肤不变——朱砂系=练习循环、金铜系=播放中、墨系=交互主色；古风皮肤允许角色<b>色相</b>重定（如宫墙转石绿、红木转靛蓝），但同一皮肤内全站一致。图标双层主题化：功能图标颜色随 token 自动，品牌标几何恒定、色随 token 自动（①-02）。本稿为皮肤功能的视觉与交互基准，实现后回填 tech.md。</p>
+    <h1>TuneTutor 皮肤系统 UI 设计稿<span class="ver">v1.4 · 2026-10-18</span></h1>
+    <p>在 v3「纸墨排练室」token 体系上扩展皮肤切换：<b>9 款默认皮肤</b>（经典 5 款 + 中式古风 4 款），全部颜色由 <code>--color-*</code> token 承载，皮肤 = 在 <code>:root[data-theme=&lt;id&gt;]</code> 重定义 token 值。语义角色跨皮肤不变——朱砂系=练习循环、金铜系=播放中、墨系=交互主色；古风皮肤允许角色<b>色相</b>重定（如宫墙转石绿、红木转靛蓝），但同一皮肤内全站一致。图标双层主题化：功能图标颜色随 token 自动，且 <b>v1.4 起每主题专形专绘一整套</b>（见 ①-02 修订）；品牌标几何恒定、色随 token 自动（①-02）。本稿为皮肤功能的视觉与交互基准，实现后回填 tech.md。</p>
   </header>
 
   <nav class="tabs" role="tablist" aria-label="设计稿页面">
@@ -582,6 +582,8 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
       <div class="brand-grid" id="brandGrid"></div>
 
       <p style="margin-top:22px"><b>功能图标集规格</b>：24 单位网格 / stroke 1.75 / 圆头圆角 / 单色 currentColor（播放▶、停止⏹ 为实心 fill=currentColor）。7 件乐器<b>专形专绘</b>——现状贝斯与吉他共用 🎸，SVG 集分化为「实心机身 + 长琴颈 + 拾音器条」；节拍器以<b>沙漏塔 + 摆锤</b>取代 🥁 鼓形（表意即节拍器本身，且与音色弹层区分）；以下图标墙为同一套路径 × 4 款代表皮肤（纸墨 / 夜曲 / 宫墙 / 红木），颜色全部取自该皮肤 token，实机内联后换肤即整体变色、零逐皮肤配置：</p>
+      <p style="margin-top:14px"><b>v1.4 修订（2026-10-18 用户决策）</b>：功能图标在「同几何 × 各肤笔触」（v1.3 实现态）之上再升级为<b>每主题专形专绘一整套</b>——九套 × 17 枚，以纸墨版画线描为构图基准，按各主题工艺语言重绘：夜曲细笔减线 + 四角星子、暖木圆木浑厚 + 大实心点缀、青瓷釉线长弧 + 圈足/瓷环、演奏会聚光高对比减笔、青花料点/水波纹/双钩釉线、宫墙方折回纹 + 实心方点缀（square 端头 + miter 接合）、红木铜钉缀结构节点、玄漆如意云头 + 描金双钩。笔触参数（线宽/端头/点缀填充）仍按各肤 THEME_ICON_STYLES 叠加；品牌标几何恒定铁律不变；字号梯、网格与 currentColor 纪律沿用本节规格。实现位于 <code>src/components/icons/sets/</code>（每主题一文件，类型层面强制 17 枚全量定义）。</p>
+      <p style="margin-top:10px"><b>v1.4 乐器二次精修（2026-10-18 用户反馈）</b>：萨克斯 / 吉他 / 贝斯特征强化——吉他定形<b>葫芦双腰</b>（上短下长双鼓身 + 收腰 + 圆音孔 + 琴桥），贝斯以<b>超长琴颈</b>分化（身颈比 ≈ 1:1、圆角矩形机身、双拾音器、无音孔），萨克斯取<b>直管 + 底部 U 弯 + 上扬喇叭口</b>轮廓（吹嘴弯颈、双钩线琴管、管内按键点、口沿横线）。此三枚的器形由九套共用，主题差异落在笔触与点缀语言。</p>
       <div class="icon-grid" id="iconGrid"></div>
 
       <table class="spec-table" style="margin-top:16px">
@@ -1018,7 +1020,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
         <tr><td class="mono">T7</td><td>换肤过渡 160ms ease（对齐 v3 动效基准），OSMD 重渲染不动画；prefers-reduced-motion 全瞬时。</td></tr>
         <tr><td class="mono">T8</td><td>无障碍底线：正文对所在面 ≥ 4.5:1；「演奏会」对标 WCAG AAA（正文 ≥ 7:1）作高对比选项；语义色光晕/淡底仅作装饰不作唯一信息载体。</td></tr>
         <tr><td class="mono">T9</td><td>古风四款取材传统工艺：青花（青花瓷：瓷白纸面、钴青交互、釉里红练习、泥金播放）；宫墙（宫墙红+金瓦：漆黑交互、石绿练习、金系播放与进行中指示）；红木（酸枝家具：深棕红画布、绢黄纸面、黄铜播放、靛蓝练习——蓝染对植木，与宫墙的红墙绿语义区分）；玄漆（黑漆描金：暖黑底、漆白交互、描金播放、朱砂练习）。token 名保留 verm/gold 历史角色名，值随皮肤走、类名不变。</td></tr>
-        <tr><td class="mono">T10</td><td>图标双层主题化（以 brand.html 为先决基准）：功能图标统一内联 SVG、stroke=currentColor，只换色不换形，随 token 自动跟随。<b>全量替换清单与 SVG 路径规格见 ①-02</b>（乐器 7 枚专形专绘、bass/guitar 分化；节拍器以塔形摆锤取代 🥁 鼓形；走带 play/stop 实心；loop/gear/folder/note/trash/phones/palette 各归其位）；品牌标（反复记号）几何恒定、零皮肤配置——瓦片底 = ink token、标记描色 = cream token（currentColor，三部件同色），由 CSS 级联自动跟随换肤；语义色禁止上品牌标、不做字形/形制变体；favicon 与 PWA 图标不随皮肤（构建期静态生成）。</td></tr>
+        <tr><td class="mono">T10</td><td>图标双层主题化（以 brand.html 为先决基准）：功能图标统一内联 SVG、stroke=currentColor，只换色不换形，随 token 自动跟随。<b>全量替换清单与 SVG 路径规格见 ①-02</b>（乐器 7 枚专形专绘、bass/guitar 分化；节拍器以塔形摆锤取代 🥁 鼓形；走带 play/stop 实心；loop/gear/folder/note/trash/phones/palette 各归其位）；品牌标（反复记号）几何恒定、零皮肤配置——瓦片底 = ink token、标记描色 = cream token（currentColor，三部件同色），由 CSS 级联自动跟随换肤；语义色禁止上品牌标、不做字形/形制变体；favicon 与 PWA 图标不随皮肤（构建期静态生成）。<b>v1.4 修订</b>：「只换色不换形」升级为<b>每主题专形专绘一整套</b>（9 套 × 17 枚，规格见 ①-02 v1.4 修订），品牌标恒定铁律不变。</td></tr>
       </table>
     </div>
 
@@ -1037,7 +1039,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
     </div>
   </section>
 
-  <footer class="spec-foot">TuneTutor 皮肤系统 UI 设计稿 v1.3 · 2026-10-18 · 配套：docs/ui-design.html（v3 基准）· docs/brand.html（品牌基准）· docs/prd.md · docs/tech.md · 本稿为皮肤功能的视觉与交互基准</footer>
+  <footer class="spec-foot">TuneTutor 皮肤系统 UI 设计稿 v1.4 · 2026-10-18 · 配套：docs/ui-design.html（v3 基准）· docs/brand.html（品牌基准）· docs/prd.md · docs/tech.md · 本稿为皮肤功能的视觉与交互基准</footer>
 </div>
 
 <script>
