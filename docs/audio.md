@@ -1,9 +1,9 @@
 # TuneTutor 音频播放技术规格
 
-**版本**: 2.0
+**版本**: 2.1
 **日期**: 2026-10-18
 **状态**: Ready for Re-implementation
-**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。
+**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。**v2.1(2026-10-18)**:§5.1 补波形缩放(官方 ZoomPlugin + 适应宽度基准步进控件,新增 A13)与拖放导入入口;服务 F10 精准定位切片。
 
 ---
 
@@ -199,9 +199,14 @@ Tone Sampler `releaseAll` 可立即释放全部发声采样(官方 `stopSound` �
 - **peaks 预载不采用**:`load(url, peaks, duration)` 的预计算峰值服务于「先展示后解码」的网络流场景;本产品音频全在本地(IndexedDB ArrayBuffer),全量解码不可避免,预载零收益,反而多一份要持久化/校验的数据。
 - **region 是 DOM 覆盖层,不画进 canvas**:RegionsPlugin 在波形 wrapper 上叠绝对定位容器(z-index 5),region 按时间百分比定位、两侧 6px 拖动把手;切片的朱砂色即 region color(取值随 ui-design 基线);`enableDragSelection` 返回解绑函数,卸载时必须调用。
 - `WaveSurfer.create`(WebAudio 后端)+ `RegionsPlugin`;**`addRegion` / `enableDragSelection` 统一在 `ready` 事件后调用**(7.12 起 addRegion 早于 ready 会自动挂起到 ready 再建区,勿依赖该行为;拖选换算与回写本就依赖已解码时长)。
-- 单切片约束:`region-created` 时移除旧 region;`update-end`(拖动/resize 结束)才回写 `AudioSlice` 并持久化(`note-slice-audio-slice`);双击 region = 移除切片与持久化。
+- 单切片约束:`region-created` 时移除旧 region;`update-end`(拖动/resize 结束)才回写 `AudioSlice` 并持久化(`note-slice-audio-slice`);双击 region = 移除切片与持久化(触控端 iOS Safari 不触发原生 dblclick,页面另挂 pointer 双击检测,双方经切片状态护栏幂等)。
+- **波形缩放(决策 A13,v2.1)**:渲染仍全走内建管线,缩放 = 官方 ZoomPlugin(波形上滚轮/双指捏合,指针锚定)+ 页面步进控件 `－ / 倍率 / ＋`(倍率钮即适应窗口复位)。细则:
+  - 步进以「适应窗口宽度」(`containerWidth / duration` px/s)为基准逐级 ×2 / ÷2,钳到 `ZOOM_MAX_PX_PER_SEC = 2000`(1px ≈ 0.5ms,足够精准定位切片边界);阶梯纯函数 `zoomInPx` / `zoomOutPx` / `zoomPercent` 收在 sliceUtils(可单测),控件只做 DOM 接线;
+  - 控件与滚轮/捏合共享单一事实来源 `ws.zoom(minPxPerSec)`(核心广播 `zoom` 事件),页面不持第二份缩放状态;适应宽度不可得(容器 0 宽/无时长)时步进不动作;
+  - 缩放后内建管线自动重渲染(多 canvas 分片 + wrapper 滚动),region 按时间百分比定位天然跟随;播放中 `autoScroll`(默认开)保持播放头可见;
+  - `minPxPerSec` 落在核心 options 与 ZoomPlugin `maxZoom`,两处共用同一常量。
 - 音频持久化:IndexedDB `audioFiles`(ArrayBuffer,tech.md §7);启动恢复最新一条 + 已存切片与空拍(`note-slice-audio-gap`)。
-- 导入校验:MIME 白名单 + 解码(wavesurfer `error` 事件)双重校验;失败提示走 i18n。
+- 导入校验:MIME 白名单 + 解码(wavesurfer `error` 事件)双重校验;失败提示走 i18n。入口两条:文件选择器与**页面级拖放**(FileLoaderModal 同款 `data-drag-active` 高亮约定)——`dragover` 高亮、`drop` 复用同一校验管线;空态与已装载态均可投放,已装载态投放即替换当前音频且不继承旧切片(新音频切片清空)。
 
 ### 5.2 切片循环 + 空拍(决策 A5,v2 变更)
 
@@ -281,6 +286,7 @@ UI 与播放共用此函数,保证「显示的切片」与「循环的切片」�
 | A10 | (v2.0 适用点更新)RealValue 域比较统一带容差 1e-4(定位端点/loop 端点/窗口边界);when 换算 round 整毫秒;禁止裸浮点比较 | 官方以「1/1024 网格 + Fraction 容差 1e-4」保证 closestNextTimestamp 比较稳定(官方规格 §3.9);v2 无秒域比较场景,毫秒只在换算边界出现(§2.5) |
 | A11 | 引擎不设隐式出声总闸;出声开关一律显式字段,默认值先写决策记录 | 官方 `DoPlayback` 隐式总闸是反例(新实例默认不出声,demo 由 premium 显式打开,无声故障难排查,官方规格 §4/§5-10);官方默认 `DoPreCount=false` 同时记为 v2 count-in 默认关的依据(§3.9) |
 | A12 | (v2.0 新增)架构对齐官方播放器:播放数据存乐谱时域(构建与 BPM 解耦)+ 可注入锚点时钟 + 引擎内 look-ahead 调度与循环状态机;废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part | 决策「参考 osmd-player 实现」(2026-10-18);官方为唯一逆向到行为参数级的参照(REA);一次换型解锁即时变速(A2)、真暂停(G1)、离线导出(G13);Transport 的网格对齐能力对拍点调度不再必要——节拍器与音符同处乐谱时域(§3.7) |
+| A13 | (v2.1 新增)波形缩放 = 官方 ZoomPlugin(滚轮/双指捏合,指针锚定)+ 步进控件(适应窗口宽度为基准 ×2/÷2,钳到 2000px/s),两路共用 `ws.zoom()` 单一事实来源;不自研滚轮换算、不自绘缩放 | 服务 F10 精准定位切片边界(用户需求「波形可缩放」);官方插件即 wavesurfer 示例同款,内建多 canvas 分片/滚动/autoScroll/自动重绘全保留;阶梯换算收 sliceUtils 纯函数(可单测);上限 2000px/s ≈ 0.5ms/px(§5.1) |
 
 **后续候选(不在 v2 范围,记录调研到的实现路径;官方行为参数对照源 = 官方规格 §3,坐标可对照验证)**:
 

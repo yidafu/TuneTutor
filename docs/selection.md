@@ -1,9 +1,9 @@
 # TuneTutor 乐谱选择交互技术规格
 
-**版本**: 1.2
+**版本**: 1.3
 **日期**: 2026-10-18
 **状态**: Ready for Re-implementation
-**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」（`buildPlaybackData`/`PlaybackEntry`）;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。
+**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」（`buildPlaybackData`/`PlaybackEntry`）;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。v1.3 补触控缺口:iOS/iPadOS Safari 触控不触发原生 `dblclick`（WebKit bug 202143,双击只产生 mouse 兼容序列与 click）,S6 的乐句双击在触控面必须并用 pointer 双击检测（§4.3,原曲页已落地 `useDoubleTap` 同款机制）;PC 鼠标与 iPad 触控双平台是硬要求（AGENTS.md 交互约定）。
 
 ---
 
@@ -167,6 +167,8 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 - 乐句起点/终点:原生 `dblclick` 事件承载（KR2 的「双击」语义不变）。
 - `pending` startNote 存独立 ref。竞态在于:双击的第二击（endNote）其第一击也是一次 `click`,若单击直接清除乐句意图会吞掉 `pending`。处理:`click`（detail=1）时若 `pending` 非空,**延迟 500ms 销毁**;窗口内来了 `dblclick` 则取消销毁并提交 `committed`。窗口对齐浏览器双击阈值（Chrome 500ms）,误保留 `pending` 半秒无害（仅弱高亮起点）。
 
+> **触控补充（v1.3,双平台硬要求）**:iOS/iPadOS Safari 触控**不触发**原生 `dblclick`（WebKit bug 202143）,乐句双击在触控面必须并用 pointer 双击检测（两次 `pointerdown` 的时间窗 + 位移判定,参照已落地的 `src/hooks/useDoubleTap.ts`:窗口 400ms、位移 slop 24px、`isPrimary` 过滤多指、`pointercancel` 重置）。桌面侧原生 `dblclick` 事件保留,两条路径并存,**处理必须幂等**（会先后触发,由选择状态护栏去重）;`pending` 销毁窗口的取消条件相应放宽为「原生 `dblclick` **或** pointer 双击到达」。
+
 ### 4.4 修饰键与键盘
 
 二期框选的 Shift（扩展）/Ctrl-Cmd（切换）语义沿用 features/text-selection.md §3.5;`Space`/`Esc` 走 `useKeyboardShortcuts`（tech.md §6.3）。方向键导航选择、APG listbox 式键盘模型（§9.3）不在本期范围（§10 后续候选）。
@@ -204,6 +206,7 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 6. 命中/配对/rect 缓存随渲染、缩放、换谱全量失效（§3.2,tech.md §6.1）。
 7. 指针管线:`setPointerCapture` + `touch-action: none` + 4px slop + 拖拽后抑制 click;`pointercancel` 中止一切（§4.2）。
 8. 拖拽高频更新不进 React state,抬手提交（§4.2,text-selection.md §6）。
+9. 乐句双击（S6）双路径:桌面原生 `dblclick` + 触控 pointer 双击检测（iOS/iPadOS 不触发原生 dblclick）;两路径处理幂等（§4.3）。
 
 ---
 

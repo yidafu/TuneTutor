@@ -129,7 +129,7 @@ App（Header 导航 + 共享速度值 tempo）
 | F7 | 循环跳过（空拍循环） | 1–8 拍轮间静音，再次点击当前值归零；范围优先级乐句 > 小节区间 > 全曲（无选择且空拍 > 0 循环全曲）；空拍以拍定义、随 BPM 现算秒（A3）；状态栏显示「跳过: N」 | `LoopSkipSelector.tsx`, `usePlayback.ts` |
 | F8 | 节拍器 | 4 种音色（经典 / 电子 / 底鼓 / 敲击），强 / 弱拍独立音量 0–1，按拍号分子自动强弱循环；拍点随引擎 tick 逐拍调度，与主播放同速轴（audio.md §3.7） | `MetronomeToggle.tsx`, `PlaybackEngine.ts` |
 | F9 | 乐器音色 | 7 种 tonejs-instrument 采样（钢琴默认；全量采样自托管 + PWA 缓存，不用 minify，A6）；仅停止态切换；选择持久化到 localStorage | `InstrumentLoader.ts`, `types/audio.ts` |
-| F10 | 原曲切片循环 | 音频导入（mp3/wav/ogg/m4a，MIME + 解码双重校验）；wavesurfer v7 波形（内建 canvas 管线渲染，A9），拖选 / 拖动 / 边界微调，双击移除；切片过短（<0.05s）拒绝循环；空拍 0–8 拍轮间静音（region-out 驱动，A5）；后台标签页隐藏即暂停循环（A8）；音频、切片、空拍全部持久化 | `OriginalAudioPage.tsx`, `sliceUtils.ts` |
+| F10 | 原曲切片循环 | 音频导入（mp3/wav/ogg/m4a，点击与页面拖放两条入口，MIME + 解码双重校验）；wavesurfer v7 波形（内建 canvas 管线渲染，A9；波形缩放：滚轮/捏合 + －/%/＋ 步进控件，audio.md A13），拖选 / 拖动 / 边界微调，双击移除；切片过短（<0.05s）拒绝循环；空拍 0–8 拍轮间静音（region-out 驱动，A5）；后台标签页隐藏即暂停循环（A8）；音频、切片、空拍全部持久化 | `OriginalAudioPage.tsx`, `sliceUtils.ts` |
 | F11 | 多语言 | 简体中文 / 繁體中文 / English / Français，即时切换并持久化（`note-slice-language`），测试强制四语言键一致 | `locales/`, `Header.tsx` |
 | F12 | PWA 与部署 | 可安装、离线可用；HashRouter 路由 + GitHub Pages（base 与 scope 为 `/TuneTutor/`） | `vite.config.ts`, `vite-plugin-pwa` |
 | F13 | 键盘快捷键 | `Space` 播放 / 停止切换、`Esc` 停止；输入框聚焦时忽略（v1.1 补录：旧实现已有，原清单遗漏） | `useKeyboardShortcuts.ts` |

@@ -80,7 +80,7 @@ interface ParsedScore {
   composer?: string;              // metadata.creators 中 type=composer 的 value
   measures: Measure[];
   tempo: number;                  // 全曲首个 <sound tempo>；样例谱普遍缺失，兜底 60（spike §13-V5）
-  timeSignature: string;          // "4/4"，首个 attributes.time（composite 如 "3+2" 原样保留）
+  timeSignature: string;          // "4/4"，首个 attributes.time（composite 受 io 0.2.11 限制退化为首数字，§4.9）
   keySignature?: string;          // fifths → 调名（如 "G major" / "E minor"；UI 层再做 i18n 转写）
   divisions: number;              // 首小节有效 divisions；逐小节有效值见 Measure.divisions（M4）
 }
@@ -204,7 +204,7 @@ interface Note {
 
 - **divisions 逐小节有效值（M4）**：`attributes.divisions` 出现即覆写，缺省继承前值（实测刻谱为 `[12, undefined]`）。一切时值换算用「该音符所在小节的有效 divisions」；**禁止假设全曲常量**。
 - tempo：取全曲首个 `<sound tempo>`（`SoundEntry.tempo` 或 `DirectionSound.tempo`）作 `ParsedScore.tempo` 展示值，缺失兜底 60（spike §13-V5 是必须路径）；谱面 tempo 与中途变速**不参与播放**——播放数据是乐谱时域（与 BPM 解耦，audio.md A12），BPM 由用户设定、引擎时钟边界生效（audio.md A2）。
-- timeSignature：`"beats/beatType"`；composite 拍（beats="3+2"）原样保留，节拍器分母取 beatType（audio.md §3.7）。
+- timeSignature：`"beats/beatType"`；**composite 拍受 io 0.2.11 限制退化**——实测 `<beats>3+2</beats>` 解析为 `beats:"3"`（beatsList 亦缺），v2 按 io 实际输出记录（`3/8`），composite 还原需绕过 io 读原文、记为后续候选；节拍器分母取 beatType（audio.md §3.7）。
 - keySignature：fifths（−7…7）→ 调名；mode=minor 用关系小调。数据层存英文调名（"G major"/"E minor"），展示层 i18n。
 - 多声部：`voice` 全保留（audio.md §2.2-3 多声部取 max）；`staff` 透传；**只取 `parts[0]`**（M3，tech.md §3 既定的单一练习主奏）。
 
@@ -226,7 +226,7 @@ interface Note {
 | --- | --- | --- | --- |
 | E1 | .mxl 损坏/无主谱 | jszip Corrupted 或解包链路失败（仓库损坏样例实测） | `errorCorruptArchive` |
 | E2 | 非 MusicXML / timewise / 根元素不符 | `Error: Unsupported MusicXML format: only score-partwise is supported` | `errorNotMusicXML` |
-| E3 | XML 语法错误等解析异常 | parse 抛原生异常 | `errorParseFailed` |
+| E3 | XML 语法错误等解析异常 | **DOMParser 良构性前置闸**：io 0.2.11 为恢复式解析，截断/错配等语法错误实测全被吞、静默产出残缺 Score（2026-10-18 实测），故良构性在 io 之前以 `parsererror` 把关，不中 → E3 | `errorParseFailed` |
 | E4 | XML 声明非 UTF-8 编码 | 解码前检查 `encoding=` 声明（M9） | `errorUnsupportedEncoding` |
 
 规则：错误经 StatusBar/FileLoaderModal 提示；**不写 IndexedDB、不渲染半成品**；E2/E3/E4 的原始报错进 console 供排查。文件选择器与文案开放 `.mxl`（tech.md §11-L4，解析层本文已支持）。
