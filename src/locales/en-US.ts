@@ -90,6 +90,25 @@ export const enUS = {
   gapInfo: (beats: number, duration: string) => `+${beats} beats of silence per round (≈ ${duration})`,
   waveHint: 'Drag on the waveform to create a slice · drag its edges to adjust · double-click to remove',
   demoAudioName: 'Sample track.mp3',
+
+  // 皮肤切换（skin-switching.html v1.1 §③：四语言全量硬约束）
+  theme: {
+    label: 'Theme',
+    group: {
+      classic: 'Classic',
+      antique: 'Chinese Classic',
+    },
+    paper: 'Paper Ink',
+    nocturne: 'Nocturne',
+    walnut: 'Walnut',
+    celadon: 'Celadon',
+    stage: 'Stage',
+    cobalt: 'Blue & White',
+    palace: 'Palace Red',
+    rosewood: 'Rosewood',
+    lacquer: 'Black Lacquer',
+    appliedHint: 'Applied instantly · saved locally',
+  },
 }
 
 export type TranslationSet = typeof enUS

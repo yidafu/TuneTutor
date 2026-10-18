@@ -88,4 +88,23 @@ export const zhCN: TranslationSet = {
   gapInfo: (beats: number, duration: string) => `每轮 +${beats} 拍静音（约 ${duration}）`,
   waveHint: '拖拽波形新建切片 · 拖动边界微调 · 双击移除',
   demoAudioName: '示例音频.mp3',
+
+  // 皮肤切换
+  theme: {
+    label: '皮肤',
+    group: {
+      classic: '经典',
+      antique: '古风',
+    },
+    paper: '纸墨',
+    nocturne: '夜曲',
+    walnut: '暖木',
+    celadon: '青瓷',
+    stage: '演奏会',
+    cobalt: '青花',
+    palace: '宫墙',
+    rosewood: '红木',
+    lacquer: '玄漆',
+    appliedHint: '即时生效 · 记忆在本机',
+  },
 }

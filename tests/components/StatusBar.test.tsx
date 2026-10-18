@@ -16,7 +16,7 @@ describe('StatusBar', () => {
     expect(screen.getByText(enUS.statusStopped)).toBeInTheDocument()
     expect(screen.getByText(enUS.skipOff)).toBeInTheDocument()
     expect(screen.getByText(enUS.selectionNone)).toBeInTheDocument()
-    expect(screen.getByText('🎹 Piano')).toBeInTheDocument()
+    expect(screen.getByText(enUS.instrumentPiano)).toBeInTheDocument()
     expect(screen.getByText(`90 ${enUS.bpmUnit}`)).toBeInTheDocument()
   })
 

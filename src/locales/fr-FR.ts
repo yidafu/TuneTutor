@@ -88,4 +88,23 @@ export const frFR: TranslationSet = {
   gapInfo: (beats: number, duration: string) => `+${beats} temps de silence par tour (≈ ${duration})`,
   waveHint: 'Glissez sur la forme d’onde pour créer un extrait · ajustez les bords · double-cliquez pour supprimer',
   demoAudioName: 'Audio d’exemple.mp3',
+
+  // Changement de thème (skin-switching.html v1.1 §③)
+  theme: {
+    label: 'Thème',
+    group: {
+      classic: 'Classiques',
+      antique: 'Classique chinois',
+    },
+    paper: 'Encre & papier',
+    nocturne: 'Nocturne',
+    walnut: 'Noyer',
+    celadon: 'Céladon',
+    stage: 'Scène',
+    cobalt: 'Bleu & blanc',
+    palace: 'Palais',
+    rosewood: 'Palissandre',
+    lacquer: 'Laque noire',
+    appliedHint: 'Appliqué immédiatement · mémorisé localement',
+  },
 }

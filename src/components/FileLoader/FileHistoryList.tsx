@@ -1,5 +1,6 @@
 import type { Language } from '../../locales/languages'
 import { useI18n } from '../../locales/useI18n'
+import { ThemeIcon } from '../icons/ThemeIcon'
 
 /** 最近文件条目（stub：接入 IndexedDB 后由 utils/storage 返回同形数据） */
 export interface FileHistoryItem {
@@ -43,9 +44,9 @@ export default function FileHistoryList({ items, onDelete }: FileHistoryListProp
         >
           <span
             aria-hidden
-            className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-surface-3 text-[15px] shadow-[inset_0_0_0_1px_var(--color-line)]"
+            className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-surface-3 shadow-[inset_0_0_0_1px_var(--color-line)]"
           >
-            🎵
+            <ThemeIcon name="note" className="h-[15px] w-[15px]" />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-semibold text-fg">{item.title}</span>
@@ -60,8 +61,7 @@ export default function FileHistoryList({ items, onDelete }: FileHistoryListProp
             aria-label={`${t.delete} ${item.title}`}
             className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-[8px] border-0 bg-transparent text-fg-3 transition hover:bg-clay-soft hover:text-clay"
           >
-            <span aria-hidden>🗑</span>
-          </button>
+            <ThemeIcon name="trash" className="h-[15px] w-[15px]" />          </button>
         </div>
       ))}
     </div>

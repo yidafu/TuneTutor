@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { ThemeIcon } from '../icons/ThemeIcon'
 import { useClickOutside } from '../../hooks/useClickOutside'
 import { useI18n } from '../../locales/useI18n'
 import { METRONOME_SOUND_TYPES, type MetronomeSoundType } from '../../types/audio'
@@ -91,7 +92,7 @@ export default function MetronomeToggle({
               : 'border border-line-strong bg-surface-2 text-fg-2 hover:bg-surface-3'
           }`}
         >
-          <span aria-hidden>🥁</span>
+          <ThemeIcon name="metro" className="h-4 w-4" />
           {on ? t.metronomeOn : t.metronomeOff}
         </button>
         <div className="relative" ref={settingsRef}>
@@ -106,7 +107,7 @@ export default function MetronomeToggle({
                 : 'border-line-strong text-fg-2 hover:bg-surface-3 hover:text-fg'
             }`}
           >
-            <span aria-hidden>⚙</span>
+            <ThemeIcon name="gear" className="h-[17px] w-[17px]" />
           </button>
           {settingsOpen && (
             <div className="absolute bottom-[calc(100%+10px)] right-0 z-30 w-[248px] rounded-card border border-line-strong bg-surface-2 p-4 shadow-pop">

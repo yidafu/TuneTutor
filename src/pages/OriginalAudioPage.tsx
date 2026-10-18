@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { ThemeIcon } from '../components/icons/ThemeIcon'
 import LoopSkipSelector from '../components/PlaybackControls/LoopSkipSelector'
 import TempoSlider from '../components/PlaybackControls/TempoSlider'
 import TransportButtons from '../components/PlaybackControls/TransportButtons'
@@ -127,7 +128,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
           onClick={loadDemoAudio}
           className="mx-auto block w-full max-w-[520px] cursor-pointer rounded-card border-[1.5px] border-dashed border-verm-line-strong bg-verm/[0.04] px-4 pb-[30px] pt-[36px] text-center transition hover:bg-verm-soft"
         >
-          <span aria-hidden className="block text-[30px]">🎧</span>
+          <ThemeIcon name="phones" className="mx-auto block h-8 w-8" />
           <span className="mt-2 block text-[13.5px] font-semibold text-fg">
             {t.audioDropMain} <em className="not-italic text-verm-deep">{t.dropBrowse}</em>
           </span>
@@ -149,9 +150,9 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
         <div className="flex min-w-0 items-center gap-[11px]">
           <span
             aria-hidden
-            className="grid h-[38px] w-[38px] flex-none place-items-center rounded-[10px] bg-[rgb(36_31_21/0.06)] text-[17px] shadow-[inset_0_0_0_1px_var(--color-line)]"
+            className="grid h-[38px] w-[38px] flex-none place-items-center rounded-[10px] bg-wash shadow-[inset_0_0_0_1px_var(--color-line)]"
           >
-            🎧
+            <ThemeIcon name="phones" className="h-[18px] w-[18px]" />
           </span>
           <span className="min-w-0">
             <div className="truncate text-sm font-semibold">{t.demoAudioName}</div>
@@ -176,13 +177,13 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
         onPointerDown={handleStagePointerDown}
         onPointerMove={handleStagePointerMove}
         onPointerUp={handleStagePointerUp}
-        className="relative h-[150px] cursor-crosshair touch-none select-none overflow-hidden rounded-[10px] border border-line bg-[#f3efe2]"
+        className="relative h-[150px] cursor-crosshair touch-none select-none overflow-hidden rounded-[10px] border border-line bg-wave-bg"
       >
         <div aria-hidden className="absolute inset-0 flex items-center gap-[3px] px-2.5">
           {waveBars.map((height, index) => (
             <div
               key={index}
-              className="min-w-[2px] flex-1 rounded-[2px] bg-gradient-to-b from-[#b9ae8d] to-[#948a60]"
+              className="min-w-[2px] flex-1 rounded-[2px] bg-gradient-to-b from-wave-bar-a to-wave-bar-b"
               style={{ height: `${Math.min(height, 130)}px` }}
             />
           ))}
@@ -191,12 +192,12 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
           <>
             <div
               aria-hidden
-              className="absolute inset-y-0 left-0 bg-[rgb(243_239_226/0.72)]"
+              className="absolute inset-y-0 left-0 bg-[color-mix(in_srgb,var(--color-wave-bg)_72%,transparent)]"
               style={{ width: `${slice.start * 100}%` }}
             />
             <div
               aria-hidden
-              className="absolute inset-y-0 right-0 bg-[rgb(243_239_226/0.72)]"
+              className="absolute inset-y-0 right-0 bg-[color-mix(in_srgb,var(--color-wave-bg)_72%,transparent)]"
               style={{ left: `${slice.end * 100}%` }}
             />
             <div
@@ -206,9 +207,9 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
             >
               <div
                 aria-hidden
-                className="absolute inset-0 border-l-[2.5px] border-r-[2.5px] border-verm bg-verm/[0.1] shadow-[inset_0_0_20px_rgb(194_67_31/0.14)]"
+                className="absolute inset-0 border-l-[2.5px] border-r-[2.5px] border-verm bg-verm/[0.1] shadow-[inset_0_0_20px_color-mix(in_srgb,var(--color-verm)_14%,transparent)]"
               />
-              <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-verm px-2.5 py-[3px] text-[11px] font-bold tabular-nums text-white shadow-[0_2px_8px_-2px_rgb(165_53_21/0.5)]">
+              <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-verm px-2.5 py-[3px] text-[11px] font-bold tabular-nums text-cream shadow-[0_2px_8px_-2px_color-mix(in_srgb,var(--color-verm)_50%,transparent)]">
                 {t.sliceTag(
                   formatTime(slice.start * DEMO_AUDIO.durationSec),
                   formatTime(slice.end * DEMO_AUDIO.durationSec),
@@ -218,13 +219,13 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
                 <span
                   key={edge}
                   onPointerDown={(event) => handleEdgePointerDown(event, edge)}
-                  className={`absolute top-1/2 grid h-[30px] w-[14px] -translate-y-1/2 cursor-ew-resize place-items-center rounded-[6px] bg-verm shadow-[0_2px_8px_rgb(122_39_15/0.45)] ${
+                  className={`absolute top-1/2 grid h-[30px] w-[14px] -translate-y-1/2 cursor-ew-resize place-items-center rounded-[6px] bg-verm shadow-[0_2px_8px_color-mix(in_srgb,var(--color-verm)_45%,transparent)] ${
                     edge === 'l' ? 'left-[-8px]' : 'right-[-8px]'
                   }`}
                 >
                   <span
                     aria-hidden
-                    className="h-3 w-0.5 rounded bg-white/90 shadow-[-4px_0_0_rgb(255_255_255/0.9),4px_0_0_rgb(255_255_255/0.9)]"
+                    className="h-3 w-0.5 rounded bg-cream/90 shadow-[-4px_0_0_var(--color-cream),4px_0_0_var(--color-cream)]"
                   />
                 </span>
               ))}
@@ -234,7 +235,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
         {playing && (
           <div
             aria-hidden
-            className="absolute inset-y-0 left-[38%] w-0.5 bg-gold-bright shadow-[0_0_8px_rgb(205_132_15/0.7)]"
+            className="absolute inset-y-0 left-[38%] w-0.5 bg-gold-bright shadow-[0_0_8px_color-mix(in_srgb,var(--color-gold-bright)_70%,transparent)]"
           >
             <span className="absolute -left-[5px] top-0 h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-gold-bright" />
           </div>

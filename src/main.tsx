@@ -3,14 +3,17 @@ import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { ThemeProvider } from './hooks/ThemeProvider.tsx'
 import I18nProvider from './locales/I18nProvider.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <I18nProvider>
-      <HashRouter>
-        <App />
-      </HashRouter>
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </I18nProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

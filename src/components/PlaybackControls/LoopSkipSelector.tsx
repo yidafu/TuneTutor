@@ -26,7 +26,7 @@ export default function LoopSkipSelector({ value, onChange }: LoopSkipSelectorPr
               title={String(beats)}
               className={`grid h-[27px] w-[27px] cursor-pointer place-items-center rounded-[8px] border-0 text-xs font-semibold tabular-nums transition ${
                 value === beats
-                  ? 'bg-verm text-white shadow-btn-beat'
+                  ? 'bg-verm text-cream shadow-btn-beat'
                   : 'bg-transparent text-fg-2 shadow-[inset_0_0_0_1px_var(--color-line-strong)] hover:bg-surface-3 hover:text-fg'
               }`}
             >

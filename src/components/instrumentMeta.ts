@@ -1,17 +1,7 @@
 import type { TranslationSet } from '../locales/en-US'
 import type { InstrumentType } from '../types/audio'
 
-/** 乐器展示用 emoji（ui-design.html v3） */
-export const INSTRUMENT_EMOJI: Record<InstrumentType, string> = {
-  piano: '🎹',
-  saxophone: '🎷',
-  guitar: '🎸',
-  bass: '🎸',
-  violin: '🎻',
-  flute: '🪈',
-  trumpet: '🎺',
-}
-
+/** 乐器展示标签；字形由 components/icons 的 InstrumentGlyph 提供（SVG，随主题） */
 export function instrumentLabel(t: TranslationSet, instrument: InstrumentType): string {
   switch (instrument) {
     case 'piano':

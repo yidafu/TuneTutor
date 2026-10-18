@@ -88,4 +88,23 @@ export const zhTW: TranslationSet = {
   gapInfo: (beats: number, duration: string) => `每輪 +${beats} 拍靜音（約 ${duration}）`,
   waveHint: '拖拽波形新建切片 · 拖動邊界微調 · 雙擊移除',
   demoAudioName: '範例音訊.mp3',
+
+  // 皮膚切換
+  theme: {
+    label: '皮膚',
+    group: {
+      classic: '經典',
+      antique: '古風',
+    },
+    paper: '紙墨',
+    nocturne: '夜曲',
+    walnut: '暖木',
+    celadon: '青瓷',
+    stage: '演奏會',
+    cobalt: '青花',
+    palace: '宮牆',
+    rosewood: '紅木',
+    lacquer: '玄漆',
+    appliedHint: '即時生效 · 記憶在本機',
+  },
 }

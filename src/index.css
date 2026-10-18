@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   TuneTutor 设计系统 v3 —「纸墨排练室」（docs/ui-design.html 为基准）
+   TuneTutor 设计系统 v3.1 —「纸墨排练室」+ 皮肤系统
+   （docs/ui-design.html v3 与 docs/features/skin-switching.html v1.1 为基准）
    米纸暖底 + 白玉卡面 + 墨色交互 + 朱砂练习语义 + 金铜播放态
+
+   皮肤契约（T1/T2）：全部颜色由 --color-* token 承载，语义角色跨皮肤
+   不变、色相允许重定。默认值 :root = paper；其余八款皮肤在文件末尾的
+   :root[data-theme=<id>] 覆盖块重定义同名 token，组件零改动、不写死色值。
+   光晕 / 遮罩 / 半透明叠加一律 color-mix(in srgb, token n%, transparent) 派生。
    ═══════════════════════════════════════════════════════════════ */
 @theme {
   /* 画布与表面 */
@@ -12,6 +18,7 @@
   --color-surface-3: #efe9d9;
   --color-line: rgb(62 52 33 / 0.13);
   --color-line-strong: rgb(62 52 33 / 0.24);
+  --color-header: rgb(255 253 247 / 0.55); /* ★ 页头半透明底 */
   --color-backdrop: rgb(43 36 24 / 0.35);
   /* 文本 */
   --color-fg: #2f291c;
@@ -19,6 +26,7 @@
   --color-fg-3: #9b9179;
   /* 墨：交互主色（主按钮 / 符头 / 强调） */
   --color-ink: #241f15;
+  --color-ink-hover: #3a3225; /* ★ 主按钮悬停（深色皮肤向更亮走） */
   --color-ink-2: #8d8570;
   --color-cream: #f8f3e7;
   /* 朱砂：练习语义（乐句循环 / 节拍器 / 空拍 / 切片），禁止挪作他用 */
@@ -39,6 +47,12 @@
   --color-paper: #fffdf6;
   --color-staff: #d8d1ba;
   --color-barline: #b0a78a;
+  /* 装饰面 ★ */
+  --color-track: rgb(36 31 21 / 0.14); /* 滑杆轨道底 */
+  --color-wash: rgb(36 31 21 / 0.02); /* 墨色水洗底：空态 / 图标底 */
+  --color-wave-bg: #f3efe2; /* 波形区底 */
+  --color-wave-bar-a: #b9ae8d; /* 波形条渐变亮端 */
+  --color-wave-bar-b: #948a60; /* 波形条渐变暗端 */
 
   --radius-btn: 10px;
   --radius-card: 12px;
@@ -47,9 +61,12 @@
   --shadow-paper: 0 14px 36px -14px rgb(72 60 36 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.8);
   --shadow-soft: 0 1px 2px rgb(72 60 36 / 0.08), 0 0 0 1px rgb(62 52 33 / 0.04);
   --shadow-pop: 0 24px 56px -16px rgb(72 60 36 / 0.35), 0 0 0 1px rgb(62 52 33 / 0.06);
-  --shadow-btn-ink: 0 6px 14px -6px rgb(36 31 21 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.14);
-  --shadow-btn-gold: 0 6px 16px -6px rgb(176 122 12 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.4);
-  --shadow-btn-beat: 0 3px 8px -2px rgb(165 53 21 / 0.55);
+  /* 按钮阴影基调随 token 走（深色皮肤 ink/gold/verm 换色后自动跟随） */
+  --shadow-btn-ink: 0 6px 14px -6px color-mix(in srgb, var(--color-ink) 55%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
+  --shadow-btn-gold: 0 6px 16px -6px color-mix(in srgb, var(--color-gold) 60%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.4);
+  --shadow-btn-beat: 0 3px 8px -2px color-mix(in srgb, var(--color-verm) 55%, transparent);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-serif: Palatino, Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
@@ -71,9 +88,11 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    /* 页面装饰渐变由 token 派生（skin-switching §③-03 审计项）：
+       白玉高光 + 朱砂晕 + 画布底，换肤自动重映射 */
     background:
-      radial-gradient(1200px 800px at 18% -8%, rgb(255 253 246 / 0.85), transparent 55%),
-      radial-gradient(1000px 700px at 90% 112%, rgb(194 67 31 / 0.045), transparent 60%),
+      radial-gradient(1200px 800px at 18% -8%, color-mix(in srgb, var(--color-surface-2) 85%, transparent), transparent 55%),
+      radial-gradient(1000px 700px at 90% 112%, color-mix(in srgb, var(--color-verm) 4.5%, transparent), transparent 60%),
       var(--color-canvas);
     color: var(--color-fg);
     font-family: var(--font-sans);
@@ -86,6 +105,21 @@
   :focus-visible {
     outline: 2px solid var(--color-gold);
     outline-offset: 2px;
+  }
+
+  /* 换肤过渡（T7）：160ms ease；prefers-reduced-motion 由下方全局规则置为瞬时。
+     已自带 transition 声明的组件类 / 工具类按层叠规则覆盖本条 */
+  body,
+  body *,
+  body *::before,
+  body *::after {
+    transition:
+      background-color 0.16s ease,
+      border-color 0.16s ease,
+      color 0.16s ease,
+      fill 0.16s ease,
+      stroke 0.16s ease,
+      box-shadow 0.16s ease;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -127,7 +161,7 @@
     box-shadow: var(--shadow-btn-ink);
   }
   .btn-primary:hover {
-    background: #3a3225;
+    background: var(--color-ink-hover);
   }
   .btn-ghost {
     color: var(--color-fg-2);
@@ -158,7 +192,7 @@
     background: linear-gradient(
       to right,
       var(--range-color) var(--fill, 50%),
-      rgb(36 31 21 / 0.14) var(--fill, 50%)
+      var(--color-track) var(--fill, 50%)
     );
   }
   .tt-range::-webkit-slider-thumb {
@@ -175,7 +209,7 @@
   .tt-range::-moz-range-track {
     height: 3px;
     border-radius: 999px;
-    background: rgb(36 31 21 / 0.14);
+    background: var(--color-track);
   }
   .tt-range::-moz-range-progress {
     height: 3px;
@@ -194,4 +228,338 @@
     cursor: default;
     opacity: 0.75;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   皮肤覆盖块（T1）：值域 = 设计稿 v1.1 §③ Token 全表，逐 skin 重定义
+   与 @theme 同名的 34 个颜色 token + 三组阴影。paper 即 :root 默认值，
+   无独立覆盖块。深色 / 深纸面皮肤按各自基调换阴影（T8 附表）。
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 夜曲 Nocturne — 深夜练习室 · 蓝黑底暖白谱 */
+:root[data-theme='nocturne'] {
+  --color-canvas: #12151d;
+  --color-surface: #1a1f2a;
+  --color-surface-2: #212734;
+  --color-surface-3: #2b3242;
+  --color-line: rgb(196 206 232 / 0.1);
+  --color-line-strong: rgb(196 206 232 / 0.24);
+  --color-header: rgb(26 31 42 / 0.6);
+  --color-backdrop: rgb(4 7 13 / 0.62);
+  --color-fg: #e9e6dc;
+  --color-fg-2: #aab1c2;
+  --color-fg-3: #767e92;
+  --color-ink: #ece7d8;
+  --color-ink-hover: #ffffff;
+  --color-ink-2: #9099ad;
+  --color-cream: #1b202b;
+  --color-verm: #e2693c;
+  --color-verm-deep: #ef9166;
+  --color-verm-soft: rgb(226 105 60 / 0.14);
+  --color-verm-line: rgb(226 105 60 / 0.38);
+  --color-verm-line-strong: rgb(226 105 60 / 0.55);
+  --color-gold: #d9a13c;
+  --color-gold-bright: #f2bb54;
+  --color-moss: #85b393;
+  --color-clay: #e08377;
+  --color-clay-soft: rgb(224 131 119 / 0.14);
+  --color-clay-line: rgb(224 131 119 / 0.5);
+  --color-paper: #1e2430;
+  --color-staff: #454f63;
+  --color-barline: #5d6a83;
+  --color-track: rgb(233 230 220 / 0.18);
+  --color-wash: rgb(233 230 220 / 0.05);
+  --color-wave-bg: #161b25;
+  --color-wave-bar-a: #4d5a76;
+  --color-wave-bar-b: #36425a;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(0 0 0 / 0.25);
+  --shadow-pop: 0 24px 56px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(0 0 0 / 0.4);
+  --shadow-paper: 0 14px 36px -14px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* 暖木 Walnut — 琴房胡桃木 · 暖沙底奶油谱 */
+:root[data-theme='walnut'] {
+  --color-canvas: #e8dcc6;
+  --color-surface: #f1e8d4;
+  --color-surface-2: #f9f3e3;
+  --color-surface-3: #e3d5b8;
+  --color-line: rgb(96 66 30 / 0.15);
+  --color-line-strong: rgb(96 66 30 / 0.28);
+  --color-header: rgb(249 243 227 / 0.6);
+  --color-backdrop: rgb(48 32 12 / 0.4);
+  --color-fg: #3a2d1a;
+  --color-fg-2: #7c6a4c;
+  --color-fg-3: #a6956f;
+  --color-ink: #33261a;
+  --color-ink-hover: #4a3826;
+  --color-ink-2: #8d7c5e;
+  --color-cream: #f8f1e0;
+  --color-verm: #b8501f;
+  --color-verm-deep: #933f12;
+  --color-verm-soft: rgb(184 80 31 / 0.1);
+  --color-verm-line: rgb(184 80 31 / 0.32);
+  --color-verm-line-strong: rgb(184 80 31 / 0.48);
+  --color-gold: #ad7712;
+  --color-gold-bright: #c68a1a;
+  --color-moss: #55743f;
+  --color-clay: #a84a38;
+  --color-clay-soft: rgb(168 74 56 / 0.1);
+  --color-clay-line: rgb(168 74 56 / 0.45);
+  --color-paper: #fdf9ec;
+  --color-staff: #dccaa6;
+  --color-barline: #ab9370;
+  --color-track: rgb(51 38 26 / 0.16);
+  --color-wash: rgb(51 38 26 / 0.03);
+  --color-wave-bg: #efe6cf;
+  --color-wave-bar-a: #b5a077;
+  --color-wave-bar-b: #8f7a52;
+  --shadow-soft: 0 1px 2px rgb(74 52 26 / 0.1), 0 0 0 1px rgb(96 66 30 / 0.05);
+  --shadow-pop: 0 24px 56px -16px rgb(74 52 26 / 0.38), 0 0 0 1px rgb(96 66 30 / 0.07);
+  --shadow-paper: 0 14px 36px -14px rgb(74 52 26 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.8);
+}
+
+/* 青瓷 Celadon — 雨过天青 · 灰青釉底，冷色护眼 */
+:root[data-theme='celadon'] {
+  --color-canvas: #dce3da;
+  --color-surface: #e9eee6;
+  --color-surface-2: #f4f7f0;
+  --color-surface-3: #dbe2d4;
+  --color-line: rgb(50 76 58 / 0.14);
+  --color-line-strong: rgb(50 76 58 / 0.26);
+  --color-header: rgb(244 247 240 / 0.6);
+  --color-backdrop: rgb(20 34 26 / 0.38);
+  --color-fg: #24322a;
+  --color-fg-2: #5c6f61;
+  --color-fg-3: #86968a;
+  --color-ink: #1f2d24;
+  --color-ink-hover: #34473a;
+  --color-ink-2: #7a8a7e;
+  --color-cream: #f4f8f0;
+  --color-verm: #b3472e;
+  --color-verm-deep: #93371d;
+  --color-verm-soft: rgb(179 71 46 / 0.1);
+  --color-verm-line: rgb(179 71 46 / 0.32);
+  --color-verm-line-strong: rgb(179 71 46 / 0.48);
+  --color-gold: #9c7c14;
+  --color-gold-bright: #b8951a;
+  --color-moss: #3f7350;
+  --color-clay: #a34b3c;
+  --color-clay-soft: rgb(163 75 60 / 0.1);
+  --color-clay-line: rgb(163 75 60 / 0.45);
+  --color-paper: #f7faf2;
+  --color-staff: #c3cfba;
+  --color-barline: #91a48c;
+  --color-track: rgb(31 45 36 / 0.15);
+  --color-wash: rgb(31 45 36 / 0.03);
+  --color-wave-bg: #e3eadd;
+  --color-wave-bar-a: #93a88b;
+  --color-wave-bar-b: #6f866c;
+  --shadow-soft: 0 1px 2px rgb(40 62 48 / 0.1), 0 0 0 1px rgb(50 76 58 / 0.05);
+  --shadow-pop: 0 24px 56px -16px rgb(40 62 48 / 0.36), 0 0 0 1px rgb(50 76 58 / 0.06);
+  --shadow-paper: 0 14px 36px -14px rgb(40 62 48 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.8);
+}
+
+/* 演奏会 Stage — 黑场聚光 · 最高对比（无障碍选项，T8 对标 AAA） */
+:root[data-theme='stage'] {
+  --color-canvas: #0b0b0c;
+  --color-surface: #121213;
+  --color-surface-2: #191919;
+  --color-surface-3: #242424;
+  --color-line: rgb(255 255 255 / 0.18);
+  --color-line-strong: rgb(255 255 255 / 0.36);
+  --color-header: rgb(18 18 19 / 0.7);
+  --color-backdrop: rgb(0 0 0 / 0.66);
+  --color-fg: #f6f4ec;
+  --color-fg-2: #c8c6bd;
+  --color-fg-3: #94928a;
+  --color-ink: #f6f2e6;
+  --color-ink-hover: #ffffff;
+  --color-ink-2: #9a978c;
+  --color-cream: #101011;
+  --color-verm: #ff5c2e;
+  --color-verm-deep: #ff8557;
+  --color-verm-soft: rgb(255 92 46 / 0.16);
+  --color-verm-line: rgb(255 92 46 / 0.45);
+  --color-verm-line-strong: rgb(255 92 46 / 0.65);
+  --color-gold: #ffb224;
+  --color-gold-bright: #ffca4d;
+  --color-moss: #52c98d;
+  --color-clay: #ff8375;
+  --color-clay-soft: rgb(255 131 117 / 0.14);
+  --color-clay-line: rgb(255 131 117 / 0.5);
+  --color-paper: #101011;
+  --color-staff: #4d4d4d;
+  --color-barline: #6f6f6f;
+  --color-track: rgb(246 244 236 / 0.22);
+  --color-wash: rgb(246 244 236 / 0.05);
+  --color-wave-bg: #131314;
+  --color-wave-bar-a: #565656;
+  --color-wave-bar-b: #3a3a3a;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.08);
+  --shadow-pop: 0 24px 56px -16px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(255 255 255 / 0.1);
+  --shadow-paper: 0 14px 36px -14px rgb(0 0 0 / 0.8), inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+/* 青花 Cobalt — 素瓷雪色 · 钴青为墨、釉里红点练习、泥金示播放（T2/T9 角色重定） */
+:root[data-theme='cobalt'] {
+  --color-canvas: #dae0ec;
+  --color-surface: #e9edf2;
+  --color-surface-2: #f6f8fb;
+  --color-surface-3: #dde3ec;
+  --color-line: rgb(38 62 96 / 0.14);
+  --color-line-strong: rgb(38 62 96 / 0.26);
+  --color-header: rgb(246 248 251 / 0.6);
+  --color-backdrop: rgb(16 30 52 / 0.38);
+  --color-fg: #1f2c40;
+  --color-fg-2: #5a6b82;
+  --color-fg-3: #8794a6;
+  --color-ink: #234a8c;
+  --color-ink-hover: #2f5ca8;
+  --color-ink-2: #7c89a0;
+  --color-cream: #f6f8fb;
+  --color-verm: #ac3a28;
+  --color-verm-deep: #8c2c1c;
+  --color-verm-soft: rgb(172 58 40 / 0.1);
+  --color-verm-line: rgb(172 58 40 / 0.32);
+  --color-verm-line-strong: rgb(172 58 40 / 0.48);
+  --color-gold: #9c761c;
+  --color-gold-bright: #ba9026;
+  --color-moss: #45765d;
+  --color-clay: #a84a3c;
+  --color-clay-soft: rgb(168 74 60 / 0.1);
+  --color-clay-line: rgb(168 74 60 / 0.45);
+  --color-paper: #f9fbfd;
+  --color-staff: #c9d4e2;
+  --color-barline: #92a4bd;
+  --color-track: rgb(29 44 64 / 0.14);
+  --color-wash: rgb(29 44 64 / 0.03);
+  --color-wave-bg: #e8edf4;
+  --color-wave-bar-a: #9fb0c6;
+  --color-wave-bar-b: #75879f;
+  --shadow-soft: 0 1px 2px rgb(30 52 88 / 0.1), 0 0 0 1px rgb(38 62 96 / 0.05);
+  --shadow-pop: 0 24px 56px -16px rgb(30 52 88 / 0.36), 0 0 0 1px rgb(38 62 96 / 0.06);
+  --shadow-paper: 0 14px 36px -14px rgb(30 52 88 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.85);
+}
+
+/* 宫墙 Palace — 宫墙红配金瓦 · 漆黑交互、练习转石绿（青绿对朱砂，T9） */
+:root[data-theme='palace'] {
+  --color-canvas: #7c2f1f;
+  --color-surface: #8a3927;
+  --color-surface-2: #954430;
+  --color-surface-3: #a1503b;
+  --color-line: rgb(255 226 196 / 0.14);
+  --color-line-strong: rgb(255 226 196 / 0.3);
+  --color-header: rgb(138 56 38 / 0.6);
+  --color-backdrop: rgb(28 6 3 / 0.55);
+  --color-fg: #f7ecd9;
+  --color-fg-2: #e0c4a2;
+  --color-fg-3: #c99f80;
+  --color-ink: #241511;
+  --color-ink-hover: #3a241b;
+  --color-ink-2: #a1845c;
+  --color-cream: #f7ecd9;
+  --color-verm: #4f8a68;
+  --color-verm-deep: #b2d8bf;
+  --color-verm-soft: rgb(79 138 104 / 0.18);
+  --color-verm-line: rgb(79 138 104 / 0.42);
+  --color-verm-line-strong: rgb(79 138 104 / 0.6);
+  --color-gold: #b07f1a;
+  --color-gold-bright: #c9921c;
+  --color-moss: #e2b862;
+  --color-clay: #ffb09c;
+  --color-clay-soft: rgb(255 176 156 / 0.16);
+  --color-clay-line: rgb(255 176 156 / 0.5);
+  --color-paper: #f9efdb;
+  --color-staff: #dbc69e;
+  --color-barline: #b39a6d;
+  --color-track: rgb(247 236 217 / 0.18);
+  --color-wash: rgb(247 236 217 / 0.06);
+  --color-wave-bg: #742c1d;
+  --color-wave-bar-a: #cf9a70;
+  --color-wave-bar-b: #9e6444;
+  --shadow-soft: 0 1px 2px rgb(30 8 4 / 0.4), 0 0 0 1px rgb(255 226 196 / 0.08);
+  --shadow-pop: 0 24px 56px -16px rgb(30 8 4 / 0.6), 0 0 0 1px rgb(255 226 196 / 0.1);
+  --shadow-paper: 0 14px 36px -14px rgb(30 8 4 / 0.55), inset 0 1px 0 rgb(255 244 224 / 0.25);
+}
+
+/* 红木 Rosewood — 酸枝红木 × 黄铜件 · 练习转靛蓝（蓝染对植木，T9） */
+:root[data-theme='rosewood'] {
+  --color-canvas: #54301f;
+  --color-surface: #5e3823;
+  --color-surface-2: #663f28;
+  --color-surface-3: #71482e;
+  --color-line: rgb(244 222 192 / 0.13);
+  --color-line-strong: rgb(244 222 192 / 0.28);
+  --color-header: rgb(102 63 40 / 0.6);
+  --color-backdrop: rgb(20 8 3 / 0.5);
+  --color-fg: #f3e4cf;
+  --color-fg-2: #d3b795;
+  --color-fg-3: #ac8f6d;
+  --color-ink: #2a1810;
+  --color-ink-hover: #3d2417;
+  --color-ink-2: #a98e6c;
+  --color-cream: #f3e4cf;
+  --color-verm: #3e63a2;
+  --color-verm-deep: #7d9fd0;
+  --color-verm-soft: rgb(62 99 162 / 0.16);
+  --color-verm-line: rgb(62 99 162 / 0.4);
+  --color-verm-line-strong: rgb(62 99 162 / 0.58);
+  --color-gold: #b28a2e;
+  --color-gold-bright: #c9a13c;
+  --color-moss: #7fa87b;
+  --color-clay: #d98a76;
+  --color-clay-soft: rgb(217 138 118 / 0.14);
+  --color-clay-line: rgb(217 138 118 / 0.5);
+  --color-paper: #f0e3c8;
+  --color-staff: #c2a87e;
+  --color-barline: #96774e;
+  --color-track: rgb(243 228 207 / 0.16);
+  --color-wash: rgb(243 228 207 / 0.05);
+  --color-wave-bg: #4d2c1b;
+  --color-wave-bar-a: #a8845a;
+  --color-wave-bar-b: #7c5c3a;
+  --shadow-soft: 0 1px 2px rgb(22 8 2 / 0.45), 0 0 0 1px rgb(244 222 192 / 0.07);
+  --shadow-pop: 0 24px 56px -16px rgb(22 8 2 / 0.65), 0 0 0 1px rgb(244 222 192 / 0.09);
+  --shadow-paper: 0 14px 36px -14px rgb(22 8 2 / 0.6), inset 0 1px 0 rgb(255 236 200 / 0.12);
+}
+
+/* 玄漆 Lacquer — 黑漆描金 · 暖黑底、描金示播放、朱砂印练习（T9） */
+:root[data-theme='lacquer'] {
+  --color-canvas: #14100c;
+  --color-surface: #1c1712;
+  --color-surface-2: #241d16;
+  --color-surface-3: #2f261d;
+  --color-line: rgb(233 214 182 / 0.1);
+  --color-line-strong: rgb(233 214 182 / 0.24);
+  --color-header: rgb(28 23 18 / 0.6);
+  --color-backdrop: rgb(5 3 2 / 0.62);
+  --color-fg: #ede4d3;
+  --color-fg-2: #bdae94;
+  --color-fg-3: #8a7d66;
+  --color-ink: #e8dcc2;
+  --color-ink-hover: #f7efdd;
+  --color-ink-2: #93876e;
+  --color-cream: #241d16;
+  --color-verm: #d95a30;
+  --color-verm-deep: #e8845c;
+  --color-verm-soft: rgb(217 90 48 / 0.15);
+  --color-verm-line: rgb(217 90 48 / 0.4);
+  --color-verm-line-strong: rgb(217 90 48 / 0.58);
+  --color-gold: #c9a13f;
+  --color-gold-bright: #e3bb56;
+  --color-moss: #90b695;
+  --color-clay: #e08a78;
+  --color-clay-soft: rgb(224 138 120 / 0.14);
+  --color-clay-line: rgb(224 138 120 / 0.5);
+  --color-paper: #211a13;
+  --color-staff: #4a3f30;
+  --color-barline: #645540;
+  --color-track: rgb(237 228 211 / 0.18);
+  --color-wash: rgb(237 228 211 / 0.05);
+  --color-wave-bg: #1a1510;
+  --color-wave-bar-a: #5c4d38;
+  --color-wave-bar-b: #42372a;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(233 214 182 / 0.06);
+  --shadow-pop: 0 24px 56px -16px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(233 214 182 / 0.08);
+  --shadow-paper: 0 14px 36px -14px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 240 210 / 0.06);
 }

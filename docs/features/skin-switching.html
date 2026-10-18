@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TuneTutor 皮肤系统 UI 设计稿 v1.1</title>
+<title>TuneTutor 皮肤系统 UI 设计稿 v1.2</title>
 <style>
 /* ═══════════════════════════════════════════════════════════════
    设计稿页面自身使用 v3「纸墨排练室」chrome（--bg 系列变量）。
@@ -460,6 +460,23 @@ table.spec-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monos
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
+/* 功能图标：内联 SVG 承载位（颜色一律 currentColor，随所在文字 token） */
+[data-icon] { display: inline-flex; flex: none; align-items: center; justify-content: center; }
+[data-icon] svg { display: block; }
+.icon-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+.iw-wrap { display: flex; flex-direction: column; gap: 6px; }
+.iw-name { font-size: 11px; color: var(--text-3); text-align: center; }
+.iw-card {
+  width: 236px; padding: 12px 12px 10px; border-radius: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.iw-group { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.iw-cap { font-size: 9.5px; letter-spacing: 1px; opacity: 0.62; width: 100%; margin-bottom: -1px; }
+.iw-tile {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: grid; place-items: center;
+}
+
 /* ═══ ② 实机预览皮肤选择器 ═══════════════ */
 .picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .sp {
@@ -499,7 +516,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
 <div class="wrap">
 
   <header class="spec-head">
-    <h1>TuneTutor 皮肤系统 UI 设计稿<span class="ver">v1.1 · 2026-10-18</span></h1>
+    <h1>TuneTutor 皮肤系统 UI 设计稿<span class="ver">v1.2 · 2026-10-18</span></h1>
     <p>在 v3「纸墨排练室」token 体系上扩展皮肤切换：<b>9 款默认皮肤</b>（经典 5 款 + 中式古风 4 款），全部颜色由 <code>--color-*</code> token 承载，皮肤 = 在 <code>:root[data-theme=&lt;id&gt;]</code> 重定义 token 值。语义角色跨皮肤不变——朱砂系=练习循环、金铜系=播放中、墨系=交互主色；古风皮肤允许角色<b>色相</b>重定（如宫墙转石绿、红木转靛蓝），但同一皮肤内全站一致。图标双层主题化：功能图标颜色随 token 自动，品牌标几何恒定、色随 token 自动（①-02）。本稿为皮肤功能的视觉与交互基准，实现后回填 tech.md。</p>
   </header>
 
@@ -560,13 +577,33 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
 
     <div class="spec-sec">
       <h3><span class="no">02</span>品牌标与图标主题化</h3>
-      <p>图标走<b>双层机制</b>，品牌标以 [brand.html](./brand.html) 为先决基准：① <b>功能图标只换色不换形</b>——统一内联 SVG（stroke = currentColor），颜色随所在文字的 token 自动跟随皮肤；现有 emoji 字形（🥁🎹🎧🎼）为固定彩色字体字形、不随 token，实现时应替换为 token 描色的 SVG 图标集，替换前 emoji 保持原样、不计入语义色。② <b>品牌标（反复记号）几何恒定、色随 token 自动</b>——几何取自 <code>docs/brand/tunetutor-mark-small.svg</code>（页头 36px 瓦内约 22px，按 brand 尺寸阶梯用 small 版），瓦片底 = 该皮肤墨面（--color-ink），标记描色 = 该皮肤奶白（--color-cream），三部件恒同色；全部由 token 级联实现、零皮肤配置，换肤即自动变色。语义色（练习/播放）禁止上标、不做字形变体（与 brand.html 用色铁律一致）：</p>
+      <p>图标走<b>双层机制</b>，品牌标以 [brand.html](./brand.html) 为先决基准：① <b>功能图标只换色不换形</b>——统一内联 SVG（stroke = currentColor），颜色随所在文字的 token 自动跟随皮肤；现有 emoji 字形（🎹🎷🥁📂🎵🗑🎧⚙）为固定彩色字体字形、不随 token，实现时按下方清单<b>全量替换</b>为 token 描色的 SVG 图标集。② <b>品牌标（反复记号）几何恒定、色随 token 自动</b>——几何取自 <code>docs/brand/tunetutor-mark-small.svg</code>（页头 36px 瓦内约 22px，按 brand 尺寸阶梯用 small 版），瓦片底 = 该皮肤墨面（--color-ink），标记描色 = 该皮肤奶白（--color-cream），三部件恒同色；全部由 token 级联实现、零皮肤配置，换肤即自动变色。语义色（练习/播放）禁止上品牌标、不做字形变体（与 brand.html 用色铁律一致）：</p>
       <div class="brand-grid" id="brandGrid"></div>
+
+      <p style="margin-top:22px"><b>功能图标集规格</b>：24 单位网格 / stroke 1.75 / 圆头圆角 / 单色 currentColor（播放▶、停止⏹ 为实心 fill=currentColor）。7 件乐器<b>专形专绘</b>——现状贝斯与吉他共用 🎸，SVG 集分化为「实心机身 + 长琴颈 + 拾音器条」；节拍器以<b>沙漏塔 + 摆锤</b>取代 🥁 鼓形（表意即节拍器本身，且与音色弹层区分）；以下图标墙为同一套路径 × 4 款代表皮肤（纸墨 / 夜曲 / 宫墙 / 红木），颜色全部取自该皮肤 token，实机内联后换肤即整体变色、零逐皮肤配置：</p>
+      <div class="icon-grid" id="iconGrid"></div>
+
+      <table class="spec-table" style="margin-top:16px">
+        <tr><th>现状字形</th><th>位置（代码）</th><th>SVG 集</th><th>承色（随语境 token）</th></tr>
+        <tr><td>🎹 🎷 🎸 🎸 🎻 🪈 🎺</td><td class="mono">instrumentMeta.ts INSTRUMENT_EMOJI（乐器下拉、状态栏）</td><td class="mono">piano · sax · guitar · bass · violin · flute · trumpet</td><td>fg-2（随选项文字）；hover / 选中 fg</td></tr>
+        <tr><td>▶ / ⏹</td><td class="mono">TransportButtons.tsx:33</td><td class="mono">play · stop（实心）</td><td>播放钮金铜面上 cream；停止钮 fg-2 → hover fg</td></tr>
+        <tr><td>🥁</td><td class="mono">MetronomeToggle.tsx:94</td><td class="mono">metro（节拍器形）</td><td>关 fg-2；开 verm-deep（练习语义，随皮肤可转石绿/靛蓝）</td></tr>
+        <tr><td>⚙</td><td class="mono">MetronomeToggle.tsx:109</td><td class="mono">gear</td><td>fg-2；激活 verm-deep</td></tr>
+        <tr><td>🔁</td><td class="mono">StatusBar.tsx:24</td><td class="mono">loop</td><td>fg-3</td></tr>
+        <tr><td>📂</td><td class="mono">FileLoaderModal.tsx:51</td><td class="mono">folder</td><td>fg-3</td></tr>
+        <tr><td>🎵</td><td class="mono">FileHistoryList.tsx:48</td><td class="mono">note</td><td>fg-3</td></tr>
+        <tr><td>🗑</td><td class="mono">FileHistoryList.tsx:63</td><td class="mono">trash</td><td>fg-3；hover clay（危险语义）</td></tr>
+        <tr><td>🎧</td><td class="mono">OriginalAudioPage.tsx:130,154</td><td class="mono">phones</td><td>空态 fg-3；文件卡 fg-2</td></tr>
+        <tr><td>♪</td><td class="mono">Header.tsx:73</td><td>反复记号 brand SVG（见上）</td><td>瓦 ink / 标 cream</td></tr>
+        <tr><td>▼</td><td class="mono">InstrumentSelect.tsx:29 等</td><td class="mono">chevron（可保留文本字形）</td><td>fg-3（文本字形已随 token，替换可选）</td></tr>
+        <tr><td>🎨（新增主题入口）</td><td class="mono">ThemeSwitcher（本稿新增）</td><td class="mono">palette</td><td>fg-2</td></tr>
+      </table>
+
       <table class="spec-table" style="margin-top:14px">
         <tr><th>资产</th><th>皮肤化处理</th></tr>
         <tr><td class="mono">页头品牌瓦（36px）</td><td>bg = ink token、标 = cream token（currentColor），换肤自动跟随，无需 JS</td></tr>
         <tr><td class="mono">favicon / PWA 图标</td><td><b>不随皮肤</b>——构建期由 brandFavicon 从 tunetutor-app-icon.svg 静态生成，运行时换肤不影响</td></tr>
-        <tr><td class="mono">功能图标</td><td>SVG + currentColor，随所在文字 token 自动；emoji 逐步替换</td></tr>
+        <tr><td class="mono">功能图标</td><td>SVG + currentColor，随所在文字 token 自动；emoji 按上表全量替换，替换前不跨皮肤调整</td></tr>
       </table>
     </div>
   </section>
@@ -575,7 +612,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
   <section id="p-live" hidden>
     <div class="panel-note">
       <span class="dot">状态</span>
-      <span>乐谱页与 ui-design.html ①同状态：乐句「第 5–8 小节」选定、<b>播放中</b>、空拍 2 拍、节拍器弹层展开、62 BPM。点上方色卡切换皮肤——注意乐谱纸面、朱砂/金铜语义色、弹层与波形同步重映射（真实入口见①页头弹层）。</span>
+      <span>乐谱页与 ui-design.html ①同状态：乐句「第 5–8 小节」选定、<b>播放中</b>、空拍 2 拍、节拍器弹层展开、62 BPM。点上方色卡切换皮肤——注意乐谱纸面、朱砂/金铜语义色、弹层与波形同步重映射；乐器 / 走带 / 节拍器图标为 ①-02 SVG 集（currentColor），随肤自动变色（真实入口见①页头弹层）。</span>
     </div>
 
     <div class="picker" id="picker"></div>
@@ -593,7 +630,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
           </div>
           <nav class="mseg"><a class="on" href="#">乐谱</a><a href="#">原曲</a></nav>
           <div class="hdr-right">
-            <button class="hbtn" type="button">🎨 纸墨 <span class="caret">▼</span></button>
+            <button class="hbtn" type="button"><span data-icon="palette" data-size="14"></span> 纸墨 <span class="caret">▼</span></button>
             <button class="hbtn" type="button">简体中文 <span class="caret">▼</span></button>
           </div>
         </header>
@@ -602,7 +639,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
           <div class="toolbar">
             <h2>我的乐谱</h2>
             <div class="tb-actions">
-              <button class="inst" type="button">🎹 钢琴 <span class="caret" style="font-size:10px;color:var(--color-fg-3)">▼</span></button>
+              <button class="inst" type="button"><span data-icon="piano" data-size="15"></span> 钢琴 <span class="caret" style="font-size:10px;color:var(--color-fg-3)">▼</span></button>
               <button class="btn-p" type="button">＋ 加载乐谱</button>
             </div>
           </div>
@@ -725,17 +762,17 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
             <div class="ctl">
               <div class="transport">
                 <button class="t-btn t-play" type="button" title="播放中 · 点击停止">
-                  <span class="pulse"></span><span style="position:relative">⏹</span>
+                  <span class="pulse"></span><span style="position:relative" data-icon="stop" data-size="17"></span>
                 </button>
-                <button class="t-btn t-stop" type="button" title="停止">⏹</button>
+                <button class="t-btn t-stop" type="button" title="停止"><span data-icon="stop" data-size="17"></span></button>
               </div>
             </div>
 
             <div class="ctl">
               <span class="ctl-label">节拍器</span>
               <div class="metro">
-                <button class="m-toggle" type="button">🥁 开</button>
-                <span class="m-gear on" title="节拍器设置">⚙</span>
+                <button class="m-toggle" type="button"><span data-icon="metro" data-size="15"></span> 开</button>
+                <span class="m-gear on" title="节拍器设置"><span data-icon="gear" data-size="16"></span></span>
               </div>
             </div>
 
@@ -769,8 +806,8 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
           <div class="status">
             <div class="grp">
               <span class="it"><span class="k">选择</span><b class="phrase">乐句 5–8 小节</b></span>
-              <span class="it"><span class="k">🔁 跳过</span><b>2 拍</b></span>
-              <span class="it"><span class="k">乐器</span><b>🎹 钢琴</b></span>
+              <span class="it"><span class="k"><span data-icon="loop" data-size="12"></span> 跳过</span><b>2 拍</b></span>
+              <span class="it"><span class="k">乐器</span><b><span data-icon="piano" data-size="12"></span> 钢琴</b></span>
             </div>
             <div class="grp">
               <span class="it live"><span class="dot"></span>播放中 · 乐句循环</span>
@@ -786,7 +823,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
           <div class="audio-card">
             <div class="audio-file">
               <div class="left">
-                <span class="fico">🎧</span>
+                <span class="fico"><span data-icon="phones" data-size="20"></span></span>
                 <span>
                   <div class="t">天使的翅膀 demo.mp3</div>
                   <div class="s">8.4 MB · 3:24 · 44.1 kHz</div>
@@ -816,8 +853,8 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
             <div class="a-actions">
               <div class="ctl">
                 <div class="transport">
-                  <button class="t-btn t-play" type="button" title="循环播放切片">▶</button>
-                  <button class="t-btn t-stop" type="button" title="停止">⏹</button>
+                  <button class="t-btn t-play" type="button" title="循环播放切片"><span data-icon="play" data-size="17"></span></button>
+                  <button class="t-btn t-stop" type="button" title="停止"><span data-icon="stop" data-size="17"></span></button>
                 </div>
               </div>
               <div class="ctl">
@@ -903,6 +940,14 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
         <tr><td>src/components/StatusBar.tsx:41</td><td>rgb(…) 活跃点光晕</td><td>→ color-mix(moss 60%, transparent)</td></tr>
         <tr><td>src/components/OsmdNotation.tsx:12</td><td>rgb(36 31 21/0.02)</td><td>→ --color-wash</td></tr>
         <tr><td>src/components/FileLoaderModal.tsx:49</td><td>rgb(…) 图标底</td><td>→ --color-wash</td></tr>
+        <tr><td>src/components/instrumentMeta.ts:5-13</td><td>emoji 字形（🎹🎷🎸🎸🎻🪈🎺）</td><td>→ SVG 图标集（①-02 清单），bass 与 guitar 分化字形</td></tr>
+        <tr><td>src/components/PlaybackControls/TransportButtons.tsx:33</td><td>▶ / ⏹ 文本字形</td><td>→ play / stop 实心 SVG（⏹ 部分平台渲染为彩色 emoji）</td></tr>
+        <tr><td>src/components/PlaybackControls/MetronomeToggle.tsx:94,109</td><td>🥁 / ⚙</td><td>→ metro（节拍器形）/ gear SVG</td></tr>
+        <tr><td>src/components/StatusBar.tsx:24</td><td>🔁</td><td>→ loop SVG</td></tr>
+        <tr><td>src/components/FileLoaderModal.tsx:51</td><td>📂</td><td>→ folder SVG</td></tr>
+        <tr><td>src/components/FileLoader/FileHistoryList.tsx:48,63</td><td>🎵 / 🗑</td><td>→ note / trash SVG（trash hover → clay）</td></tr>
+        <tr><td>src/pages/OriginalAudioPage.tsx:130,154</td><td>🎧</td><td>→ phones SVG</td></tr>
+        <tr><td>src/components/Header.tsx:73</td><td>♪ 文本字形</td><td>→ 反复记号 brand inline SVG（①-02，瓦 ink / 标 cream）</td></tr>
       </table>
     </div>
   </section>
@@ -972,7 +1017,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
         <tr><td class="mono">T7</td><td>换肤过渡 160ms ease（对齐 v3 动效基准），OSMD 重渲染不动画；prefers-reduced-motion 全瞬时。</td></tr>
         <tr><td class="mono">T8</td><td>无障碍底线：正文对所在面 ≥ 4.5:1；「演奏会」对标 WCAG AAA（正文 ≥ 7:1）作高对比选项；语义色光晕/淡底仅作装饰不作唯一信息载体。</td></tr>
         <tr><td class="mono">T9</td><td>古风四款取材传统工艺：青花（青花瓷：瓷白纸面、钴青交互、釉里红练习、泥金播放）；宫墙（宫墙红+金瓦：漆黑交互、石绿练习、金系播放与进行中指示）；红木（酸枝家具：深棕红画布、绢黄纸面、黄铜播放、靛蓝练习——蓝染对植木，与宫墙的红墙绿语义区分）；玄漆（黑漆描金：暖黑底、漆白交互、描金播放、朱砂练习）。token 名保留 verm/gold 历史角色名，值随皮肤走、类名不变。</td></tr>
-        <tr><td class="mono">T10</td><td>图标双层主题化（以 brand.html 为先决基准）：功能图标统一内联 SVG、stroke=currentColor，只换色不换形，随 token 自动跟随（现有 emoji 字形逐步替换为 SVG 图标集，替换前不计入语义色）；品牌标（反复记号）几何恒定、零皮肤配置——瓦片底 = ink token、标记描色 = cream token（currentColor，三部件同色），由 CSS 级联自动跟随换肤；语义色禁止上标、不做字形/形制变体；favicon 与 PWA 图标不随皮肤（构建期静态生成）。</td></tr>
+        <tr><td class="mono">T10</td><td>图标双层主题化（以 brand.html 为先决基准）：功能图标统一内联 SVG、stroke=currentColor，只换色不换形，随 token 自动跟随。<b>全量替换清单与 SVG 路径规格见 ①-02</b>（乐器 7 枚专形专绘、bass/guitar 分化；节拍器以塔形摆锤取代 🥁 鼓形；走带 play/stop 实心；loop/gear/folder/note/trash/phones/palette 各归其位）；品牌标（反复记号）几何恒定、零皮肤配置——瓦片底 = ink token、标记描色 = cream token（currentColor，三部件同色），由 CSS 级联自动跟随换肤；语义色禁止上品牌标、不做字形/形制变体；favicon 与 PWA 图标不随皮肤（构建期静态生成）。</td></tr>
       </table>
     </div>
 
@@ -982,7 +1027,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
         <div class="rule-card"><b>1 · index.css</b>@theme 保留（供 Tailwind 类生成）；皮肤值域改为 :root（默认 paper）+ :root[data-theme=…] 覆盖块；新增 7 个 ★ token。</div>
         <div class="rule-card"><b>2 · useTheme</b>src/hooks/useTheme.ts：读写 localStorage + dataset.theme + 合法值校验；React 状态仅驱动切换器选中态。</div>
         <div class="rule-card"><b>3 · ThemeSwitcher</b>Header.tsx 内新增（复刻 LangSwitcher 结构 + useClickOutside），分组渲染 9 项。</div>
-        <div class="rule-card"><b>4 · 图标 SVG 化</b>品牌标换 docs/brand 反复记号 inline SVG（瓦 = ink、标 = cream currentColor）；功能 emoji（🥁🎹🎧🎼🗑）替换为 token 描色的内联 SVG 集（stroke=currentColor）；未替换项跨皮肤保持原样。</div>
+        <div class="rule-card"><b>4 · 图标 SVG 化</b>品牌标换 docs/brand 反复记号 inline SVG（瓦 = ink、标 = cream currentColor）；功能 emoji 全量替换为 ①-02 清单所列 token 描色 SVG 集（24 网格 / stroke 1.75 / currentColor）：instrumentMeta → 乐器 7 枚、TransportButtons → play/stop、MetronomeToggle → metro/gear、StatusBar → loop、FileLoaderModal → folder、FileHistoryList → note/trash、OriginalAudioPage → phones、ThemeSwitcher → palette；未替换项不跨皮肤调整。</div>
         <div class="rule-card"><b>5 · 写死色值清理</b>按 ③-03 审计表逐项收敛为 token / color-mix。</div>
         <div class="rule-card"><b>6 · 防闪白</b>index.html head 内联脚本（见 02 节）。</div>
         <div class="rule-card"><b>7 · i18n + 测试</b>四语言文件补 theme.* 13 键；tests/locales 补全量断言。</div>
@@ -991,7 +1036,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
     </div>
   </section>
 
-  <footer class="spec-foot">TuneTutor 皮肤系统 UI 设计稿 v1.1 · 2026-10-18 · 配套：docs/ui-design.html（v3 基准）· docs/brand.html（品牌基准）· docs/prd.md · docs/tech.md · 本稿为皮肤功能的视觉与交互基准</footer>
+  <footer class="spec-foot">TuneTutor 皮肤系统 UI 设计稿 v1.2 · 2026-10-18 · 配套：docs/ui-design.html（v3 基准）· docs/brand.html（品牌基准）· docs/prd.md · docs/tech.md · 本稿为皮肤功能的视觉与交互基准</footer>
 </div>
 
 <script>
@@ -1225,6 +1270,35 @@ var TOKEN_ROWS = [
   ['waveBg', '波形区底 ★'], ['waveBarA', '波形条渐变亮端 ★'], ['waveBarB', '波形条渐变暗端 ★']
 ];
 
+// 0) 功能图标集（单一来源）：24 网格 / stroke 1.75 / 圆头圆角 / 单色 currentColor；
+//    play·stop 为实心；乐器 7 枚专形专绘（bass 与 guitar 分化）。实现时按此路径落地 Icon 组件。
+var ICONS = {
+  piano:   '<rect x="3" y="5.5" width="18" height="13" rx="1.6"/><path d="M8 5.5v5.7M12 5.5v5.7M16 5.5v5.7"/>',
+  violin:  '<path d="M12 9.2c-1.9 0-3.3 1.2-3.3 2.9 0 1 .5 1.8 1.2 2.5-1.2.7-2 1.9-2 3.3 0 2.2 1.8 3.9 4.1 3.9s4.1-1.7 4.1-3.9c0-1.4-.8-2.6-2-3.3.7-.7 1.2-1.5 1.2-2.5 0-1.7-1.4-2.9-3.3-2.9Z"/><path d="M12 9.2V4.8"/><circle cx="12" cy="3.5" r="1.1"/>',
+  guitar:  '<path d="M12 21.5c-3.4 0-6.2-2.3-6.2-5.3 0-1.9 1-3.3 2.4-4.2.9-.6 1.4-1.4 1.4-2.3V7h4.8v2.7c0 .9.5 1.7 1.4 2.3 1.4.9 2.4 2.3 2.4 4.2 0 3-2.8 5.3-6.2 5.3Z"/><circle cx="12" cy="15.4" r="2.1"/><path d="M9.2 7V3.6h5.6V7"/><path d="M10.6 3.6V2.2M13.4 3.6V2.2"/>',
+  bass:    '<path d="M12 22c-3.1 0-5.6-2-5.6-4.6 0-1.7.9-3 2.2-3.8.8-.5 1.3-1.2 1.3-2.1V9h4.2v2.5c0 .9.5 1.6 1.3 2.1 1.3.8 2.2 2.1 2.2 3.8 0 2.6-2.5 4.6-5.6 4.6Z"/><path d="M10 16.2h4M10 18.1h4"/><path d="M9.9 9V3.2h4.2V9"/><path d="M10.8 3.2V1.8M13.2 3.2V1.8"/>',
+  flute:   '<rect x="2.8" y="9.8" width="18.4" height="4.4" rx="1.8"/><circle cx="6.2" cy="9.9" r="1.05"/><circle cx="10.6" cy="12.4" r=".65" fill="currentColor" stroke="none"/><circle cx="13.6" cy="12.4" r=".65" fill="currentColor" stroke="none"/><circle cx="16.6" cy="12.4" r=".65" fill="currentColor" stroke="none"/>',
+  sax:     '<path d="M17.2 2.8l-.7 2.4c-.9 4.4-6.3 5.4-6.3 9.3 0 3.1 2.5 5.2 5.7 5.2 2.6 0 4.5-1.3 5.1-3.3"/><path d="M21 16.4c.4-1 .5-2.1.4-3.2"/><path d="M18.3 6.2c-1.2 3.6-5.6 4.7-5.6 8.1 0 2.2 1.7 3.6 4 3.6"/><circle cx="14.4" cy="10.4" r=".6" fill="currentColor" stroke="none"/><circle cx="13" cy="12.8" r=".6" fill="currentColor" stroke="none"/><circle cx="13.3" cy="15.2" r=".6" fill="currentColor" stroke="none"/>',
+  trumpet: '<path d="M2.6 12h11.4"/><path d="M6.6 12V8.6M9.6 12V8.6M12.6 12V8.6"/><path d="M14 12c3.2.1 5.3-1.6 5.5-4M14 12c3.2-.1 5.3 1.6 5.5 4"/><path d="M19.5 8v8"/>',
+  play:    '<path d="M8.7 5.9v12.2c0 .9 1 1.5 1.8 1l9.8-6.1c.7-.5.7-1.5 0-2L10.5 4.9c-.8-.5-1.8.1-1.8 1Z"/>',
+  stop:    '<rect x="6.8" y="6.8" width="10.4" height="10.4" rx="1.6"/>',
+  loop:    '<path d="M4 10V9a3 3 0 0 1 3-3h12.2M16.4 3.2 19.2 6l-2.8 2.8"/><path d="M20 14v1a3 3 0 0 1-3 3H4.8M7.6 20.8 4.8 18l2.8-2.8"/>',
+  metro:   '<path d="M9.4 3.4h5.2l3 15.3a1.7 1.7 0 0 1-1.7 2H8.1a1.7 1.7 0 0 1-1.7-2L9.4 3.4Z"/><path d="M12 15.8l3.4-10.6"/><circle cx="15.9" cy="3.8" r="1.15"/>',
+  gear:    '<circle cx="12" cy="12" r="3.1"/><path d="M12 3.6V8M12 16v4.4M20.4 12H16M8 12H3.6M17.7 6.3l-2.9 2.9M9.2 14.8l-2.9 2.9M17.7 17.7l-2.9-2.9M9.2 9.2 6.3 6.3"/>',
+  folder:  '<path d="M3.2 7A1.8 1.8 0 0 1 5 5.2h4.1l2 2.3H19a1.8 1.8 0 0 1 1.8 1.8v8a1.8 1.8 0 0 1-1.8 1.8H5a1.8 1.8 0 0 1-1.8-1.8V7Z"/>',
+  note:    '<path d="M9.4 17.8V6.2l9.4-2v11.4"/><circle cx="7.2" cy="17.8" r="2.2" fill="currentColor" stroke="none"/><circle cx="16.6" cy="15.6" r="2.2" fill="currentColor" stroke="none"/>',
+  trash:   '<path d="M4.5 6.6h15"/><path d="M9.7 6.6V5.2a1.4 1.4 0 0 1 1.4-1.4h1.8a1.4 1.4 0 0 1 1.4 1.4v1.4"/><path d="M6.4 6.6l.7 12.2a1.6 1.6 0 0 0 1.6 1.5h6.6a1.6 1.6 0 0 0 1.6-1.5l.7-12.2"/><path d="M10.1 10.4v5.8M13.9 10.4v5.8"/>',
+  phones:  '<path d="M4 14.6v-2.2a8 8 0 0 1 16 0v2.2"/><rect x="3.2" y="13.6" width="4" height="6.2" rx="1.8"/><rect x="16.8" y="13.6" width="4" height="6.2" rx="1.8"/>',
+  palette: '<path d="M12 3.4a8.6 8.6 0 1 0 0 17.2c1.3 0 2.1-.8 2.1-1.9 0-1.2-1.1-1.7-1.1-2.7 0-.9.7-1.5 1.8-1.5h1.6c2.4 0 4.2-1.7 4.2-4.1 0-3.9-3.9-7-8.6-7Z"/><circle cx="7.6" cy="10.4" r="1" fill="currentColor" stroke="none"/><circle cx="11.2" cy="7.4" r="1" fill="currentColor" stroke="none"/><circle cx="15.4" cy="8.6" r="1" fill="currentColor" stroke="none"/>'
+};
+var SOLID_ICONS = { play: 1, stop: 1 };
+function iconSvg(name, size) {
+  var solid = SOLID_ICONS[name] ? ' fill="currentColor" stroke="currentColor"' : ' fill="none"';
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24"' + solid
+    + ' stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + ICONS[name] + '</svg>';
+}
+
 // 1) 注入 [data-skin] 样式
 (function () {
   var css = '';
@@ -1288,6 +1362,40 @@ var TOKEN_ROWS = [
       + s.name + '</div>';
   });
   host.innerHTML = html;
+})();
+
+// 2c) 功能图标墙：同一套 ICONS 路径 × 4 款代表皮肤，颜色全取该皮肤 token（含语义态示范）
+(function () {
+  var host = document.getElementById('iconGrid');
+  var WALL_SKINS = ['paper', 'nocturne', 'palace', 'rosewood'];
+  var groups = [
+    { cap: '乐器 · FG-2', items: [['piano'], ['sax'], ['guitar'], ['bass'], ['violin'], ['flute'], ['trumpet']], token: 'fg2' },
+    { cap: '走带 / 节拍', items: [['play', 'goldBright'], ['stop'], ['metro', 'vermDeep'], ['loop', 'fg3'], ['gear']], token: 'fg2' },
+    { cap: '文件 / 其它', items: [['folder', 'fg3'], ['note', 'fg3'], ['trash', 'clay'], ['phones'], ['palette']], token: 'fg2' }
+  ];
+  var html = '';
+  WALL_SKINS.forEach(function (id) {
+    var s = SKINS[id];
+    var card = '<div class="iw-wrap"><div class="iw-card" style="background:' + s.vals.canvas + ';border:1px solid ' + s.vals.line + '">';
+    groups.forEach(function (g) {
+      card += '<div class="iw-group"><span class="iw-cap" style="color:' + s.vals.fg3 + '">' + g.cap + '</span>';
+      g.items.forEach(function (it) {
+        var token = it[1] || g.token;
+        card += '<span class="iw-tile" title="' + it[0] + '" style="background:' + s.vals.surface2 + ';border:1px solid ' + s.vals.line + ';color:' + s.vals[token] + '">'
+          + iconSvg(it[0], 17) + '</span>';
+      });
+      card += '</div>';
+    });
+    html += card + '</div><span class="iw-name">' + s.name + '</span></div>';
+  });
+  host.innerHTML = html;
+})();
+
+// 2d) mockup 内 [data-icon] 占位注水为内联 SVG
+(function () {
+  document.querySelectorAll('[data-icon]').forEach(function (el) {
+    el.innerHTML = iconSvg(el.getAttribute('data-icon'), el.getAttribute('data-size') || 16);
+  });
 })();
 
 // 3) Token 全表

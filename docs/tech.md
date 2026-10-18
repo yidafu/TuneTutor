@@ -205,9 +205,12 @@ interface StoredAudioFile { id; fileName; fileSize; uploadedAt; data: ArrayBuffe
 | 键 | 值 |
 | --- | --- |
 | `note-slice-language` | 语言代码 |
+| `note-slice-theme` | 皮肤 id（`paper`/`nocturne`/`walnut`/`celadon`/`stage`/`cobalt`/`palace`/`rosewood`/`lacquer`，原始字符串非 JSON；缺省 `paper`，非法值回落） |
 | `note-slice-preferred-instrument` | InstrumentType |
 | `note-slice-metronome-sound` / `-strong-volume` / `-weak-volume` | 节拍器偏好 |
 | `note-slice-audio-slice` / `note-slice-audio-gap` | 原曲页切片与空拍 |
+
+皮肤系统（2026-10-18 已实现，视觉与交互基准见 [features/skin-switching.html](./features/skin-switching.html) v1.1）：皮肤 = 在 `:root[data-theme=<id>]` 重定义 `src/index.css` 的 `--color-*` token（34 色 + 三组阴影），组件零写死色值、派生色走 `color-mix`；`ThemeProvider`/`useTheme`（`src/hooks/useTheme.tsx`）持全局皮肤状态并写 `document.documentElement.dataset.theme` + 本键，`index.html` head 内联脚本首帧写入防闪白；语义角色跨皮肤不变、色相允许重定（T1–T10 决策见设计稿 §④-05）。**图标（2026-10-18 用户决策，取代设计稿 T10「只换色不换形」）**：功能图标与乐器字形全部 SVG 化（`src/components/icons/`，几何共享于 `geometry.tsx`），每款皮肤以自己的笔触（`styles.ts` THEME_ICON_STYLES：线宽/端头/附属件填充）渲染出各自的一套图标，随 ThemeProvider 换肤整体重渲染；品牌标（反复记号）不在其列，几何恒定仍按 [brand.html](./brand.html) 铁律。OSMD 接入时 EngravingRules 取色须读 token（§6.1 契约，见设计稿 §④-04）。
 
 ### 7.3 启动恢复
 

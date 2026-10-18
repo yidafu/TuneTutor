@@ -1,6 +1,7 @@
 import { render, type RenderOptions } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
+import { ThemeProvider } from '@/hooks/ThemeProvider'
 import I18nProvider from '@/locales/I18nProvider'
 
 interface RenderWithProvidersOptions extends RenderOptions {
@@ -8,7 +9,7 @@ interface RenderWithProvidersOptions extends RenderOptions {
   route?: string
 }
 
-/** 包裹 MemoryRouter + I18nProvider 的渲染（默认 en-US：localStorage 已在 setup 清空） */
+/** 包裹 MemoryRouter + ThemeProvider + I18nProvider 的渲染（默认 en-US/paper：localStorage 已在 setup 清空） */
 export function renderWithProviders(
   ui: ReactElement,
   { route = '/', ...options }: RenderWithProvidersOptions = {},
@@ -16,7 +17,9 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <MemoryRouter initialEntries={[route]}>
-        <I18nProvider>{children}</I18nProvider>
+        <ThemeProvider>
+          <I18nProvider>{children}</I18nProvider>
+        </ThemeProvider>
       </MemoryRouter>
     )
   }

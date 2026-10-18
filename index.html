@@ -2,6 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- 皮肤首帧防闪白（skin-switching.html v1.1 §④-02，T4）：先于样式应用读取存储值；
+         非法值匹配不到覆盖块时自然回落 :root 默认（paper） -->
+    <script>
+      try {
+        var t = localStorage.getItem('note-slice-theme')
+        if (t) document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Music learning application with sheet music support" />

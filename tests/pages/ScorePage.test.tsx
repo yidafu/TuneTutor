@@ -82,6 +82,9 @@ describe('ScorePage', () => {
     expect(window.localStorage.getItem('note-slice-preferred-instrument')).toBe(
       JSON.stringify('guitar'),
     )
-    expect(screen.getByText(`🎸 ${enUS.instrumentGuitar}`)).toBeInTheDocument()
+    // 乐器字形已 SVG 化（InstrumentGlyph）；触发按钮与状态栏都展示标签，按角色断言触发器
+    expect(
+      screen.getByRole('button', { name: new RegExp(enUS.instrumentGuitar) }),
+    ).toBeInTheDocument()
   })
 })

@@ -1,4 +1,5 @@
 import { useI18n } from '../../locales/useI18n'
+import { ThemeIcon } from '../icons/ThemeIcon'
 
 interface TransportButtonsProps {
   playing: boolean
@@ -21,7 +22,7 @@ export default function TransportButtons({ playing, onPlayToggle, onStop }: Tran
         title={playing ? t.stop : t.play}
         aria-label={playing ? t.stop : t.play}
         aria-pressed={playing}
-        className="relative grid h-[46px] w-[46px] cursor-pointer place-items-center rounded-full border-0 bg-gradient-to-br from-[#d9a021] to-gold text-[15px] text-white shadow-btn-gold transition hover:brightness-105"
+        className="relative grid h-[46px] w-[46px] cursor-pointer place-items-center rounded-full border-0 bg-gradient-to-br from-gold-bright to-gold text-[15px] text-cream shadow-btn-gold transition hover:brightness-105"
       >
         {playing && (
           <span
@@ -30,7 +31,7 @@ export default function TransportButtons({ playing, onPlayToggle, onStop }: Tran
           />
         )}
         <span aria-hidden className="relative">
-          {playing ? '⏹' : '▶'}
+          <ThemeIcon name={playing ? 'stop' : 'play'} className="h-5 w-5" />
         </span>
       </button>
       <button
@@ -38,9 +39,9 @@ export default function TransportButtons({ playing, onPlayToggle, onStop }: Tran
         onClick={onStop}
         title={t.stop}
         aria-label={t.stop}
-        className="grid h-[46px] w-[46px] cursor-pointer place-items-center rounded-full border-0 bg-surface-2 text-[15px] text-fg-2 shadow-[inset_0_0_0_1px_var(--color-line-strong)] transition hover:bg-surface-3 hover:text-fg"
+        className="grid h-[46px] w-[46px] cursor-pointer place-items-center rounded-full border-0 bg-surface-2 text-fg-2 shadow-[inset_0_0_0_1px_var(--color-line-strong)] transition hover:bg-surface-3 hover:text-fg"
       >
-        <span aria-hidden>⏹</span>
+        <ThemeIcon name="stop" className="h-5 w-5" />
       </button>
     </div>
   )

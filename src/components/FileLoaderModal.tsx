@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../locales/useI18n'
+import { ThemeIcon } from './icons/ThemeIcon'
 import FileHistoryList, { type FileHistoryItem } from './FileLoader/FileHistoryList'
 
 interface FileLoaderModalProps {
@@ -46,10 +47,9 @@ export default function FileLoaderModal({ open, onClose }: FileLoaderModalProps)
           <h3 className="m-0 flex items-center gap-[9px] text-base font-bold">
             <span
               aria-hidden
-              className="grid h-7 w-7 place-items-center rounded-[8px] bg-[rgb(36_31_21/0.06)] text-sm shadow-[inset_0_0_0_1px_var(--color-line)]"
+              className="grid h-7 w-7 place-items-center rounded-[8px] bg-wash shadow-[inset_0_0_0_1px_var(--color-line)]"
             >
-              📂
-            </span>
+              <ThemeIcon name="folder" className="h-[15px] w-[15px]" />            </span>
             {t.loadScoreTitle}
           </h3>
           <button
@@ -84,7 +84,9 @@ export default function FileLoaderModal({ open, onClose }: FileLoaderModalProps)
               : 'border-verm-line-strong bg-verm/[0.04] hover:bg-verm-soft'
           }`}
         >
-          <div aria-hidden className="text-[30px]">🎼</div>
+          <div aria-hidden className="grid place-items-center">
+            <ThemeIcon name="note" className="h-[30px] w-[30px]" />
+          </div>
           <div className="mt-2 text-[13.5px] font-semibold text-fg">
             {t.dropMain} <em className="not-italic text-verm-deep">{t.dropBrowse}</em>
           </div>

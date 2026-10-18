@@ -4,6 +4,7 @@ import { frFR } from '@/locales/fr-FR'
 import { LANGUAGES, resolveLanguage } from '@/locales/languages'
 import { zhCN } from '@/locales/zh-CN'
 import { zhTW } from '@/locales/zh-TW'
+import { THEMES } from '@/themes'
 
 type TranslationTree = Record<string, unknown>
 
@@ -41,6 +42,46 @@ describe('locales', () => {
         }
       }
     }
+  })
+})
+
+describe('theme.* 键（skin-switching §③：四语言全量硬约束）', () => {
+  it('四语言均含 13 个 theme 键（label/group×2/九款皮肤/appliedHint）', () => {
+    const expectedThemeKeys = [
+      'label',
+      'group',
+      'paper',
+      'nocturne',
+      'walnut',
+      'celadon',
+      'stage',
+      'cobalt',
+      'palace',
+      'rosewood',
+      'lacquer',
+      'appliedHint',
+    ].sort()
+    for (const tree of [enUS, zhCN, zhTW, frFR]) {
+      expect(Object.keys(tree.theme).sort()).toEqual(expectedThemeKeys)
+      expect(Object.keys(tree.theme.group).sort()).toEqual(['antique', 'classic'])
+    }
+  })
+
+  it('每款皮肤 id 在四语言下都有名称（与 themes.ts 注册表对齐）', () => {
+    for (const theme of THEMES) {
+      for (const tree of [enUS, zhCN, zhTW, frFR]) {
+        expect(typeof tree.theme[theme], `${theme}`).toBe('string')
+        expect(tree.theme[theme].length, `${theme}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('关键取值符合设计稿键表', () => {
+    expect(zhCN.theme.paper).toBe('纸墨')
+    expect(zhTW.theme.palace).toBe('宮牆')
+    expect(frFR.theme.label).toBe('Thème')
+    expect(enUS.theme.cobalt).toBe('Blue & White')
+    expect(zhCN.theme.group.antique).toBe('古风')
   })
 })
 

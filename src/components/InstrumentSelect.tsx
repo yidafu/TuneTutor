@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useI18n } from '../locales/useI18n'
 import { INSTRUMENT_TYPES, type InstrumentType } from '../types/audio'
-import { instrumentLabel, INSTRUMENT_EMOJI } from './instrumentMeta'
+import { instrumentLabel } from './instrumentMeta'
+import { InstrumentGlyph } from './icons/ThemeIcon'
 
 interface InstrumentSelectProps {
   value: InstrumentType
@@ -24,7 +25,7 @@ export default function InstrumentSelect({ value, onChange }: InstrumentSelectPr
         aria-expanded={open}
         className="inline-flex cursor-pointer items-center gap-2 rounded-btn border border-line-strong bg-surface-2 px-[13px] py-2 text-[13px] font-medium text-fg transition hover:bg-surface-3"
       >
-        <span aria-hidden>{INSTRUMENT_EMOJI[value]}</span>
+        <InstrumentGlyph instrument={value} className="h-[15px] w-[15px]" />
         {instrumentLabel(t, value)}
         <span aria-hidden className="text-[10px] text-fg-3">▼</span>
       </button>
@@ -47,7 +48,7 @@ export default function InstrumentSelect({ value, onChange }: InstrumentSelectPr
                   instrument === value ? 'font-semibold text-fg' : 'text-fg-2'
                 }`}
               >
-                <span aria-hidden>{INSTRUMENT_EMOJI[instrument]}</span>
+                <InstrumentGlyph instrument={instrument} className="h-[15px] w-[15px]" />
                 <span className="flex-1">{instrumentLabel(t, instrument)}</span>
                 {instrument === value && (
                   <span aria-hidden className="text-verm-deep">✓</span>

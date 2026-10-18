@@ -1,6 +1,7 @@
-import { instrumentLabel, INSTRUMENT_EMOJI } from './instrumentMeta'
 import { useI18n } from '../locales/useI18n'
 import type { InstrumentType } from '../types/audio'
+import { instrumentLabel } from './instrumentMeta'
+import { InstrumentGlyph, ThemeIcon } from './icons/ThemeIcon'
 
 interface StatusBarProps {
   playing: boolean
@@ -21,7 +22,10 @@ export default function StatusBar({ playing, skipBeats, instrument, tempo }: Sta
           <b className="font-semibold text-fg">{t.selectionNone}</b>
         </span>
         <span className="inline-flex items-center gap-[7px]">
-          <span className="text-fg-3">🔁 {t.statusSkip}</span>
+          <span className="inline-flex items-center gap-[5px] text-fg-3">
+            <ThemeIcon name="loop" className="h-[13px] w-[13px]" />
+            {t.statusSkip}
+          </span>
           <b className="font-semibold text-fg">
             {skipBeats > 0 ? t.skipBeatsShort(skipBeats) : t.skipOff}
           </b>
@@ -29,7 +33,8 @@ export default function StatusBar({ playing, skipBeats, instrument, tempo }: Sta
         <span className="inline-flex items-center gap-[7px]">
           <span className="text-fg-3">{t.statusInstrument}</span>
           <b className="font-semibold text-fg">
-            {INSTRUMENT_EMOJI[instrument]} {instrumentLabel(t, instrument)}
+            <InstrumentGlyph instrument={instrument} className="mr-1 inline-flex h-[15px] w-[15px] align-[-2px]" />
+            {instrumentLabel(t, instrument)}
           </b>
         </span>
       </div>
@@ -38,7 +43,7 @@ export default function StatusBar({ playing, skipBeats, instrument, tempo }: Sta
           <span className="inline-flex items-center gap-1.5 font-semibold text-moss">
             <span
               aria-hidden
-              className="h-[7px] w-[7px] animate-blink rounded-full bg-moss shadow-[0_0_6px_rgb(71_118_79/0.8)]"
+              className="h-[7px] w-[7px] animate-blink rounded-full bg-moss shadow-[0_0_6px_color-mix(in_srgb,var(--color-moss)_60%,transparent)]"
             />
             {t.statusPlaying}
           </span>
