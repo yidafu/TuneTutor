@@ -139,13 +139,26 @@ function findIndexAtOrAfter(entries: readonly PlaybackEntry[], noteIndex: number
   return result
 }
 
-function findEntryByNoteIndex(
+/**
+ * noteIndex 组跨度（audio.md §2.2-8/9 决策 A17）：倚音与装饰音切片子条目共享主音
+ * noteIndex，区间 = 首条目起刻到末条目末刻（循环终点不会砍掉主音尾）。
+ */
+function groupInterval(
   entries: readonly PlaybackEntry[],
   noteIndex: number,
-): PlaybackEntry | undefined {
-  const index = findIndexAtOrAfter(entries, noteIndex)
-  const entry = entries[index]
-  return entry !== undefined && entry.noteIndex === noteIndex ? entry : undefined
+): ResolvedEndpoint | null {
+  const firstIndex = findIndexAtOrAfter(entries, noteIndex)
+  const first = entries[firstIndex]
+  if (first === undefined || first.noteIndex !== noteIndex) return null
+  let lastIndex = firstIndex
+  while (
+    lastIndex + 1 < entries.length &&
+    entries[lastIndex + 1]!.noteIndex === noteIndex
+  ) {
+    lastIndex += 1
+  }
+  const last = entries[lastIndex]!
+  return { startRv: first.startRv, endRv: last.startRv + last.durationRv }
 }
 
 function entryInterval(entry: PlaybackEntry): ResolvedEndpoint {
@@ -160,8 +173,8 @@ export function dataEndRv(entries: readonly PlaybackEntry[]): number {
 
 /**
  * 音符 → 播放数据端点区间。四类规则（§2.3）：
- * 发音 = [startRv, startRv+durationRv)；休止 = [前条目末刻, 后条目起刻]（曲端取 0/曲终）；
- * 装饰音 = 下一个发音条目；连音线延续音 = 其起始音。
+ * 发音 = 同 noteIndex 组跨度（倚音/装饰音切片与主音同组，A17）；休止 = [前条目末刻,
+ * 后条目起刻]（曲端取 0/曲终）；装饰音 = 所在组（下一占位音的组）；连音线延续音 = 其起始音。
  * role 只影响调用方取区间哪一侧（起点取 startRv，终点取 endRv），区间本身一致。
  */
 export function resolveEndpoint(
@@ -179,12 +192,16 @@ export function resolveEndpoint(
   }
   if (entries.length === 0) return null
   if (note.endpoint === 'grace') {
-    // 装饰音无独立时长：解析为下一个发音条目（休止占位条目不存在，自然跳过）
-    const next = entries[findIndexAtOrAfter(entries, note.noteIndex)]
-    return next === undefined ? null : entryInterval(next)
+    // 装饰音端点：宿主组跨度；宿主为休止占位（组不存在）时回落到下一发音条目
+    const index = findIndexAtOrAfter(entries, note.noteIndex)
+    const first = entries[index]
+    if (first === undefined) return null
+    if (first.noteIndex === note.noteIndex) return groupInterval(entries, note.noteIndex)
+    return entryInterval(first)
   }
-  const entry = findEntryByNoteIndex(entries, note.noteIndex)
-  if (entry !== undefined) return entryInterval(entry)
+  // 发音端点：同 noteIndex 组跨度（倚音/装饰音切片与主音同组，A17）
+  const group = groupInterval(entries, note.noteIndex)
+  if (group !== null) return group
   // 休止符：播放数据无该条目，由相邻条目夹出区间
   const afterIndex = findIndexAtOrAfter(entries, note.noteIndex)
   const before = afterIndex > 0 ? entries[afterIndex - 1] : undefined

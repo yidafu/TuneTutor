@@ -1,9 +1,9 @@
 # TuneTutor 音频播放技术规格
 
-**版本**: 2.5
+**版本**: 2.7
 **日期**: 2026-10-18
 **状态**: Ready for Re-implementation
-**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。**v2.1(2026-10-18)**:§5.1 补波形缩放(官方 ZoomPlugin + 适应宽度基准步进控件,新增 A13)与拖放导入入口;服务 F10 精准定位切片。**v2.2(2026-10-18)**:§5.1 播放头自动跟随改为切片域规则(新增 A14)——存在切片即关 autoScroll,无切片全曲播放保留官方默认;消除切片循环与视口自动右滚的冲突。**v2.3(2026-10-18)**:§5.1 进度高亮域改为切片域规则(新增 A15)——切片内内置进度层退化为波形色,高亮只来自切片 region 覆盖层;消除 [0, 切片起点] 被进度层越界涂色的冲突。**v2.4(2026-10-18)**:§5.1 多音频库(新增 A16)——文件选择器与拖放支持多选逐个入库(活动音频取最后一个合法文件),新增 AudioLibraryModal 音频库弹窗(切换/库内删除)与空态「最近音频」陈列;切片持久化键由全局单键改按音频归属 `note-slice-audio-slice:<id>`,多音频互不串切片、切回即恢复,旧全局键启动时迁移到恢复音频名下。**v2.5(2026-10-18)**:§5.1 落地 A15 让位的切片内已播段高亮——第二 RegionsPlugin 实例驱动一条 `[切片起点, min(播放头, 切片终点)]` 的深朱砂 region(timeupdate 跟随、`pointerEvents: none` 不挡把手、随切片改界/移除重算),切片内已播/未播明暗区分,§8 对应候选移除。
+**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。**v2.1(2026-10-18)**:§5.1 补波形缩放(官方 ZoomPlugin + 适应宽度基准步进控件,新增 A13)与拖放导入入口;服务 F10 精准定位切片。**v2.2(2026-10-18)**:§5.1 播放头自动跟随改为切片域规则(新增 A14)——存在切片即关 autoScroll,无切片全曲播放保留官方默认;消除切片循环与视口自动右滚的冲突。**v2.3(2026-10-18)**:§5.1 进度高亮域改为切片域规则(新增 A15)——切片内内置进度层退化为波形色,高亮只来自切片 region 覆盖层;消除 [0, 切片起点] 被进度层越界涂色的冲突。**v2.4(2026-10-18)**:§5.1 多音频库(新增 A16)——文件选择器与拖放支持多选逐个入库(活动音频取最后一个合法文件),新增 AudioLibraryModal 音频库弹窗(切换/库内删除)与空态「最近音频」陈列;切片持久化键由全局单键改按音频归属 `note-slice-audio-slice:<id>`,多音频互不串切片、切回即恢复,旧全局键启动时迁移到恢复音频名下。**v2.5(2026-10-18)**:§5.1 落地 A15 让位的切片内已播段高亮——第二 RegionsPlugin 实例驱动一条 `[切片起点, min(播放头, 切片终点)]` 的深朱砂 region(timeupdate 跟随、`pointerEvents: none` 不挡把手、随切片改界/移除重算),切片内已播/未播明暗区分,§8 对应候选移除。**v2.6(2026-10-18)**:§2.2-3 重写——`startRv` 由「累计步长」改为迭代器绝对时间戳 `currentTimeStamp`:非邻接 tie(marks-tie m2→m3 D5 链)下累计把合并时值当步长,后续条目整体漂移且不回位(光标带/音频同步滞后,实测确认);官方 enrolledTimestamp 同语义,§10 补真实 OSMD 集成回归。**v2.7(2026-10-18)**:§2.2 新增规则 8/9(决策 A17)——倚音发声与波音/颤音/回音演奏展开,`src/audio/ornaments.ts` 纯函数 + playbackData OSMD 提取;子条目共享主音 noteIndex,selection.ts `resolveEndpoint` 改同号组跨度解析(selection.md §2.3 同步);§10 补 ornaments 纯函数表与三 fixture 真实 OSMD 集成回归。
 
 ---
 
@@ -62,11 +62,13 @@ beatsToSeconds(beats, tempo, beatValue = 4) = beats × (60/tempo) × (4/beatValu
 
 1. `cursor.reset()` 后逐步 `cursor.next()`,取 `Iterator.CurrentVoiceEntries`;空步跳过。
 2. 跳过装饰音(`IsGrace` / `note.IsGraceNote`);**跳过连音线延续音**(`note.NoteTie && note !== note.NoteTie.StartNote`),起始音 `durationRv` 取 `NoteTie.Duration.RealValue`(延音合并)——官方同语义(官方规格 §3.10:tie 只播起始音)。
-3. 条目 `startRv` = 当前累计步长(曲首为 0);每步步长 = 该步所有声部中最大有效 RealValue(多声部取 max,保证对齐)。
+3. 条目 `startRv` = 迭代器**绝对时间戳** `iterator.currentTimeStamp.RealValue`(曲首为 0;官方 enrolledTimestamp 为 Fraction 同语义)。**禁止从步长累计推导**:tie 起始步的有效值是合并时值(规则 2),而光标下一步可能直达后续音符而非延续音(非邻接 tie),累计会整体漂移且不回位(marks-tie 实测:m2 D5 三连链合并 0.75 被当步长,m2 后半段起晚 0.5 并带至曲尾,2026-10-18 修复);绝对时间戳下多声部/空步天然对齐,无需步长 max 归并。
 4. 休止符不产出条目,但 `noteIndex` 仍递增(与命中测试索引对齐,§2.4)。
-5. 音名:`Frequency(note.halfTone, 'midi').toNote()`。
+5. 音名:`Frequency(note.halfTone + 12, 'midi').toNote()`——**OSMD `Note.halfTone` 比 MIDI 低 12**(源码 `halfTone = 12×XML八度 + 音级 + 变化音`,C4 = 48;调号、谱面变化音、小节内继承均已烘入,2026-10-18 实测:小星星 C4 直喂 Frequency 会整曲降八度播放,《刻》的三连音段 E5/D5/B♭4 实测 222ms 间隔与变音名全部吻合后确认换算)。
 6. **构建与 BPM 解耦(决策 A12)**:加载/渲染后构建一次,条目存乐谱时域;BPM 只在引擎时钟边界进入换算(§3.5/§3.9),变更零重建。这是与 v1 绝对秒时间轴的本质区别,也是官方 PlaybackNoteGenerator 的做法(官方规格 §3.10:enrolledTimestamp 为 Fraction,速度无关)。
 7. 数据终点 `endRv` = 末条目 `startRv + durationRv`:自动停止(§3.2)必须等「最后一音播完」而非停在最后一个**发音**时刻——官方 NextEntryTimestamp 同语义(官方规格 §3.10:播完末条目后 iterator 仍报「末条目 enrolled+Length」为下一到期时刻,让最后一音驱动结尾判定)。
+8. **倚音发声(决策 A17)**:倚音以独立 Grace VoiceEntry 与主音同光标步出现(`IsGrace=true`,排在主音前,Length 不推进光标)——逐个记下音名、不占 noteIndex,挂到本步**首个发音条目**上:总时值 = min(个数 × 1/16, 主音一半),贴主音起点向前铺;主音前空闲(前条目末刻到主音起点,休止后才有)够放则整块前移(主音不动),不够则差额**挤占主音头部**(主音顺延、时长扣减,长倚音式)。无处安放(主音过短)整组丢弃;宿主是休止/延续音时挂到下一发音条目。子条目共享主音 `noteIndex`(选择域组跨度解析,selection.md §2.3)。OSMD Note 不暴露 slash,长/短倚音 v1 统一挤压式。
+9. **装饰音展开(决策 A17)**:带 `VoiceEntry.OrnamentContainer` 的占位音符展开为切片子条目(`src/audio/ornaments.ts` 纯函数,OSMD `createVoiceEntriesForOrnament` 同款切片语义):trill 8 等分主/上邻交替;turn/inverted-turn 4 等分上/下起图形;delayed(-inverted)-turn 前半主音+后半图形;mordent = 主(1/4)+**下邻**(1/4)+主(1/2),inverted-mordent 上邻(MusicXML 标准方向,OSMD 枚举实现相反,A17 记录)。邻音 = 音级表 ±1(音级取 `Pitch.FundamentalNote`,八度从 halfTone 推导——`Pitch.Octave` 是内部相对八度,直用低三度),变化音取当前小节调号(`iterator.CurrentMeasure.getKeyInstruction(0)`);子条目共享主音 noteIndex,noteIndex 计数不变(§2.4 硬约束)。
 
 ### 2.3 起播定位与范围(替代 v1「范围过滤 + 时间平移」)
 
@@ -143,7 +145,7 @@ Tone Sampler `releaseAll` 可立即释放全部发声采样(官方 `stopSound` �
 ### 3.7 节拍器
 
 - 4 种预设:`classic`(MembraneSynth,C4/C3)、`digital`(Synth square,C5/C4)、`kick`(MembraneSynth,C2/C1)、`click`(NoiseSynth 白噪);强/弱拍独立音量 0–1,`beatCounter % beatsPerMeasure === 0` 判强拍;`beatsPerMeasure` 取拍号分子。
-- 调度(v2.0 改):tick 内逐拍推进——拍点在乐谱时域等间隔(一拍 = 1/beatValue RealValue,4/4 即 0.25),引擎维护 `nextBeatRv` 算术推进,窗口内到期拍逐个以精确 `when` 调度合成器;与主播放同一速度轴天然成立(同乐谱时域,变速/回跳后不错拍)。官方每 tick 由小节内相对位置重推 beatCounter 的做法(官方规格 §3.2-3)记为实现备注:恒定拍号谱下与算术推进等价,变拍号谱(中途换号)启用时改官方做法(§8 候选)。
+- 调度(v2.0 改):tick 内逐拍推进——拍点在乐谱时域等间隔(一拍 = 1/beatValue RealValue,4/4 即 0.25),引擎维护 `nextBeatRv` 算术推进,窗口内到期拍逐个以精确 `when` 调度合成器;拍点「过去」判定线与条目一致用安全间隔 0.02(§2.3)——真实 `setTimeout(0)` 的 ≥1ms 延迟足以越过 ε 线,起拍/回跳点节拍曾被判成过去吞掉、节拍器听感慢一拍进来(2026-10-18 实测修复;单测 fake 时钟按定时器 delay 推进、恰停在起拍点上,须显式模拟定时器延迟才复现);与主播放同一速度轴天然成立(同乐谱时域,变速/回跳后不错拍)。官方每 tick 由小节内相对位置重推 beatCounter 的做法(官方规格 §3.2-3)记为实现备注:恒定拍号谱下与算术推进等价,变拍号谱(中途换号)启用时改官方做法(§8 候选)。
 - 生命周期:音色/开关变化 → dispose 旧合成器重建;音量变化只改字段不重建;NoiseSynth 用 `triggerAttackRelease('16n', time, velocity)`,其余用预设音名。
 - 官方对照(官方规格 §3.5/§3.11):官方节拍器固定走音源通道 ch9(Woodblock 采样),默认静音靠 `Volume=0` 而非关开关;每拍先广播节拍事件(`{volume, firstBeat}`,UI 节拍灯的数据源)再真正发声,强拍判定与本节一致。v2 节拍器走合成器、不占音源通道(§4 音源方案不同),但「节拍事件先行、供 UI 可视化」的接法在做节拍灯时照抄;pre-count 段节拍器用独立音量的行为记入 §8 count-in 候选。
 
@@ -153,14 +155,18 @@ Tone Sampler `releaseAll` 可立即释放全部发声采样(官方 `stopSound` �
 
 | 事件 | 载荷 | 消费方 |
 | --- | --- | --- |
-| `iteration` | `PlaybackEntry` + `resetOccurred` 标志 | OsmdNotation:光标推进/回卷复位 |
+| `iteration` | `PlaybackEntry` + `resetOccurred` 标志 | OsmdNotation:播放光标带推进/回卷跟随 |
 | `state-change` | `'PLAYING'` / `'STOPPED'` | usePlayback / UI 状态 |
 
-光标跟随契约(OsmdNotation 实现):
+光标跟随契约(OsmdNotation 实现;2026-10-18 视觉改版:播放光标 = 选择覆盖层栈里的**金铜带**(ScoreSelectionOverlay,`--color-gold-bright` token,行带再外扩盖过五线谱 + 左缘金铜竖线),OSMD 自带光标仅装载时遍历播放数据用、从不 show——其颜色经 canvas 导出 PNG 吃不了 CSS 变量、高度锁死谱表内,`cursorOptions` 定制不满足视觉规格):
 
-- PLAYING:`cursorReset()` + rAF 后 `cursorShow()`;
-- iteration:rAF 内执行;**`resetOccurred === true`(循环回跳/重新定位)先 `cursorReset()` 再 `cursorNext()`**——回卷判定用显式标志而非时间比较(v2.0 变更;官方 `CursorPosChangedData.ResetOccurred` 同构,官方规格 §3.13);同帧多次事件以步进锁去重(alphaTab 的 beat 去重同理);
-- STOPPED:hide + reset。
+- PLAYING:清上一轮光标带,首 iteration 到来前不显示;
+- iteration:rAF 合并同帧多击;**光标带目标 = 事件载荷的 `entry.noteIndex`(刚发声条目),不读引擎活指针**——指针在 look-ahead 调度时刻已前进(窗口内多音、调度 tick 与 rAF 之间的竞态),按指针走会在密集段提前到下一音(2026-10-18 实测修复);`resetOccurred`(循环回跳)无需特判,回跳事件载荷即循环起点条目(官方 `CursorPosChangedData.ResetOccurred` 同构,官方规格 §3.13);
+- 重渲染(缩放/换肤/resize)无需重同步:视觉活在覆盖层、几何缓存重建后按同一 noteIndex 现算;
+- STOPPED:立即清带,不等帧;
+- **视觉对齐「听感」**:Draw 调度时刻叠加 `outputLatency`(InstrumentLoader `drawWhenSeconds`,Safari 无此 API 时为 0)——采样与 Draw 同在 context 时间轴,但用户听到的是输出延迟之后的声音。
+
+真机对齐实测(2026-10-18,demo 谱 90 BPM):光标带跳动间隔 664~677ms 与音符网格逐拍锁合、二分音符处自动加倍,误差 ≤30ms(Draw 8ms anticipation + 帧量化)。
 
 进度推导(usePlayback,v2.0 简化):不走事件流,播放期间轮询 `timingSource.getCurrentTimestamp()`——当前音符 = 引擎迭代器指针直读(不再对数组二分),progress 相对当前播放区间(全曲或 loop 区间)归一;推导与调度同出一个时钟,天然一致(D1)。所有比较遵守 §2.5 容差。
 
@@ -180,6 +186,7 @@ Tone Sampler `releaseAll` 可立即释放全部发声采样(官方 `stopSound` �
 - **不用 minify**(9 音 repitch 音质损失大,练习器听感优先);钢琴全量 85 个 mp3 ≈ 15.6MB,靠 Vite 静态打包 + PWA 缓存,不做运行时 CDN 加载(同类项目均自托管音源防 CDN 失效)。
 - 缓存:`Map<InstrumentType, Sampler>`;同类型并发请求共享同一加载 Promise(防重复构造);`dispose()` 全量释放(测试/卸载用)。
 - 包族 peerDeps 只声明 `tone ^14.7.77`,Tone 15 属实测兼容——**升级 Tone 大版本必须回归验证音色加载**(§6-5)。
+- **接线(2026-10-18 实测补记)**:包族只 `extends Sampler`,**不接 destination**(Tone 节点亦不自动连输出,官方播放器为自行 `.toDestination()`);连接由 InstrumentLoader 负责,构造后 `.toDestination()`,漏接表现为播放状态正常推进但全程无声。采样异步加载,ready 前 `triggerAttackRelease` 会被 Tone 以 `No available buffers for note` 抛错、且异常落在引擎 tick 内会打死自调度——包装层 ready 前静默丢弃,引擎构造等 `piano.ready` 才返回(usePlayback 的 `ready` 即「钢琴预载完成」,§3.6)。
 - 可选优化:构造后统一 `sampler.release = 0.5~1` 改善钢琴尾音(官方暴露属性,非 hack;空拍渗音见 §3.4)。
 
 ---
@@ -262,7 +269,8 @@ UI 与播放共用此函数,保证「显示的切片」与「循环的切片」�
 | 层 | 对象 | 要点 |
 | --- | --- | --- |
 | 纯函数 | `TempoConverter` | rv/拍换算边界(0、附点、beatValue ≠ 4) |
-| 纯函数 | `buildPlaybackData`(mock cursor) | 计数规则:休止符占位递增、tie 合并、装饰音跳过;`startRv` 累计;终点 `endRv`(§2.2-7);**同一数据对任意 BPM 断言不变**(乐谱时域,§2.2-6) |
+| 纯函数 | `buildPlaybackData`(mock cursor) | 计数规则:休止符占位递增、tie 合并、装饰音跳过;`startRv` = 光标绝对时间戳(非累计,规则 3);倚音发声/装饰音展开(规则 8/9,grace VE 与 OrnamentContainer 替身);终点 `endRv`(§2.2-7);**同一数据对任意 BPM 断言不变**(乐谱时域,§2.2-6);另设真实 OSMD 集成回归(marks-tie/marks-grace/marks-mordent/marks-trill 装载即断言,防 mock 与真实光标语义脱钩) |
+| 纯函数 | `ornaments.ts`(切片/倚音安放) | 七种装饰音切片时长与顺序、切片总时值守恒、倚音空闲前移/挤占主音/钳半/丢弃四路径(A17,§2.2-8/9) |
 | 纯函数 | `TimingSource`(fake 时钟) | 锚点模型、`setBpm` 重锚定不跳时刻、等待毫秒 round、pause/reset 冻结语义(§3.9) |
 | 引擎 | `PlaybackEngine`(fake TimingSource + fake Sampler) | 窗口查询与端点容差(§2.5)、窗口右端钳到 endRv(§3.4)、空拍回跳时序、自动停止哨兵、播放中 `setBpm`、`resetOccurred` 广播(§3.8) |
 | 纯函数 | `sliceUtils` | 换位/钳制/过短拒绝/gap(已有用例,保留) |
@@ -292,6 +300,7 @@ UI 与播放共用此函数,保证「显示的切片」与「循环的切片」�
 | A14 | (v2.2 新增)播放头自动跟随按切片域开闭:存在切片即 `autoScroll: false`(视图由用户掌控),无切片全曲播放保留官方默认;同步点收在 `updateSlice` 单一变更口 | 切片循环把播放头锁在切片内,官方默认 autoScroll(播放头出视口即瞬移滚动容器)在放大到切片宽于视口时每次回卷猛拉视口,播放中手动平移(deltaX 主导滚轮不被 ZoomPlugin 拦截,走原生滚动)即被拉回形成拉锯;无切片长音频仍需跟随防播放头出屏(§5.1) |
 | A15 | (v2.3 新增)进度高亮域:存在切片即 `progressColor = waveColor`(内置进度层视觉关闭),高亮只来自切片 region 覆盖层;无切片保留朱砂双层进度;配色与 A14 同口(`updateSlice`/主题 effect 共用 `waveColors(sliceActive)`)。v2.5 补强:切片内已播段由第二 RegionsPlugin 实例驱动深朱砂 region(`[起点, min(播放头, 终点)]`,timeupdate 跟随、pointerEvents:none) | 内置进度层恒从 0 画到播放头,无法裁剪进切片——切片循环下 [0, 切片起点] 恒被涂成朱砂且回卷不清除,与「只有选区内容高亮」直接冲突;裁剪需 renderFunction 自绘,成本不成比例;切片内明暗区分用第二实例已播段 region 补强落地(v2.5,§5.1)——第二实例事件总线与切片约束天然隔离,不碰循环判定 |
 | A16 | (v2.4 新增)多音频库:IndexedDB `audioFiles` 即库,文件选择器/拖放/音频库弹窗三条入口共用同一校验管线,多选逐个入库(活动音频取最后一个合法文件);切片持久化键按音频归属 `note-slice-audio-slice:<id>`,切换不落盘、切回即恢复,旧全局键启动迁移 | 用户需求「导入多个音频进行练习」;全局单键在多音频下会把 A 曲切片套在 B 曲上(时长可容纳即错恢复),按 id 归属一次性消除该类串扰并免除「替换音频先清切片」特例;活动音频取最后与库列表 uploadedAt 降序头部一致(§5.1) |
+| A17 | (v2.7 新增)装饰音域自研(官方播放器不消费装饰音,`VoiceEntry.createVoiceEntriesForOrnament` 为 OSMD 暴露但无人调用的接口):倚音发声(挤压式插在前一发音与主音之间,空闲不足挤占主音头部,总时值钳主音一半)+ 波音/颤音/回音按 OSMD 切片语义展开为子条目(§2.2-8/9);子条目共享主音 noteIndex,选择域按组跨度解析(selection.ts `resolveEndpoint`),`occupiesPlaybackSlot` 计数硬约束不动;波音方向按 MusicXML 标准语义(mordent=下邻音)——OSMD 枚举实现方向相反(其 VexFlow 字形映射也互换,音画同时反向一致),偏离点记此;邻音音级 ±1、变化音取当前小节调号(`CurrentMeasure.getKeyInstruction(0)`),八度从 halfTone 推导(OSMD `Pitch.Octave` 是内部相对八度 C5 返 2,直用低三度,实测踩坑);OSMD Note 不暴露倚音 slash,长/短倚音 v1 统一挤压式(细化候选 §8) | 用户实测反馈「Grace/Mordent/Trill fixture 倚音没声音、颤音没实现」(2026-10-18);切片语义照抄 OSMD 官方实现(逆向对照,颤音 8 等分、回音 4 等分、延滞回音前半主音后半图形)是唯一有出处的行为规格;不展开 = 练习播放器缺装饰音听感,展开层在播放数据纯函数域、引擎零改动 |
 
 **后续候选(不在 v2 范围,记录调研到的实现路径;官方行为参数对照源 = 官方规格 §3,坐标可对照验证)**:
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { realValueToSeconds, beatsToSeconds } from '@/audio/TempoConverter'
+import { realValueToSeconds, beatsToSeconds, secondsToRealValue } from '@/audio/TempoConverter'
 
 describe('TempoConverter（拍 ↔ 秒唯一换算入口，docs/audio.md §2.1）', () => {
   it('realValueToSeconds：附点四分 0.375 @ 90 BPM = 1.000s（spike §13-V7 端到端锚点）', () => {
@@ -17,5 +17,11 @@ describe('TempoConverter（拍 ↔ 秒唯一换算入口，docs/audio.md §2.1�
     expect(beatsToSeconds(4, 120)).toBe(2)
     expect(beatsToSeconds(1, 60, 8)).toBe(0.5)
     expect(beatsToSeconds(0, 90)).toBe(0)
+  })
+
+  it('secondsToRealValue：realValueToSeconds 的逆（时钟锚点换算，audio.md §3.9）', () => {
+    expect(secondsToRealValue(1, 60)).toBe(0.25)
+    expect(secondsToRealValue(realValueToSeconds(0.375, 90), 90)).toBeCloseTo(0.375, 12)
+    expect(secondsToRealValue(0, 120)).toBe(0)
   })
 })

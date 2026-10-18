@@ -77,6 +77,25 @@ describe('resolveEndpoint（selection.md §2.3 四类规则）', () => {
     expect(dataEndRv(ENTRIES)).toBe(2.25)
     expect(dataEndRv([])).toBe(0)
   })
+
+  it('同 noteIndex 组跨度（决策 A17）：倚音/装饰音切片与主音共组，区间 = 首起到末条目末刻', () => {
+    // idx 0 组 = 倚音切片 + 主音；idx 1 组 = 颤音 4 切片
+    const grouped: PlaybackEntry[] = [
+      entry(0, 0.9375, 0.0625),
+      entry(0, 1.0, 0.25),
+      entry(1, 1.25, 0.0625),
+      entry(1, 1.3125, 0.0625),
+      entry(1, 1.375, 0.0625),
+      entry(1, 1.4375, 0.0625),
+    ]
+    // 端点取组跨度：循环终点不会砍掉主音尾
+    expect(resolveEndpoint(slot(0, 0), grouped, 'end')).toEqual({ startRv: 0.9375, endRv: 1.25 })
+    expect(resolveEndpoint(slot(1, 0), grouped, 'start')).toEqual({ startRv: 1.25, endRv: 1.5 })
+    expect(resolveEndpoint(slot(1, 0), grouped, 'end')).toEqual({ startRv: 1.25, endRv: 1.5 })
+    // 装饰音端点（grace）：解析为所在组的跨度
+    const grace: HitNote = { noteIndex: 1, measureIndex: 0, endpoint: 'grace' }
+    expect(resolveEndpoint(grace, grouped, 'end')).toEqual({ startRv: 1.25, endRv: 1.5 })
+  })
 })
 
 describe('createPhraseSelection / createMeasureSelection / createBoxSelection', () => {

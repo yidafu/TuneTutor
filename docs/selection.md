@@ -1,9 +1,9 @@
 # TuneTutor 乐谱选择交互技术规格
 
-**版本**: 1.4
+**版本**: 1.5
 **日期**: 2026-10-18
 **状态**: P2 已落地（实现与本文同步；偏差随实现回写本文）
-**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。v1.3 补触控缺口:iOS/iPadOS Safari 触控不触发原生 `dblclick`（WebKit bug 202143）,S6 的乐句双击在触控面必须并用 pointer 双击检测（§4.3,原曲页已落地 `useDoubleTap` 同款机制）;PC 鼠标与 iPad 触控双平台是硬要求（AGENTS.md 交互约定）。**v1.4（2026-10-18,P2 落地回写）**:①命中链拆分为「路由命中」（closest + elementsFromPoint,不做最近邻吸附——空白必须可达为框选入口,决策 S9）与「完整命中链」（句柄微调才走 GetNearestNote 回落）,§3.4 同步;②graphicIndex 只计可渲染音符（PrintObject ≠ false）,不可渲染音符仍占 noteIndex 播放位,§3.3 同步;③小节模式区间内无发音条目时由区间外条目夹出（曲首全休止小节可选,spike V6）,§2.4 同步;④框选修饰键在单区间 LoopRange 模型下的 toggle 语义 = 重叠裁剪取较长剩余段（决策 S10,features/text-selection.md §3.5 同步）;⑤pending 清零走显式信号（selection 保持 null 时 effect 不可达）,§4.3 同步;⑥autoResize 关闭,重渲染统一由组件 ResizeObserver 防抖驱动、与音符缓存失效同路,§3.2 同步。
+**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。v1.3 补触控缺口:iOS/iPadOS Safari 触控不触发原生 `dblclick`（WebKit bug 202143）,S6 的乐句双击在触控面必须并用 pointer 双击检测（§4.3,原曲页已落地 `useDoubleTap` 同款机制）;PC 鼠标与 iPad 触控双平台是硬要求（AGENTS.md 交互约定）。**v1.4（2026-10-18,P2 落地回写）**:①命中链拆分为「路由命中」（closest + elementsFromPoint,不做最近邻吸附——空白必须可达为框选入口,决策 S9）与「完整命中链」（句柄微调才走 GetNearestNote 回落）,§3.4 同步;②graphicIndex 只计可渲染音符（PrintObject ≠ false）,不可渲染音符仍占 noteIndex 播放位,§3.3 同步;③小节模式区间内无发音条目时由区间外条目夹出（曲首全休止小节可选,spike V6）,§2.4 同步;④框选修饰键在单区间 LoopRange 模型下的 toggle 语义 = 重叠裁剪取较长剩余段（决策 S10,features/text-selection.md §3.5 同步）;⑤pending 清零走显式信号（selection 保持 null 时 effect 不可达）,§4.3 同步;⑥autoResize 关闭,重渲染统一由组件 ResizeObserver 防抖驱动、与音符缓存失效同路,§3.2 同步。**v1.5（2026-10-18,随 audio.md v2.7 决策 A17）**:§2.3 发音/装饰音端点解析改**同 noteIndex 组跨度**——倚音发声与装饰音展开后,切片子条目与主音共号（audio.md §2.2-8/9）,区间 = 组首起到组末条目末刻（循环区间含倚音起点、终点不砍主音尾）;装饰音宿主为休止占位时回落下一发音条目。`noteIndex` 计数与 `occupiesPlaybackSlot` 不变。
 
 ---
 
@@ -73,9 +73,9 @@ interface NotePosition {
 
 | 选中端点类型 | 解析规则 |
 | --- | --- |
-| 发音音符 `n` | 二分找 `noteIndex === n` → `[startRv, startRv + durationRv)` |
+| 发音音符 `n` | 二分找 `noteIndex === n` 的**组**（同号条目可能多条——倚音/装饰音切片与主音共享 noteIndex,audio.md v2.7 决策 A17）→ 区间 = 首条目 `startRv` 到末条目 `startRv + durationRv`（循环终点不砍主音尾） |
 | 休止符 `n` | 播放数据无该条目:作为**起点** = 前一条目的 `startRv + durationRv`（前面无条目则 0）;作为**终点** = 后一条目的 `startRv`（后面无条目则曲终） |
-| 装饰音 | 无独立时长（buildPlaybackData 跳过,不发声音频）:解析为**下一个发音音符**的 `noteIndex`,不存在则端点无效 |
+| 装饰音 | 倚音发声后（audio.md §2.2-8）装饰音不再「无独立时长」:其 `noteIndex` = 宿主主音 → 解析为所在**组跨度**;宿主为休止占位（无同号组）时回落到下一个发音条目,不存在则端点无效 |
 | 连音线延续音 | 解析为其 `NoteTie.StartNote` 的 `noteIndex`（播放数据条目已含 tie 合并时长,audio.md §2.2） |
 
 解析失败（`noteIndex` 不在任何端点规则覆盖内、区间 `start ≥ end` − ε）→ 本次选择无效,不产生 `LoopRange`,UI 提示（走 i18n）。
@@ -188,6 +188,8 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 ### 5.1 统一覆盖层栈（决策 S7）
 
 容器内绝对定位 HTML 覆盖层（`PhraseMarkers` 同款叠加模式）,承载全部选择视觉:pending 起点弱高亮、committed 音符高亮矩形、START/END 括号、范围条、（二期）框选矩形与边界句柄。除边界句柄外 `pointer-events: none`。z-index 高于 OSMD 内容（播放光标是 zIndex −2 的 `<img>` 覆盖,section 9.2;设置 PageBackgroundColor 时会升到 1,覆盖层取 8+ 避让）。
+
+**挂载锚盒（2026-10-18 实测补记）**:覆盖层根节点必须挂在**与 OSMD 容器同原点的相对定位盒**上（OsmdNotation 的 `sheetBox` 包裹层）,不得直接挂在乐谱卡 stage 上——stage 是垂直居中的 grid 且 `flex: 1` 撑满卡面,坐标随卡面高度漂移（症状:播放光标带悬空在谱表上方百余像素）。框选拖拽矩形同一坐标系（`localRect`/`writeDragRect` 减**容器** rect 而非 stage rect）。
 
 **不采用的两种高亮路径**（调研依据 §9.1/§9.2）:官方 `sourceNote.NoteheadColor` + 重渲染（issue #434 的推荐路线,重渲染代价违反「选择变化不得触发 OSMD 重渲染」）;直接改 SVG `style.fill`（旧实现路径,`<use>` 元素上验证可行,但侵入 OSMD SVG、需自管恢复属性、与 React 重渲染纠缠）。覆盖层方案与 alphaTab 的 `div.at-selection` 同构（§9.1）。
 

@@ -12,3 +12,8 @@ export function realValueToSeconds(realValue: number, bpm: number): number {
 export function beatsToSeconds(beats: number, bpm: number, beatValue = 4): number {
   return beats * (60 / bpm) * (4 / beatValue)
 }
+
+/** realValueToSeconds 的逆（秒 → RealValue）：时钟锚点 elapsed 换算用（docs/audio.md §3.9） */
+export function secondsToRealValue(seconds: number, bpm: number): number {
+  return (seconds * bpm) / 240
+}
