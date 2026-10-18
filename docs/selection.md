@@ -1,9 +1,9 @@
 # TuneTutor 乐谱选择交互技术规格
 
-**版本**: 1.3
+**版本**: 1.4
 **日期**: 2026-10-18
-**状态**: Ready for Re-implementation
-**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」（`buildPlaybackData`/`PlaybackEntry`）;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。v1.3 补触控缺口:iOS/iPadOS Safari 触控不触发原生 `dblclick`（WebKit bug 202143,双击只产生 mouse 兼容序列与 click）,S6 的乐句双击在触控面必须并用 pointer 双击检测（§4.3,原曲页已落地 `useDoubleTap` 同款机制）;PC 鼠标与 iPad 触控双平台是硬要求（AGENTS.md 交互约定）。
+**状态**: P2 已落地（实现与本文同步；偏差随实现回写本文）
+**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。v1.3 补触控缺口:iOS/iPadOS Safari 触控不触发原生 `dblclick`（WebKit bug 202143）,S6 的乐句双击在触控面必须并用 pointer 双击检测（§4.3,原曲页已落地 `useDoubleTap` 同款机制）;PC 鼠标与 iPad 触控双平台是硬要求（AGENTS.md 交互约定）。**v1.4（2026-10-18,P2 落地回写）**:①命中链拆分为「路由命中」（closest + elementsFromPoint,不做最近邻吸附——空白必须可达为框选入口,决策 S9）与「完整命中链」（句柄微调才走 GetNearestNote 回落）,§3.4 同步;②graphicIndex 只计可渲染音符（PrintObject ≠ false）,不可渲染音符仍占 noteIndex 播放位,§3.3 同步;③小节模式区间内无发音条目时由区间外条目夹出（曲首全休止小节可选,spike V6）,§2.4 同步;④框选修饰键在单区间 LoopRange 模型下的 toggle 语义 = 重叠裁剪取较长剩余段（决策 S10,features/text-selection.md §3.5 同步）;⑤pending 清零走显式信号（selection 保持 null 时 effect 不可达）,§4.3 同步;⑥autoResize 关闭,重渲染统一由组件 ResizeObserver 防抖驱动、与音符缓存失效同路,§3.2 同步。
 
 ---
 
@@ -78,7 +78,7 @@ interface NotePosition {
 | 装饰音 | 无独立时长（buildPlaybackData 跳过,不发声音频）:解析为**下一个发音音符**的 `noteIndex`,不存在则端点无效 |
 | 连音线延续音 | 解析为其 `NoteTie.StartNote` 的 `noteIndex`（播放数据条目已含 tie 合并时长,audio.md §2.2） |
 
-解析失败（`noteIndex` 不在任何端点规则覆盖内、区间 `start ≥ end`）→ 本次选择无效,不产生 `LoopRange`,UI 提示（走 i18n）。
+解析失败（`noteIndex` 不在任何端点规则覆盖内、区间 `start ≥ end` − ε）→ 本次选择无效,不产生 `LoopRange`,UI 提示（走 i18n）。
 
 ### 2.4 LoopRange 推导（唯一入口 `selection.ts`）
 
@@ -87,6 +87,8 @@ interface NotePosition {
 | 乐句循环 | 双击两端点分别 `resolveEndpoint` | 0 |
 | 小节选择 | 按 `measureIndex` 过滤播放数据取首/末条目 | 用户设置（1–8 拍） |
 | 全曲 | 0 → 曲终 | 用户设置（> 0 才循环,否则顺序播放） |
+
+小节模式兜底（v1.4）:区间内无发音条目（如曲首全休止小节,spike V6 实测「第 0 小节可只有休止符」）→ 由区间外条目夹出（起点 = 区间前最后条目末刻/0,终点 = 区间后首条目起刻/曲终）,与休止符端点规则同构;区间外也无条目（空播放数据）或 `start ≥ end` − ε → null（无效选择）。
 
 优先级:乐句 > 小节 > 全曲（tech.md §6.2 摘要）。组件**禁止**自算 `LoopRange`——与音频域「一切拍秒换算走 TempoConverter」同一纪律,防止多处推导漂移;秒只在引擎入口/UI 显示时现算（audio.md §2.1）。`LoopRange` 是乐谱时域（tech.md §3）,**BPM 无关**:变速、重建播放数据都不影响已产生的范围与选择状态（audio.md A2/A12）。
 
@@ -109,21 +111,22 @@ waitForSvgContent（tech.md §6.1）
 → 自检:配对数守卫 + 几何抽查（§3.3）;失败部分降级,console.warn
 ```
 
-缓存（positions、element map、rect）在 OSMD `clear()`/重渲染/缩放时全量失效（tech.md §6.1 渲染单例与失效契约沿用）。
+缓存（positions、element map、rect）在 OSMD `clear()`/重渲染/缩放/换肤/容器尺寸变化时全量失效（tech.md §6.1 渲染单例与失效契约沿用）。v1.4 落地:OSMD `autoResize` 关闭,组件以 ResizeObserver 防抖（200ms、宽度变化才触发）调用同一条重渲染路径（渲染 → waitForSvgContent → 重建缓存）,避免 OSMD 自行重渲染绕过缓存失效。
 
 ### 3.3 DOM 配对三层防线（决策 S3）
 
 **禁止假设图形音符与 notehead 全局 1:1**:实测存在洞——刻在我心底的名字有 3 个小节（m33/m58/m69）图形层有音符但 DOM 无 notehead,且 `vf-measure` 分组数（70）少于小节数（73）（V-S3）。旧实现 `min()` 全局 zip 在洞之后**整体错位**,是必须消除的第二个潜伏缺陷。
 
-1. **主路径:全局 zip + 计数守卫**——图形遍历序与 `querySelectorAll('.vf-notehead')` 序 zip;两侧数量不等即整条放弃,降级到 2。
+1. **主路径:全局 zip + 计数守卫**——图形遍历序与 `querySelectorAll('.vf-notehead')` 序 zip;两侧数量不等即整条放弃,降级到 2。图形序只计**可渲染音符**（`PrintObject !== false`）:配对序必须与 DOM 序对齐;不可渲染音符不占 graphicIndex 但仍占 noteIndex 播放位（播放数据经光标层计数,跳过会错位,v1.4）。
 2. **几何自检**——配对完成后,逐项比对元素 rect 与 `PositionAndShape.AbsolutePosition × 10 × zoom`（仿射关系已实测成立,V-S4;容差 5px）。不合格配对从 map 剔除。
 3. **回落路径:几何最近邻**——对自检后仍无元素的图形音符,用「px ÷ 10 ÷ zoom → unit」换算 + `GetNearestVoiceEntry`/`GetNearestNote`（官方命中原语,1.9.7 实测存在;issue #857 的推荐姿势）反查。
 
 洞小节（无元素）的音符不可点击、不高亮——产品可接受（无视觉物可点）;其所在小节的选择通过小节内其他音符落点（小节选择按 `measureIndex` 取整小节区间,§2.4）兜底。
 
-### 3.4 命中策略
+### 3.4 命中策略（v1.4 拆分:路由命中 vs 完整命中链,决策 S9）
 
-`event.target.closest('.vf-notehead')` → element map 查 `NotePosition`（主路径,永远精确）;程序化点击/自检剔除回落 `document.elementsFromPoint`;再回落 §3.3 的 `GetNearestNote` 路径。三者皆不中（空白区域）→ 返回 null = **框选入口**（§4.2）,不是错误。
+- **路由命中**（`pointerdown`/`dblclick` 的分发）:`event.target.closest('.vf-notehead')` → element map 查 `NotePosition`（主路径,永远精确）;不中回落 `document.elementsFromPoint`。两者皆不中（空白区域）→ 返回 null = **框选入口**（§4.2）,不是错误。**不做最近邻吸附**:路由层若吸附最近音符,空白按下会变成「点音符」,框选入口在音符邻域不可达;Soundslice 式空白吸附是 §10 后续候选。
+- **完整命中链**（框选边界句柄微调等显式吸附场景）:在路由命中之上追加 §3.3 防线 3 的 `GetNearestNote` 回落（px ÷ 10 ÷ zoom → unit,官方原语）。
 
 ### 3.5 坐标系规则（决策 S4）
 
@@ -147,6 +150,7 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 
 - `committed` 乱序自动换位（`start > end` 时换位,tech.md §6.2）;再次双击已选乐句外音符 = 开始新乐句（同 tech.md）。
 - 单击任意音符**即时**选中其所在小节并替换 `committed` 乐句（「最新一次交互定义当前 `LoopRange`」）;`pending` 只存于 ref,单击不直接破坏它（§4.3 竞态处理）。
+- 外部清零（Esc/清除按钮）经**显式信号**通知交互层销毁 `pending`（v1.4:selection 保持 null 时 prop-effect 不可达,信号递增即清）;换谱/重渲染路径由装载 effect 直接销毁。
 
 ### 4.2 指针事件管线（决策 S5）
 
@@ -198,29 +202,33 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 
 ## 6. 工程约束清单（选择域硬规则）
 
-1. `graphicIndex`/`noteIndex` 双索引计数规则见 §2.1;任何一侧改动必须双侧同改 + 双遍历一致性回归（§7）。
+1. `graphicIndex`/`noteIndex` 双索引计数规则见 §2.1;任何一侧改动必须双侧同改 + 双遍历一致性回归（§7）。graphicIndex 只计可渲染音符（PrintObject ≠ false,v1.4）。
 2. DOM 配对禁止假设全局 1:1;zip 必须带计数守卫 + 几何自检（§3.3）。
 3. 屏幕像素唯一来源 `getBoundingClientRect`;unit 换算只用官方公式 `×10×zoom`;禁止读 `PositionAndShape.Width/Height`（§3.5）。
 4. `LoopRange` 一律由 `selection.ts` 推导,组件禁止自算（§2.4）。
 5. 任何选择变化不得触发 OSMD 重渲染;高亮画在覆盖层（§5.1）。
-6. 命中/配对/rect 缓存随渲染、缩放、换谱全量失效（§3.2,tech.md §6.1）。
-7. 指针管线:`setPointerCapture` + `touch-action: none` + 4px slop + 拖拽后抑制 click;`pointercancel` 中止一切（§4.2）。
+6. 命中/配对/rect 缓存随渲染、缩放、换肤、容器尺寸变化全量失效;autoResize 关闭,重渲染与缓存失效走同一条路径（§3.2,tech.md §6.1）。
+7. 指针管线:`setPointerCapture` + `touch-action: none` + 4px slop + 拖拽后抑制双击;`pointercancel` 中止一切（§4.2）。
 8. 拖拽高频更新不进 React state,抬手提交（§4.2,text-selection.md §6）。
-9. 乐句双击（S6）双路径:桌面原生 `dblclick` + 触控 pointer 双击检测（iOS/iPadOS 不触发原生 dblclick）;两路径处理幂等（§4.3）。
+9. 乐句双击（S6）双路径:桌面原生 `dblclick` + 触控 pointer 双击检测（iOS/iPadOS 不触发原生 dblclick）;两路径处理幂等——同一手势的双信号（刚提交的终点音符窗口内重复信号、同音符重复双击）由状态护栏去重（§4.3）。
+10. 命中路由不做最近邻吸附（空白 = 框选入口必须可达）;GetNearestNote 回落仅用于句柄微调等显式吸附（§3.4,S9）。
+11. 外部清零必须经显式信号销毁 pending（selection 保持 null 时 prop-effect 不可达,§4.1）。
 
 ---
 
 ## 7. 测试策略（选择域）
 
-| 层 | 对象 | 要点 |
-| --- | --- | --- |
-| 纯函数 | `resolveEndpoint` | 四类端点 × 起点/终点;边界:曲首休止、曲尾休止、tie 端点、装饰音后无发音、`start ≥ end` 无效区间 |
-| 纯函数 | `computeLoopRange` | 三模式 × skipBeats;优先级;空播放数据守卫 |
-| 纯函数 | 计数规则镜像 | 用手工构造的音符序列断言「图形遍历计数」与「buildPlaybackData 计数」两镜像函数输出一致（jsdom 跑不了 OSMD 渲染,渲染层一致性靠下两行） |
-| 手动 | 三样例谱回归 | 单击小节正确（**重点:m33/m58/m69 洞小节邻域**）;双击乐句跨延音/装饰音区段后循环范围与高亮一致;Esc/清除;BPM 变更后循环范围随乐谱位置不变 |
-| 手动 | spike 复验 | `pnpm dev` + `node spike/selection-check.mjs`,V-S1–V-S6 作回归基线 |
+| 层 | 对象 | 要点 | 状态 |
+| --- | --- | --- | --- |
+| 纯函数 | `resolveEndpoint` | 四类端点 × 起点/终点;边界:曲首休止、曲尾休止、tie 端点、装饰音后无发音、`start ≥ end` 无效区间 | vitest（tests/utils/notation/selection.test.ts） |
+| 纯函数 | `computeLoopRange` | 三模式 × skipBeats;优先级;空播放数据守卫;小节模式空区间兜底 | vitest（同上） |
+| 纯函数 | 计数规则镜像 | `occupiesPlaybackSlot`（图形遍历计数 = buildPlaybackData 计数的唯一判定,P1 复用）;装饰音指向下一占位音、延续音指向起始音;PrintObject 仍占位 | vitest（tests/utils/notation/NoteInteraction.test.ts） |
+| 纯函数 | 框选几何 | 行几何、每行高亮分片、拖拽矩形 → 区间（正向/反向/跨行/无命中）、修饰键语义 | vitest（tests/utils/notation/layout.test.ts） |
+| 组件 | 指针管线与覆盖层 | 单击小节/双击乐句（幂等）/框选/句柄微调/pointercancel 中止/外部清零信号/缩放步进（jsdom + OSMD 假件,rect 钉值） | vitest（tests/components/OsmdNotation.test.tsx、tests/pages/ScorePage.test.tsx） |
+| 手动 | 三样例谱回归 | 单击小节正确（**重点:m33/m58/m69 洞小节邻域**）;双击乐句跨延音/装饰音区段后循环范围与高亮一致;Esc/清除;BPM 变更后循环范围随乐谱位置不变 | 待播放域（P1）接入后过单 |
+| 手动 | spike 复验 | `pnpm dev` + `node spike/selection-check.mjs`,V-S1–V-S6 作回归基线 | 待过 |
 
-> jsdom 限制:无布局引擎,`elementsFromPoint` 不可用——命中与几何层不做 jsdom 单测,以 spike（headless Chrome）+ 手动覆盖。
+> jsdom 限制:无布局引擎,`elementsFromPoint` 无几何语义——命中路由只测 closest 路径,几何层以 spike（headless Chrome）+ 手动覆盖。
 
 ---
 
@@ -289,10 +297,12 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 | S2 | 端点解析为 `selection.ts` 纯函数（发音/休止/装饰音/延音四类规则 + 二分） | 旧实现在端点无条目时静默失败;规则集中一处可单测 |
 | S3 | DOM 配对三层防线:全局 zip + 计数守卫 → 几何自检（容差 5px）→ `GetNearestNote` 回落 | 洞实测存在（V-S3）;仿射关系实测成立（V-S4）;官方原语 1.9.7 可用（V-S5） |
 | S4 | 屏幕像素唯一来源 `getBoundingClientRect`;unit 只经官方公式换算 | PAS 宽高运行时 undefined（V-S4）;DOM rect 吸收滚动/缩放/布局（旧 PhraseMarkers 教训通用化） |
-| S5 | Pointer 事件管线:down 路由 + setPointerCapture + touch-action:none + 4px slop + 拖拽抑制 click + pointercancel 中止 | ProseMirror/d3-drag/viselect 同款惯例（§9.3）;跨设备统一鼠标/触控 |
+| S5 | Pointer 事件管线:down 路由 + setPointerCapture + touch-action:none + 4px slop + 拖拽抑制双击 + pointercancel 中止 | ProseMirror/d3-drag/viselect 同款惯例（§9.3）;跨设备统一鼠标/触控 |
 | S6 | 乐句用原生 `dblclick`;单击零延迟选小节;pending startNote 存 ref + 500ms 延迟销毁窗口 | 旧 300ms 定时器让每次单击延迟 300ms;延迟销毁解决「双击第二击的第一击破坏 pending」竞态,窗口对齐 Chrome 双击阈值 |
 | S7 | 高亮/括号/框选统一 HTML 覆盖层;坐标读渲染后 rect 缓存;不改 SVG fill、不用 NoteheadColor 重渲染 | alphaTab 同构（§9.1）;零 DOM 读取支撑拖拽 60fps;fill 侵入 OSMD SVG 需自管恢复（旧路径）,NoteheadColor 要重渲染（#434） |
 | S8 | 选择是会话态,不持久化;`LoopRange` 每次由 selection + 播放数据现算 | 旧实现亦然;乐谱时域下 `LoopRange` 与 BPM 无关,变速/重建播放数据都无需重推（audio.md A2/A12） |
+| S9 | 命中链拆分:路由命中（closest + elementsFromPoint）不做最近邻吸附;GetNearestNote 回落仅用于句柄微调 | 路由层吸附会让音符邻域的空白按下变成「点音符」,框选入口不可达（v1.4 落地时定案）;Soundslice 式空白吸附留 §10 候选 |
+| S10 | 框选修饰键在单区间 LoopRange 模型下的语义:Shift = 并集;Ctrl/Cmd = 重叠裁剪取较长剩余段、不重叠并入 | 单区间是 LoopRange 产品的形状（§2.4）;完整 toggle 需多区间状态,先以裁剪近似并在 UI 呈现上保持单一选区（v1.4） |
 
 **后续候选（不在本期,记录调研到的实现路径）**:
 

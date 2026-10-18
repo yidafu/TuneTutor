@@ -169,9 +169,9 @@ interface StoredAudioFile { id; fileName; fileSize; uploadedAt; data: ArrayBuffe
 
 ### 6.1 渲染（`OsmdRender`）
 
-- OSMD 选项基线：`autoResize`、`backend: 'svg'`、`disableCursor: false`、`drawTitle/Composer/PartNames`、`coloringEnabled`。
-- 渲染后 `waitForSvgContent`（ResizeObserver 异步，轮询 rAF 等待 SVG 有子节点），再构建音符映射。
-- 实例全局单例；重渲染/清除时必须失效音符缓存。
+- OSMD 选项基线：`autoResize: false`（重渲染由组件 ResizeObserver 防抖驱动、与音符缓存失效同路，selection.md §3.2）、`backend: 'svg'`、`disableCursor: false`、`drawTitle/Composer/PartNames`、`coloringEnabled`；EngravingRules 颜色读皮肤 token（谱线/音符/文字，§7.2，换肤触发重渲染 T6）。
+- 渲染后 `waitForSvgContent`（rAF 轮询等待 SVG 有子节点，超时放行），再构建音符映射。
+- 实例单例（每容器一个）；重渲染/清除/缩放时必须失效音符缓存（缩放页脚 －/＋ 乘性步进 0.5–2.0）。
 
 ### 6.2 选择交互（摘要）
 
