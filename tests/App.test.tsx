@@ -7,11 +7,11 @@ import { zhCN } from '@/locales/zh-CN'
 import { renderWithProviders } from './helpers/ui'
 
 // jsdom 无 SVG 布局，OSMD 用替身；原曲页 wavesurfer 同理
-vi.mock('@/utils/notation/OsmdRender', () => ({
-  OsmdRender: class {
-    load = vi.fn().mockResolvedValue(undefined)
-  },
-}))
+vi.mock('@/utils/notation/OsmdRender', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/notation/OsmdRender')>()
+  const { FakeOsmdRender } = await import('./helpers/osmdFake')
+  return { ...actual, OsmdRender: FakeOsmdRender }
+})
 vi.mock('wavesurfer.js', async () => {
   const { FakeWaveSurfer } = await import('./helpers/wavesurferFake')
   return { default: { create: FakeWaveSurfer.create } }

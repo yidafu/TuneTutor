@@ -1,10 +1,37 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as stylex from '@stylexjs/stylex'
-import { OsmdRender } from '../utils/notation/OsmdRender'
+import ScoreSelectionOverlay from './ScoreSelectionOverlay'
+import { useDoubleTap } from '../hooks/useDoubleTap'
 import { useI18n } from '../locales/useI18n'
+import { useTheme } from '../hooks/useTheme'
+import {
+  NoteInteraction,
+  hitNoteFromPosition,
+  type NotePosition,
+} from '../utils/notation/NoteInteraction'
+import {
+  buildRowGeometries,
+  computeBoxSelection,
+  type DragRect,
+  type RowGeometry,
+} from '../utils/notation/layout'
+import { OsmdRender, nextZoomStep } from '../utils/notation/OsmdRender'
+import {
+  applyBoxModifiers,
+  createBoxSelection,
+  createMeasureSelection,
+  createPhraseSelection,
+  DRAG_SLOP_PX,
+  PENDING_DESTROY_MS,
+  summarizeSelection,
+  type HitNote,
+  type ScoreSelection,
+  type SelectionSummary,
+} from '../utils/notation/selection'
 
 const styles = stylex.create({
   stage: {
+    position: 'relative',
     marginTop: '8px',
     display: 'grid',
     minHeight: '160px',
@@ -22,6 +49,10 @@ const styles = stylex.create({
     borderWidth: 0,
     backgroundColor: 'transparent',
     paddingInline: 0,
+    // 拖拽面（selection.md §4.2/S5）：不给滚动接管手势的机会，pointermove 才不会停发
+    touchAction: 'none',
+    cursor: 'default',
+    overflow: 'auto',
   },
   placeholder: {
     maxWidth: '420px',
@@ -57,52 +88,551 @@ const styles = stylex.create({
     paddingBlock: '2px',
     color: 'var(--color-fg-2)',
   },
+  zoomBtn: {
+    borderWidth: 0,
+    fontSize: '12px',
+    lineHeight: '16px',
+    cursor: 'pointer',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-2)',
+      color: 'var(--color-fg)',
+    },
+  },
 })
 
 interface OsmdNotationProps {
   /** 解包后的主谱 XML 原文（processFile 产物）；undefined = 未加载 */
   rawContent?: string
+  /** 会话态选择（ScorePage 持有；清除按钮/换谱时被置 null） */
+  selection: ScoreSelection | null
+  /** 任何一次交互产生的新选择（null = 清除），连同展示摘要一并上报 */
+  onSelectionChange: (selection: ScoreSelection | null, summary: SelectionSummary | null) => void
+  /** 选择无法落成有效区间（如洞小节无可定位音符）时的 UI 提示钩子 */
+  onSelectionInvalid: () => void
+  /** 外部清零信号（Esc/清除按钮）：递增即销毁内部 pending 意图 */
+  clearPendingSignal?: number
 }
 
-/**
- * 纸面乐谱卡渲染区 + 页脚。持有 OSMD 实例（docs/tech.md §6.1）：
- * rawContent 变更即 load+render；渲染错误仅进 console（导入期错误已在 FileLoaderModal 提示）。
- * 选择/乐句覆盖层与光标跟随在播放域接入时补齐（P2）。
- */
-export default function OsmdNotation({ rawContent }: OsmdNotationProps) {
-  const { t } = useI18n()
-  const containerRef = useRef<HTMLDivElement>(null)
+type Gesture =
+  | { kind: 'candidate'; pointerId: number; x0: number; y0: number; note: NotePosition | null }
+  | {
+      kind: 'box'
+      pointerId: number
+      x0: number
+      y0: number
+      x1: number
+      y1: number
+      shift: boolean
+      ctrlOrMeta: boolean
+    }
+  | { kind: 'handle'; pointerId: number; side: 'start' | 'end' }
+  | { kind: 'cancelled'; pointerId: number }
 
+interface PendingStart {
+  noteIndex: number
+  measureIndex: number
+  hit: HitNote
+}
+
+const SUPPRESS_DOUBLE_MS = 400
+
+/**
+ * 纸面乐谱卡渲染区 + 页脚（docs/tech.md §6.1、docs/selection.md §4）。
+ * 持有 OSMD 实例与音符缓存：渲染/缩放/换肤/容器尺寸变化后全量重建；
+ * 指针管线 = 原生监听（text-selection.md §6 原则 1）：单击音符选小节（零延迟）、
+ * 双击两点设乐句（原生 dblclick + useDoubleTap 双路径幂等，S6）、空白拖拽框选（4px
+ * slop 起板，抬手提交）、边界句柄微调；拖拽高频更新直写覆盖层不进 React state。
+ */
+export default function OsmdNotation({
+  rawContent,
+  selection,
+  onSelectionChange,
+  onSelectionInvalid,
+  clearPendingSignal = 0,
+}: OsmdNotationProps) {
+  const { t } = useI18n()
+  const { theme } = useTheme()
+  const stageRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rendererRef = useRef<OsmdRender | null>(null)
+  const interactionRef = useRef<NoteInteraction | null>(null)
+  const loadingRef = useRef(false)
+  const gestureRef = useRef<Gesture | null>(null)
+  const pendingRef = useRef<PendingStart | null>(null)
+  const pendingTimerRef = useRef<number | null>(null)
+  const lastPhraseCommitRef = useRef<{ endIndex: number; at: number } | null>(null)
+  const suppressDoubleRef = useRef(0)
+  const dragFrameRef = useRef<number | null>(null)
+  const dragLayerRef = useRef<HTMLDivElement | null>(null)
+  const zoomRef = useRef(1)
+
+  const [zoom, setZoom] = useState(1)
+  const [geometry, setGeometry] = useState<{ positions: NotePosition[]; rows: RowGeometry[] } | null>(null)
+  const [pendingNoteIndex, setPendingNoteIndex] = useState<number | null>(null)
+
+  // 跨 render 的最新值镜像：原生监听只挂一次，回调经 ref 读最新 props/几何
+  const settingsRef = useRef({ selection, onSelectionChange, onSelectionInvalid })
+  useEffect(() => {
+    settingsRef.current = { selection, onSelectionChange, onSelectionInvalid }
+  })
+  const geometryRef = useRef(geometry)
+  useEffect(() => {
+    geometryRef.current = geometry
+  }, [geometry])
+
+  const destroyPending = useCallback(() => {
+    if (pendingTimerRef.current !== null) {
+      window.clearTimeout(pendingTimerRef.current)
+      pendingTimerRef.current = null
+    }
+    pendingRef.current = null
+    setPendingNoteIndex(null)
+  }, [])
+
+  // 外部清零信号（Esc/清除按钮）→ 销毁 pending 意图；内容装载/换谱另行销毁
+  const lastClearSignalRef = useRef(clearPendingSignal)
+  useEffect(() => {
+    if (clearPendingSignal !== lastClearSignalRef.current) {
+      lastClearSignalRef.current = clearPendingSignal
+      destroyPending()
+    }
+  }, [clearPendingSignal, destroyPending])
+
+  /** 统一提交口：连同展示摘要一并上报（摘要由 positions 缓存现算，§2.4） */
+  const commitSelection = useCallback((next: ScoreSelection | null) => {
+    const summary =
+      next === null ? null : summarizeSelection(next, geometryRef.current?.positions ?? [])
+    settingsRef.current.onSelectionChange(next, summary)
+  }, [])
+
+  const rebuild = useCallback((renderer: OsmdRender, container: HTMLElement) => {
+    const interaction = new NoteInteraction(renderer.instance, container)
+    interaction.build()
+    interactionRef.current = interaction
+    setGeometry({
+      positions: [...interaction.cachedPositions],
+      rows: buildRowGeometries(interaction.cachedPositions),
+    })
+  }, [])
+
+  // 内容装载：rawContent 变更即重载（幂等），换谱清选择（选择是谱内会话态，S8）。
+  // 首次挂载不回调清除（选择本来为空，避免无意义的父级状态更新）。
+  const loadedContentRef = useRef<string | undefined>(undefined)
   useEffect(() => {
     const container = containerRef.current
     if (container === null || rawContent === undefined) return
+    let cancelled = false
+    zoomRef.current = 1
+    setZoom(1)
+    setGeometry(null)
+    destroyPending()
+    if (loadedContentRef.current !== undefined && loadedContentRef.current !== rawContent) {
+      settingsRef.current.onSelectionChange(null, null)
+    }
+    loadedContentRef.current = rawContent
     const renderer = new OsmdRender(container)
-    void renderer.load(rawContent).catch((error: unknown) => {
-      console.error('[OsmdNotation] render failed:', error)
-    })
+    rendererRef.current = renderer
+    loadingRef.current = true
+    void (async () => {
+      try {
+        await renderer.load(rawContent)
+        if (cancelled) return
+        await renderer.waitForSvgContent()
+        if (cancelled) return
+        rebuild(renderer, container)
+      } catch (error: unknown) {
+        console.error('[OsmdNotation] render failed:', error)
+      } finally {
+        if (!cancelled) loadingRef.current = false
+      }
+    })()
     return () => {
+      cancelled = true
       container.innerHTML = ''
     }
-  }, [rawContent])
+  }, [rawContent, rebuild, destroyPending])
+
+  /** 缩放/换肤/容器尺寸变化后的重渲染 + 缓存重建（选择保留：noteIndex 不变，§2.4） */
+  const rerender = useCallback(
+    async (nextZoom?: number) => {
+      const renderer = rendererRef.current
+      const container = containerRef.current
+      if (renderer === null || container === null || loadingRef.current) return
+      loadingRef.current = true
+      try {
+        if (nextZoom === undefined) renderer.render()
+        else renderer.setZoom(nextZoom)
+        await renderer.waitForSvgContent()
+        rebuild(renderer, container)
+      } catch (error: unknown) {
+        console.error('[OsmdNotation] rerender failed:', error)
+      } finally {
+        loadingRef.current = false
+      }
+    },
+    [rebuild],
+  )
+
+  const applyZoom = useCallback(
+    (direction: 1 | -1) => {
+      const next = nextZoomStep(zoomRef.current, direction)
+      zoomRef.current = next
+      setZoom(next)
+      void rerender(next)
+    },
+    [rerender],
+  )
+
+  // 换肤触发重渲染（skin-switching.html T6）；挂载时渲染未就绪/进行中则跳过
+  useEffect(() => {
+    if (rendererRef.current === null || loadingRef.current) return
+    void rerender()
+  }, [theme, rerender])
+
+  // 容器尺寸变化 → 防抖重渲染（autoResize 关闭：重渲染与缓存失效走同一条路，§3.2）
+  useEffect(() => {
+    const container = containerRef.current
+    if (container === null || typeof ResizeObserver === 'undefined') return
+    let timer: number | null = null
+    let lastWidth: number | null = null
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[entries.length - 1]?.contentRect.width
+      if (width === undefined || width === lastWidth) return
+      lastWidth = width
+      if (timer !== null) window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        timer = null
+        void rerender()
+      }, 200)
+    })
+    observer.observe(container)
+    return () => {
+      observer.disconnect()
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [rerender])
+
+  // ── 选择语义 ────────────────────────────────────────────────────────
+
+  const handleTapSelect = useCallback(
+    (note: NotePosition) => {
+      // 单击 = 即时选小节（零延迟，S6）；pending 不直接破坏，进入延迟销毁窗口（§4.3）
+      if (pendingRef.current !== null && pendingTimerRef.current === null) {
+        pendingTimerRef.current = window.setTimeout(() => destroyPending(), PENDING_DESTROY_MS)
+      }
+      const positions = geometryRef.current?.positions ?? []
+      const next = createMeasureSelection(note.measureIndex, positions)
+      if (next === null) {
+        settingsRef.current.onSelectionInvalid()
+        return
+      }
+      commitSelection(next)
+    },
+    [destroyPending, commitSelection],
+  )
+
+  const handlePhraseTap = useCallback(
+    (note: NotePosition) => {
+      const pending = pendingRef.current
+      if (pending === null) {
+        // 双路径去重（S6/AGENTS）：原生 dblclick 与触控双击对同一手势先后触发，
+        // 刚提交的终点音符在窗口内的重复信号直接忽略
+        const last = lastPhraseCommitRef.current
+        if (
+          last !== null &&
+          last.endIndex === note.noteIndex &&
+          Date.now() - last.at < PENDING_DESTROY_MS
+        ) {
+          return
+        }
+        pendingRef.current = {
+          noteIndex: note.noteIndex,
+          measureIndex: note.measureIndex,
+          hit: hitNoteFromPosition(note),
+        }
+        setPendingNoteIndex(note.noteIndex)
+        return
+      }
+      if (pending.noteIndex === note.noteIndex) return
+      destroyPending()
+      lastPhraseCommitRef.current = { endIndex: note.noteIndex, at: Date.now() }
+      commitSelection(createPhraseSelection(pending.hit, hitNoteFromPosition(note)))
+    },
+    [destroyPending, commitSelection],
+  )
+
+  const commitBox = useCallback(
+    (rect: DragRect, shift: boolean, ctrlOrMeta: boolean) => {
+      const geo = geometryRef.current
+      if (geo === null) return
+      const box = computeBoxSelection(rect, geo.positions, geo.rows)
+      if (box === null) return // 没盖到音符：不产生选择（text-selection.md §3.4）
+      const adjusted = applyBoxModifiers(settingsRef.current.selection, box, { shift, ctrlOrMeta })
+      if (adjusted === null) {
+        commitSelection(null)
+        return
+      }
+      const next = createBoxSelection(adjusted.startIndex, adjusted.endIndex, geo.positions)
+      if (next === null) {
+        settingsRef.current.onSelectionInvalid()
+        return
+      }
+      commitSelection(next)
+    },
+    [commitSelection],
+  )
+
+  const commitHandle = useCallback(
+    (side: 'start' | 'end', clientX: number, clientY: number) => {
+      const geo = geometryRef.current
+      const current = settingsRef.current.selection
+      const interaction = interactionRef.current
+      if (geo === null || current === null || interaction === null) return
+      // 句柄拖拽吸附最近音符（selection.md §9.4 Soundslice 式）
+      const note = interaction.hitAtPoint(clientX, clientY)
+      if (note === null || !note.occupiesSlot) return
+      const bounds =
+        side === 'start'
+          ? { startIndex: Math.min(note.noteIndex, current.endIndex), endIndex: current.endIndex }
+          : { startIndex: current.startIndex, endIndex: Math.max(note.noteIndex, current.startIndex) }
+      const next = createBoxSelection(bounds.startIndex, bounds.endIndex, geo.positions)
+      if (next === null) return
+      commitSelection(next)
+    },
+    [commitSelection],
+  )
+
+  // ── 拖拽实时矩形（直写 style，不进 React state；§4.2）────────────────
+
+  const writeDragRect = useCallback((gesture: { x0: number; y0: number; x1: number; y1: number }) => {
+    const layer = dragLayerRef.current
+    const stageRect = stageRef.current?.getBoundingClientRect()
+    if (layer === null || stageRect === undefined) return
+    const x1 = Math.min(gesture.x0, gesture.x1) - stageRect.x
+    const y1 = Math.min(gesture.y0, gesture.y1) - stageRect.y
+    const x2 = Math.max(gesture.x0, gesture.x1) - stageRect.x
+    const y2 = Math.max(gesture.y0, gesture.y1) - stageRect.y
+    layer.style.display = 'block'
+    layer.style.left = `${x1}px`
+    layer.style.top = `${y1}px`
+    layer.style.width = `${x2 - x1}px`
+    layer.style.height = `${y2 - y1}px`
+  }, [])
+
+  const hideDragRect = useCallback(() => {
+    const layer = dragLayerRef.current
+    if (layer !== null) layer.style.display = 'none'
+  }, [])
+
+  const scheduleDragRect = useCallback(
+    (gesture: { x0: number; y0: number; x1: number; y1: number }) => {
+      if (dragFrameRef.current !== null) return
+      const frame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null
+      if (frame === null) {
+        writeDragRect(gesture)
+        return
+      }
+      dragFrameRef.current = frame(() => {
+        dragFrameRef.current = null
+        writeDragRect(gesture)
+      })
+    },
+    [writeDragRect],
+  )
+
+  // ── 指针事件管线（S5：原生监听 + setPointerCapture + 4px slop + pointercancel 中止）──
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (stage === null) return
+
+    const localRect = (gesture: { x0: number; y0: number; x1: number; y1: number }): DragRect => {
+      const stageRect = stageRef.current?.getBoundingClientRect()
+      const ox = stageRect?.x ?? 0
+      const oy = stageRect?.y ?? 0
+      return {
+        x1: Math.min(gesture.x0, gesture.x1) - ox,
+        y1: Math.min(gesture.y0, gesture.y1) - oy,
+        x2: Math.max(gesture.x0, gesture.x1) - ox,
+        y2: Math.max(gesture.y0, gesture.y1) - oy,
+      }
+    }
+
+    const onPointerDown = (event: PointerEvent): void => {
+      if (event.isPrimary === false || event.button !== 0) return
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const interaction = interactionRef.current
+      try {
+        stage.setPointerCapture(event.pointerId)
+      } catch {
+        // jsdom/无捕获环境：管线降级为普通监听
+      }
+      const handle = target.closest('[data-selection-handle]')
+      if (handle !== null) {
+        gestureRef.current = {
+          kind: 'handle',
+          pointerId: event.pointerId,
+          side: (handle as HTMLElement).dataset.selectionHandle === 'end' ? 'end' : 'start',
+        }
+        return
+      }
+      const note = interaction?.hitFromEvent(event) ?? null
+      gestureRef.current = {
+        kind: 'candidate',
+        pointerId: event.pointerId,
+        x0: event.clientX,
+        y0: event.clientY,
+        note,
+      }
+    }
+
+    const onPointerMove = (event: PointerEvent): void => {
+      const gesture = gestureRef.current
+      if (gesture === null || event.pointerId !== gesture.pointerId) return
+      if (gesture.kind === 'candidate') {
+        if (Math.hypot(event.clientX - gesture.x0, event.clientY - gesture.y0) <= DRAG_SLOP_PX) {
+          return
+        }
+        // 音符上起板拖拽不进入框选（text-selection.md §3.4）；空白起板 = 框选
+        gestureRef.current =
+          gesture.note === null
+            ? {
+                kind: 'box',
+                pointerId: gesture.pointerId,
+                x0: gesture.x0,
+                y0: gesture.y0,
+                x1: event.clientX,
+                y1: event.clientY,
+                shift: event.shiftKey,
+                ctrlOrMeta: event.ctrlKey || event.metaKey,
+              }
+            : { kind: 'cancelled', pointerId: gesture.pointerId }
+        return
+      }
+      if (gesture.kind === 'box') {
+        gesture.x1 = event.clientX
+        gesture.y1 = event.clientY
+        scheduleDragRect(gesture)
+      }
+    }
+
+    const onPointerUp = (event: PointerEvent): void => {
+      const gesture = gestureRef.current
+      if (gesture === null || event.pointerId !== gesture.pointerId) return
+      gestureRef.current = null
+      if (gesture.kind === 'candidate') {
+        if (gesture.note !== null) handleTapSelect(gesture.note)
+        return
+      }
+      if (gesture.kind === 'box') {
+        hideDragRect()
+        commitBox(localRect(gesture), gesture.shift, gesture.ctrlOrMeta)
+        // 抬手抑制双击（验收：拖拽期间不触发双击选乐句）
+        suppressDoubleRef.current = Date.now() + SUPPRESS_DOUBLE_MS
+        return
+      }
+      if (gesture.kind === 'handle') {
+        commitHandle(gesture.side, event.clientX, event.clientY)
+        suppressDoubleRef.current = Date.now() + SUPPRESS_DOUBLE_MS
+      }
+    }
+
+    const onPointerCancel = (event: PointerEvent): void => {
+      const gesture = gestureRef.current
+      if (gesture === null || event.pointerId !== gesture.pointerId) return
+      // 浏览器接管手势（滚动/缩放）：中止，不产生任何选择（§4.2）
+      gestureRef.current = null
+      hideDragRect()
+    }
+
+    const onDoubleClick = (event: MouseEvent): void => {
+      if (Date.now() < suppressDoubleRef.current) return
+      const note = interactionRef.current?.hitFromEvent(event) ?? null
+      if (note !== null) handlePhraseTap(note)
+    }
+
+    stage.addEventListener('pointerdown', onPointerDown)
+    stage.addEventListener('pointermove', onPointerMove)
+    stage.addEventListener('pointerup', onPointerUp)
+    stage.addEventListener('pointercancel', onPointerCancel)
+    stage.addEventListener('dblclick', onDoubleClick)
+    return () => {
+      stage.removeEventListener('pointerdown', onPointerDown)
+      stage.removeEventListener('pointermove', onPointerMove)
+      stage.removeEventListener('pointerup', onPointerUp)
+      stage.removeEventListener('pointercancel', onPointerCancel)
+      stage.removeEventListener('dblclick', onDoubleClick)
+    }
+  }, [handleTapSelect, handlePhraseTap, commitBox, commitHandle, hideDragRect, scheduleDragRect])
+
+  // 触控双击路径（iOS/iPadOS Safari 不触发原生 dblclick，WebKit bug 202143；S6 v1.3）
+  useDoubleTap(
+    stageRef,
+    useCallback(
+      (event: PointerEvent) => {
+        if (Date.now() < suppressDoubleRef.current) return
+        const note = interactionRef.current?.hitFromEvent(event) ?? null
+        if (note !== null) handlePhraseTap(note)
+      },
+      [handlePhraseTap],
+    ),
+  )
+
+  useEffect(
+    () => () => {
+      if (dragFrameRef.current !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(dragFrameRef.current)
+      }
+    },
+    [],
+  )
 
   return (
     <>
       <div
+        ref={stageRef}
+        data-osmd-stage=""
         {...stylex.props(styles.stage, rawContent !== undefined && styles.stageLoaded)}
       >
         {rawContent === undefined ? (
           <p {...stylex.props(styles.placeholder)}>{t.notationPlaceholder}</p>
         ) : (
-          <div ref={containerRef} {...stylex.props(styles.osmdContainer)} />
+          <>
+            <div ref={containerRef} {...stylex.props(styles.osmdContainer)} />
+            {geometry !== null && (
+              <ScoreSelectionOverlay
+                positions={geometry.positions}
+                rows={geometry.rows}
+                pendingNoteIndex={pendingNoteIndex}
+                selection={selection}
+                dragLayerRef={dragLayerRef}
+              />
+            )}
+          </>
         )}
       </div>
       <div {...stylex.props(styles.footer)}>
         <span>{t.notationFootInfo}</span>
-        <span {...stylex.props(styles.zoomRow)} aria-hidden="true">
-          <span {...stylex.props(styles.zoomChip)}>－</span>
-          <span {...stylex.props(styles.zoomChip)}>100%</span>
-          <span {...stylex.props(styles.zoomChip)}>＋</span>
-        </span>
+        <div {...stylex.props(styles.zoomRow)}>
+          <button
+            type="button"
+            {...stylex.props(styles.zoomChip, styles.zoomBtn)}
+            aria-label={t.notationZoomOut}
+            onClick={() => applyZoom(-1)}
+          >
+            －
+          </button>
+          <span {...stylex.props(styles.zoomChip)}>{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            {...stylex.props(styles.zoomChip, styles.zoomBtn)}
+            aria-label={t.notationZoomIn}
+            onClick={() => applyZoom(1)}
+          >
+            ＋
+          </button>
+        </div>
       </div>
     </>
   )
