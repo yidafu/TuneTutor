@@ -1,18 +1,19 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import ScorePage from '@/pages/ScorePage'
 import { enUS } from '@/locales/en-US'
 import { createDemoScore } from '@/utils/createDemoScore'
 import { getStoredFile, listStoredFiles, saveStoredFile } from '@/utils/storage/indexedDB'
 import { renderWithProviders } from '../helpers/ui'
+import { FAKE_CONTAINER_RECT, FakeOsmdRender, TWO_ROW_SPEC } from '../helpers/osmdFake'
 
-// jsdom 无 SVG 布局能力，OSMD 以 mock 替身注入（渲染契约在 OsmdNotation.test 覆盖）
-vi.mock('@/utils/notation/OsmdRender', () => ({
-  OsmdRender: class {
-    load = vi.fn().mockResolvedValue(undefined)
-  },
-}))
+// jsdom 无 SVG 布局能力，OSMD 以替身注入（渲染与指针管线契约在 OsmdNotation.test 覆盖）
+vi.mock('@/utils/notation/OsmdRender', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/notation/OsmdRender')>()
+  const { FakeOsmdRender } = await import('../helpers/osmdFake')
+  return { ...actual, OsmdRender: FakeOsmdRender }
+})
 
 const SCORE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
@@ -28,9 +29,20 @@ const SCORE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </score-partwise>`
 
 function renderScorePage() {
+  FakeOsmdRender.spec = TWO_ROW_SPEC
   const onTempoChange = vi.fn()
   renderWithProviders(<ScorePage tempo={90} onTempoChange={onTempoChange} />)
   return onTempoChange
+}
+
+async function waitForScoreNotes(): Promise<HTMLElement[]> {
+  const stage = await waitFor(() => {
+    const element = document.querySelector('[data-osmd-stage]')
+    expect(element).not.toBeNull()
+    return element as HTMLElement
+  })
+  await waitFor(() => expect(stage.querySelector('[data-drag-layer]')).not.toBeNull())
+  return Array.from(stage.querySelectorAll('.vf-notehead')) as HTMLElement[]
 }
 
 async function openModalAndPick(file: File) {
@@ -41,6 +53,11 @@ async function openModalAndPick(file: File) {
 }
 
 describe('ScorePage', () => {
+  afterEach(() => {
+    FakeOsmdRender.spec = null
+    FakeOsmdRender.last = null
+  })
+
   it('初始回落内置示范曲：ScoreInfo 来自解析结果、渲染区接管（非占位）', () => {
     renderScorePage()
 
@@ -196,5 +213,75 @@ describe('ScorePage', () => {
     expect(
       screen.getByRole('button', { name: new RegExp(enUS.instrumentGuitar) }),
     ).toBeInTheDocument()
+  })
+
+  it('单击音符：SelectionInfo/StatusBar 显示小节选择，清除按钮复位', async () => {
+    renderScorePage()
+    const notes = await waitForScoreNotes()
+
+    fireEvent.pointerDown(notes[0]!, {
+      pointerId: 1,
+      isPrimary: true,
+      button: 0,
+      clientX: 60 + FAKE_CONTAINER_RECT.x,
+      clientY: 40 + FAKE_CONTAINER_RECT.y,
+    })
+    fireEvent.pointerUp(notes[0]!, {
+      pointerId: 1,
+      clientX: 60 + FAKE_CONTAINER_RECT.x,
+      clientY: 40 + FAKE_CONTAINER_RECT.y,
+    })
+
+    const chipText = `${enUS.selectionMeasure} · ${enUS.selectionMeasures(1, 1)} · ${enUS.selectionNoteCount(4)}`
+    // SelectionInfo chip 与 StatusBar 同步同一份摘要文案
+    await waitFor(() => expect(screen.getAllByText(chipText).length).toBeGreaterThanOrEqual(2))
+
+    fireEvent.click(screen.getByRole('button', { name: enUS.selectionClear }))
+    // 清除按钮消失 = 选择复位（selectionNone 同时出现在 SelectionInfo 与 StatusBar）
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: enUS.selectionClear })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('双击两点：乐句 chip（SelectionInfo + 覆盖层 pill）', async () => {
+    renderScorePage()
+    const notes = await waitForScoreNotes()
+
+    fireEvent.doubleClick(notes[1]!)
+    fireEvent.doubleClick(notes[6]!)
+
+    const chipText = `${enUS.selectionPhrase} · ${enUS.selectionMeasures(1, 3)} · ${enUS.selectionNoteCount(6)}`
+    // SelectionInfo chip 与 StatusBar 同步同一份摘要文案
+    await waitFor(() => expect(screen.getAllByText(chipText).length).toBeGreaterThanOrEqual(2))
+    // 覆盖层标签 pill：乐句 · 小节范围
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(`${enUS.selectionPhrase} · ${enUS.selectionMeasures(1, 3)}`).length,
+      ).toBeGreaterThanOrEqual(1),
+    )
+  })
+
+  it('Esc = 停止并清除选择（tech.md §6.3）；播放中的 Space 不受影响', async () => {
+    renderScorePage()
+    const notes = await waitForScoreNotes()
+
+    fireEvent.pointerDown(notes[0]!, {
+      pointerId: 1,
+      isPrimary: true,
+      button: 0,
+      clientX: 60 + FAKE_CONTAINER_RECT.x,
+      clientY: 40 + FAKE_CONTAINER_RECT.y,
+    })
+    fireEvent.pointerUp(notes[0]!, {
+      pointerId: 1,
+      clientX: 60 + FAKE_CONTAINER_RECT.x,
+      clientY: 40 + FAKE_CONTAINER_RECT.y,
+    })
+    expect(await screen.findByText(enUS.selectionClear)).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: enUS.selectionClear })).not.toBeInTheDocument(),
+    )
   })
 })

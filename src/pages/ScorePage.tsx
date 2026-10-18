@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import FileLoaderModal from '../components/FileLoaderModal'
 import type { FileHistoryItem } from '../components/FileLoader/FileHistoryList'
@@ -14,6 +14,11 @@ import { useI18n } from '../locales/useI18n'
 import type { TranslationSet } from '../locales/en-US'
 import type { InstrumentType, MetronomeSoundType } from '../types/audio'
 import type { ParsedScore } from '../types/notation'
+import {
+  describeSelection,
+  type ScoreSelection,
+  type SelectionSummary,
+} from '../utils/notation/selection'
 import { createDemoScore } from '../utils/createDemoScore'
 import {
   deleteStoredFile,
@@ -134,7 +139,7 @@ function importErrorText(t: TranslationSet, code: ImportErrorCode): string {
   }
 }
 
-/** 乐谱练习页（/）：OSMD 渲染 + IndexedDB 历史与启动恢复；选择模型与播放引擎尚未接入 */
+/** 乐谱练习页（/）：OSMD 渲染 + 选择模型（单击小节/双击乐句/框选）+ IndexedDB 历史与启动恢复 */
 export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   const { t } = useI18n()
   const [instrument, setInstrument] = useLocalStorage<InstrumentType>('note-slice-preferred-instrument', 'piano')
@@ -150,6 +155,52 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   const [history, setHistory] = useState<FileHistoryItem[]>([])
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+
+  // 选择会话态（selection.md S8：不持久化）；摘要供 SelectionInfo/StatusBar 展示。
+  // LoopRange 推导（selection.ts computeLoopRange）在播放数据落地（P1）后接入 usePlayback。
+  const [selection, setSelection] = useState<ScoreSelection | null>(null)
+  const [selectionSummary, setSelectionSummary] = useState<SelectionSummary | null>(null)
+  const [selectionInvalid, setSelectionInvalid] = useState(false)
+  // 递增信号：通知 OsmdNotation 销毁其内部 pending 意图（selection 保持 null 时也要可达）
+  const [clearPendingSignal, setClearPendingSignal] = useState(0)
+  const invalidTimerRef = useRef<number | null>(null)
+
+  const handleSelectionChange = useCallback(
+    (next: ScoreSelection | null, summary: SelectionSummary | null) => {
+      setSelection(next)
+      setSelectionSummary(summary)
+      setSelectionInvalid(false)
+    },
+    [],
+  )
+
+  const handleSelectionInvalid = useCallback(() => {
+    setSelectionInvalid(true)
+    if (invalidTimerRef.current !== null) window.clearTimeout(invalidTimerRef.current)
+    invalidTimerRef.current = window.setTimeout(() => {
+      invalidTimerRef.current = null
+      setSelectionInvalid(false)
+    }, 3000)
+  }, [])
+
+  const clearSelection = useCallback(() => {
+    setSelection(null)
+    setSelectionSummary(null)
+    setSelectionInvalid(false)
+    setClearPendingSignal((value) => value + 1)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (invalidTimerRef.current !== null) window.clearTimeout(invalidTimerRef.current)
+    },
+    [],
+  )
+
+  const selectionText = useMemo(
+    () => (selectionSummary === null ? undefined : describeSelection(t, selectionSummary)),
+    [t, selectionSummary],
+  )
 
   const refreshHistory = useCallback(() => {
     listStoredFiles()
@@ -236,11 +287,17 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
 
   const handlePlayToggle = useCallback(() => setPlaying((value) => !value), [])
   const handleStop = useCallback(() => setPlaying(false), [])
+  // Esc = 停止并清除（tech.md §6.3）；Stop 按钮只停不走清除
+  const handleEscape = useCallback(() => {
+    setPlaying(false)
+    clearSelection()
+  }, [clearSelection])
   const handleCloseModal = useCallback(() => setModalOpen(false), [])
 
   useKeyboardShortcuts({
     onPlayToggle: handlePlayToggle,
     onStop: handleStop,
+    onEscape: handleEscape,
     enabled: !modalOpen,
   })
 
@@ -270,10 +327,16 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
             timeSignature={parsed.timeSignature}
             tempo={parsed.tempo}
           />
-          <OsmdNotation rawContent={score.rawContent} />
+          <OsmdNotation
+            rawContent={score.rawContent}
+            selection={selection}
+            onSelectionChange={handleSelectionChange}
+            onSelectionInvalid={handleSelectionInvalid}
+            clearPendingSignal={clearPendingSignal}
+          />
         </div>
 
-        <SelectionInfo />
+        <SelectionInfo selection={selectionSummary} invalid={selectionInvalid} onClear={clearSelection} />
       </div>
 
       <PlaybackControls
@@ -294,7 +357,13 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
         onSkipBeatsChange={setSkipBeats}
       />
 
-      <StatusBar playing={playing} skipBeats={skipBeats} instrument={instrument} tempo={tempo} />
+      <StatusBar
+        playing={playing}
+        skipBeats={skipBeats}
+        instrument={instrument}
+        tempo={tempo}
+        selectionText={selectionText}
+      />
 
       <FileLoaderModal
         open={modalOpen}

@@ -45,6 +45,9 @@ const styles = stylex.create({
     fontWeight: 600,
     color: 'var(--color-fg)',
   },
+  selected: {
+    color: 'var(--color-verm-deep)',
+  },
   glyph15: {
     marginRight: '4px',
     display: 'inline-flex',
@@ -84,10 +87,12 @@ interface StatusBarProps {
   skipBeats: number
   instrument: InstrumentType
   tempo: number
+  /** 当前选择摘要文案；缺省显示「未选择」 */
+  selectionText?: string
 }
 
 /** 状态栏：左侧选择 / 空拍 / 乐器，右侧播放状态与共享 BPM（ui-design.html v3） */
-export default function StatusBar({ playing, skipBeats, instrument, tempo }: StatusBarProps) {
+export default function StatusBar({ playing, skipBeats, instrument, tempo, selectionText }: StatusBarProps) {
   const { t } = useI18n()
 
   return (
@@ -95,7 +100,9 @@ export default function StatusBar({ playing, skipBeats, instrument, tempo }: Sta
       <div {...stylex.props(styles.group)}>
         <span {...stylex.props(styles.cell)}>
           <span {...stylex.props(styles.muted)}>{t.statusSelection}</span>
-          <b {...stylex.props(styles.strong)}>{t.selectionNone}</b>
+          <b {...stylex.props(styles.strong, selectionText !== undefined && styles.selected)}>
+            {selectionText ?? t.selectionNone}
+          </b>
         </span>
         <span {...stylex.props(styles.cell)}>
           <span {...stylex.props(styles.cell, styles.muted)}>

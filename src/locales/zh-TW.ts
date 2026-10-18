@@ -25,10 +25,20 @@ export const zhTW: TranslationSet = {
   // 紙面樂譜卡
   notationPlaceholder: '樂譜將在此渲染——渲染與播放引擎尚未接入。',
   notationFootInfo: 'OSMD · SVG 渲染 · 自適應寬度',
+  notationZoomIn: '放大樂譜',
+  notationZoomOut: '縮小樂譜',
 
   // 選擇資訊
   selectionNone: '未選擇',
-  selectionHint: '單擊音符選小節 · 雙擊兩點定樂句',
+  selectionHint: '單擊音符選小節 · 雙擊兩點定樂句 · 空白處拖曳框選',
+  selectionPhrase: '樂句',
+  selectionMeasure: '小節',
+  selectionBox: '框選',
+  selectionMeasures: (from: number, to: number) =>
+    from === to ? `第 ${from} 小節` : `第 ${from} – ${to} 小節`,
+  selectionNoteCount: (n: number) => `${n} 個音符`,
+  selectionClear: '清除選擇',
+  selectionInvalid: '該選擇沒有可播放區間',
 
   // 走帶
   play: '播放',

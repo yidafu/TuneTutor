@@ -5,13 +5,15 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 function Fixture({
   onPlayToggle,
   onStop,
+  onEscape,
   enabled,
 }: {
   onPlayToggle: () => void
   onStop: () => void
+  onEscape?: () => void
   enabled?: boolean
 }) {
-  useKeyboardShortcuts({ onPlayToggle, onStop, enabled })
+  useKeyboardShortcuts({ onPlayToggle, onStop, onEscape, enabled })
   return <div data-testid="stage" />
 }
 
@@ -39,6 +41,18 @@ describe('useKeyboardShortcuts', () => {
 
     expect(onStop).toHaveBeenCalledTimes(1)
     expect(onPlayToggle).not.toHaveBeenCalled()
+  })
+
+  it('提供 onEscape 时 Esc 走停止并清除路径（tech.md §6.3）', () => {
+    const onPlayToggle = vi.fn()
+    const onStop = vi.fn()
+    const onEscape = vi.fn()
+    render(<Fixture onPlayToggle={onPlayToggle} onStop={onStop} onEscape={onEscape} />)
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    expect(onEscape).toHaveBeenCalledTimes(1)
+    expect(onStop).not.toHaveBeenCalled()
   })
 
   it('输入类元素聚焦时忽略快捷键', () => {

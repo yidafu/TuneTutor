@@ -25,10 +25,21 @@ export const frFR: TranslationSet = {
   // Carte partition papier
   notationPlaceholder: 'La partition s’affichera ici — le moteur de rendu et de lecture n’est pas encore connecté.',
   notationFootInfo: 'OSMD · rendu SVG · largeur adaptative',
+  notationZoomIn: 'Agrandir la partition',
+  notationZoomOut: 'Réduire la partition',
 
   // Informations de sélection
   selectionNone: 'Aucune sélection',
-  selectionHint: 'Cliquez une note pour sélectionner sa mesure · double-cliquez deux notes pour délimiter une phrase',
+  selectionHint:
+    'Cliquez une note pour sélectionner sa mesure · double-cliquez deux notes pour une phrase · faites glisser dans le vide pour une sélection rectangulaire',
+  selectionPhrase: 'Phrase',
+  selectionMeasure: 'Mesure',
+  selectionBox: 'Sélection rectangulaire',
+  selectionMeasures: (from: number, to: number) =>
+    from === to ? `Mesure ${from}` : `Mesures ${from}–${to}`,
+  selectionNoteCount: (n: number) => `${n} note${n > 1 ? 's' : ''}`,
+  selectionClear: 'Effacer la sélection',
+  selectionInvalid: 'Aucune plage jouable dans cette sélection',
 
   // Transport
   play: 'Lire',

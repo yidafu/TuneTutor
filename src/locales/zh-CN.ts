@@ -25,10 +25,20 @@ export const zhCN: TranslationSet = {
   // 纸面乐谱卡
   notationPlaceholder: '乐谱将在此渲染——渲染与播放引擎尚未接入。',
   notationFootInfo: 'OSMD · SVG 渲染 · 自适应宽度',
+  notationZoomIn: '放大乐谱',
+  notationZoomOut: '缩小乐谱',
 
   // 选择信息
   selectionNone: '未选择',
-  selectionHint: '单击音符选小节 · 双击两点定乐句',
+  selectionHint: '单击音符选小节 · 双击两点定乐句 · 空白处拖拽框选',
+  selectionPhrase: '乐句',
+  selectionMeasure: '小节',
+  selectionBox: '框选',
+  selectionMeasures: (from: number, to: number) =>
+    from === to ? `第 ${from} 小节` : `第 ${from} – ${to} 小节`,
+  selectionNoteCount: (n: number) => `${n} 个音符`,
+  selectionClear: '清除选择',
+  selectionInvalid: '该选择没有可播放区间',
 
   // 走带
   play: '播放',

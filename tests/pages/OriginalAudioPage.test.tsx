@@ -649,8 +649,9 @@ describe('OriginalAudioPage 多选导入与音频库（A16）', () => {
     fireEvent.click(screen.getByRole('button', { name: new RegExp(enUS.audioLibraryTitle) }))
 
     const dialog = screen.getByRole('dialog', { name: enUS.audioLibraryTitle })
-    expect(within(dialog).getByText('song.mp3')).toBeInTheDocument()
-    expect(within(dialog).getByText('other.mp3')).toBeInTheDocument()
+    // 库列表经 IndexedDB 异步装载（负载下有往返延迟），用 findBy 等待
+    expect(await within(dialog).findByText('song.mp3')).toBeInTheDocument()
+    expect(await within(dialog).findByText('other.mp3')).toBeInTheDocument()
     // 当前装载条目高亮（data-active），另一条无
     expect(within(dialog).getByText('song.mp3').closest('[data-active]')).toHaveAttribute(
       'data-active',

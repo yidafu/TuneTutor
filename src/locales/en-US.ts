@@ -27,10 +27,21 @@ export const enUS = {
   // 纸面乐谱卡
   notationPlaceholder: 'Sheet music will render here — the rendering/playback engine is not wired up yet.',
   notationFootInfo: 'OSMD · SVG render · responsive width',
+  notationZoomIn: 'Zoom in score',
+  notationZoomOut: 'Zoom out score',
 
   // 选择信息
   selectionNone: 'No selection',
-  selectionHint: 'Click a note to select its measure · double-click two notes to set a phrase',
+  selectionHint:
+    'Click a note to select its measure · double-click two notes for a phrase loop · drag on empty space to box-select',
+  selectionPhrase: 'Phrase',
+  selectionMeasure: 'Measure',
+  selectionBox: 'Box selection',
+  selectionMeasures: (from: number, to: number) =>
+    from === to ? `Measure ${from}` : `Measures ${from}–${to}`,
+  selectionNoteCount: (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`,
+  selectionClear: 'Clear selection',
+  selectionInvalid: 'No playable range in this selection',
 
   // 走带
   play: 'Play',
