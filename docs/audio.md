@@ -3,7 +3,7 @@
 **版本**: 2.1
 **日期**: 2026-10-18
 **状态**: Ready for Re-implementation
-**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。**v2.1(2026-10-18)**:§5.1 补波形缩放(官方 ZoomPlugin + 适应宽度基准步进控件,新增 A13)与拖放导入入口;服务 F10 精准定位切片。
+**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。**v2.1(2026-10-18)**:§5.1 补波形缩放(官方 ZoomPlugin + 适应宽度基准步进控件,新增 A13)与拖放导入入口;服务 F10 精准定位切片。**v2.2(2026-10-18)**:§5.1 播放头自动跟随改为切片域规则(新增 A14)——存在切片即关 autoScroll,无切片全曲播放保留官方默认;消除切片循环与视口自动右滚的冲突。
 
 ---
 
@@ -203,8 +203,9 @@ Tone Sampler `releaseAll` 可立即释放全部发声采样(官方 `stopSound` �
 - **波形缩放(决策 A13,v2.1)**:渲染仍全走内建管线,缩放 = 官方 ZoomPlugin(波形上滚轮/双指捏合,指针锚定)+ 页面步进控件 `－ / 倍率 / ＋`(倍率钮即适应窗口复位)。细则:
   - 步进以「适应窗口宽度」(`containerWidth / duration` px/s)为基准逐级 ×2 / ÷2,钳到 `ZOOM_MAX_PX_PER_SEC = 2000`(1px ≈ 0.5ms,足够精准定位切片边界);阶梯纯函数 `zoomInPx` / `zoomOutPx` / `zoomPercent` 收在 sliceUtils(可单测),控件只做 DOM 接线;
   - 控件与滚轮/捏合共享单一事实来源 `ws.zoom(minPxPerSec)`(核心广播 `zoom` 事件),页面不持第二份缩放状态;适应宽度不可得(容器 0 宽/无时长)时步进不动作;
-  - 缩放后内建管线自动重渲染(多 canvas 分片 + wrapper 滚动),region 按时间百分比定位天然跟随;播放中 `autoScroll`(默认开)保持播放头可见;
+  - 缩放后内建管线自动重渲染(多 canvas 分片 + wrapper 滚动),region 按时间百分比定位天然跟随;播放中 `autoScroll` 保持播放头可见(默认开;切片域的开关闭合规则见 A14);
   - `minPxPerSec` 落在核心 options 与 ZoomPlugin `maxZoom`,两处共用同一常量。
+- **播放头自动跟随(决策 A14,v2.2)**:存在切片即 `ws.setOptions({ autoScroll: false })`,无切片的全曲顺序播放保留官方默认跟随。切片循环把播放头锁在切片内,放任 autoScroll 会在放大到切片宽于视口时每次循环回卷都把视口猛拉一次,且与用户手动平移(触控板横扫/横向滚轮——ZoomPlugin 只拦 deltaY 主导的滚轮,deltaX 主导穿透为原生横向滚动)形成拉锯,拖 region 把手微调同理;关闭后视图完全由用户掌控(缩放 A13/原生平移/点选定位)。同步点收在切片状态唯一变更口 `updateSlice`,region 替换/恢复/移除各路径自然收敛。
 - 音频持久化:IndexedDB `audioFiles`(ArrayBuffer,tech.md §7);启动恢复最新一条 + 已存切片与空拍(`note-slice-audio-gap`)。
 - 导入校验:MIME 白名单 + 解码(wavesurfer `error` 事件)双重校验;失败提示走 i18n。入口两条:文件选择器与**页面级拖放**(FileLoaderModal 同款 `data-drag-active` 高亮约定)——`dragover` 高亮、`drop` 复用同一校验管线;空态与已装载态均可投放,已装载态投放即替换当前音频且不继承旧切片(新音频切片清空)。
 
@@ -287,6 +288,7 @@ UI 与播放共用此函数,保证「显示的切片」与「循环的切片」�
 | A11 | 引擎不设隐式出声总闸;出声开关一律显式字段,默认值先写决策记录 | 官方 `DoPlayback` 隐式总闸是反例(新实例默认不出声,demo 由 premium 显式打开,无声故障难排查,官方规格 §4/§5-10);官方默认 `DoPreCount=false` 同时记为 v2 count-in 默认关的依据(§3.9) |
 | A12 | (v2.0 新增)架构对齐官方播放器:播放数据存乐谱时域(构建与 BPM 解耦)+ 可注入锚点时钟 + 引擎内 look-ahead 调度与循环状态机;废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part | 决策「参考 osmd-player 实现」(2026-10-18);官方为唯一逆向到行为参数级的参照(REA);一次换型解锁即时变速(A2)、真暂停(G1)、离线导出(G13);Transport 的网格对齐能力对拍点调度不再必要——节拍器与音符同处乐谱时域(§3.7) |
 | A13 | (v2.1 新增)波形缩放 = 官方 ZoomPlugin(滚轮/双指捏合,指针锚定)+ 步进控件(适应窗口宽度为基准 ×2/÷2,钳到 2000px/s),两路共用 `ws.zoom()` 单一事实来源;不自研滚轮换算、不自绘缩放 | 服务 F10 精准定位切片边界(用户需求「波形可缩放」);官方插件即 wavesurfer 示例同款,内建多 canvas 分片/滚动/autoScroll/自动重绘全保留;阶梯换算收 sliceUtils 纯函数(可单测);上限 2000px/s ≈ 0.5ms/px(§5.1) |
+| A14 | (v2.2 新增)播放头自动跟随按切片域开闭:存在切片即 `autoScroll: false`(视图由用户掌控),无切片全曲播放保留官方默认;同步点收在 `updateSlice` 单一变更口 | 切片循环把播放头锁在切片内,官方默认 autoScroll(播放头出视口即瞬移滚动容器)在放大到切片宽于视口时每次回卷猛拉视口,播放中手动平移(deltaX 主导滚轮不被 ZoomPlugin 拦截,走原生滚动)即被拉回形成拉锯;无切片长音频仍需跟随防播放头出屏(§5.1) |
 
 **后续候选(不在 v2 范围,记录调研到的实现路径;官方行为参数对照源 = 官方规格 §3,坐标可对照验证)**:
 

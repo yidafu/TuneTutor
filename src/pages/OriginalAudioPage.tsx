@@ -395,6 +395,9 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
     sliceRef.current = next
     setSlice(next)
     if (persist) persistSlice(next)
+    // 播放头跟随（决策 A14）：切片循环把播放头锁在切片内，放任官方默认 autoScroll 会在放大后
+    // 每次回卷猛拉视口、与手动平移（触控板横扫/横向滚轮）拉锯——有切片即关，视图由用户掌控
+    wsRef.current?.setOptions({ autoScroll: next === null })
   }
 
   // 启动恢复：IndexedDB 最新一条音频（docs/tech.md §7.3）；切片在 wavesurfer ready 后按已存时长回放

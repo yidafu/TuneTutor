@@ -204,7 +204,7 @@ describe('OriginalAudioPage 切片与循环', () => {
   })
 
   it('update-end 回写切片并持久化到 localStorage（§5.1）', async () => {
-    const { regions } = await loadWithSlice()
+    const { ws, regions } = await loadWithSlice()
     const region = regions.getRegions()[0]!
 
     act(() => region.setOptions({ start: 10, end: 35 }))
@@ -214,6 +214,29 @@ describe('OriginalAudioPage 切片与循环', () => {
       endTime: 35,
     })
     expect(screen.getByText(enUS.loopChipLabel(25))).toBeInTheDocument()
+    expect(ws.options.autoScroll).toBe(false)
+  })
+
+  it('播放头跟随（A14）：存在切片关闭 autoScroll，移除切片恢复官方默认', async () => {
+    const { ws, regions } = await loadWithSlice()
+    // 恢复的切片已同步关闭自动跟随
+    expect(ws.options.autoScroll).toBe(false)
+
+    regions.emitRegionDoubleClicked(regions.getRegions()[0]!)
+
+    await waitFor(() => expect(ws.options.autoScroll).toBe(true))
+  })
+
+  it('播放头跟随（A14）：无切片全曲播放保留官方默认跟随（长音频不丢播放头）', async () => {
+    renderAudioPage()
+    await importViaInput(importAudioFile())
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
+    const { ws } = latestPage()
+    ws.emitReady(204)
+    await screen.findByText(/3:24/)
+
+    // 页面未写 autoScroll → 真实 wavesurfer 默认 true
+    expect(ws.options.autoScroll ?? true).toBe(true)
   })
 
   it('双击 region 移除切片并清除持久化', async () => {
