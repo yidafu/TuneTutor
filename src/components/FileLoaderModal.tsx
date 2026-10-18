@@ -100,6 +100,10 @@ const styles = stylex.create({
     borderColor: 'var(--color-verm)',
     backgroundColor: 'var(--color-verm-soft)',
   },
+  dropzoneBusy: {
+    cursor: 'progress',
+    opacity: 0.6,
+  },
   iconWrap: {
     display: 'grid',
     alignItems: 'center',
@@ -123,6 +127,22 @@ const styles = stylex.create({
   },
   hiddenInput: {
     display: 'none',
+  },
+  errorBanner: {
+    marginTop: '12px',
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '8px',
+    borderRadius: '10px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-clay-line)',
+    backgroundColor: 'var(--color-clay-soft)',
+    paddingInline: '12px',
+    paddingBlock: '9px',
+    fontSize: '12.5px',
+    lineHeight: '18px',
+    color: 'var(--color-clay)',
   },
   recentSection: {
     marginTop: '16px',
@@ -187,19 +207,29 @@ const styles = stylex.create({
 interface FileLoaderModalProps {
   open: boolean
   onClose: () => void
+  /** IndexedDB 乐谱历史（uploadedAt 降序，元信息投影） */
+  items: FileHistoryItem[]
+  /** 正在解析入库（docs/musicxml.md M10：完成前不留半成品） */
+  importing: boolean
+  /** 导入错误提示（已 i18n 化；null = 无错误） */
+  errorText: string | null
+  onFilesSelected: (files: FileList | null) => void
+  onSelectItem: (id: string) => void
+  onDeleteItem: (id: string) => void
 }
 
-/** 演示用历史条目；接入 IndexedDB（docs/tech.md §7）后由存储层提供 */
-const DEMO_HISTORY: FileHistoryItem[] = [
-  { id: 'demo-1', title: '刻在我心底的名字', fileSize: 2.2 * 1024 * 1024, uploadedAt: Date.now() - 2 * 3_600_000 },
-  { id: 'demo-2', title: '连音符', fileSize: 840 * 1024, uploadedAt: Date.now() - 26 * 3_600_000 },
-  { id: 'demo-3', title: '小星星', fileSize: 120 * 1024, uploadedAt: Date.now() - 3 * 86_400_000 },
-]
-
-/** 加载乐谱弹窗：拖放/点选上传区 + 最近文件；Esc / 点遮罩 / ✕ 关闭 */
-export default function FileLoaderModal({ open, onClose }: FileLoaderModalProps) {
+/** 加载乐谱弹窗：拖放/点选上传（processFile 解析入库）+ IndexedDB 最近文件 */
+export default function FileLoaderModal({
+  open,
+  onClose,
+  items,
+  importing,
+  errorText,
+  onFilesSelected,
+  onSelectItem,
+  onDeleteItem,
+}: FileLoaderModalProps) {
   const { t } = useI18n()
-  const [items, setItems] = useState<FileHistoryItem[]>(DEMO_HISTORY)
   const [dragActive, setDragActive] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -244,39 +274,62 @@ export default function FileLoaderModal({ open, onClose }: FileLoaderModalProps)
         <div
           role="button"
           tabIndex={0}
-          onClick={() => inputRef.current?.click()}
+          aria-busy={importing || undefined}
+          onClick={() => {
+            if (!importing) inputRef.current?.click()
+          }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click()
+            if (!importing && (event.key === 'Enter' || event.key === ' ')) inputRef.current?.click()
           }}
           onDragOver={(event) => {
             event.preventDefault()
-            setDragActive(true)
+            if (!importing) setDragActive(true)
           }}
           onDragLeave={() => setDragActive(false)}
           onDrop={(event) => {
             event.preventDefault()
             setDragActive(false)
+            if (!importing) onFilesSelected(event.dataTransfer.files)
           }}
           data-drag-active={dragActive || undefined}
-          {...stylex.props(styles.dropzone, dragActive ? styles.dropzoneActive : styles.dropzoneIdle)}
+          {...stylex.props(
+            styles.dropzone,
+            dragActive ? styles.dropzoneActive : styles.dropzoneIdle,
+            importing && styles.dropzoneBusy,
+          )}
         >
           <div aria-hidden {...stylex.props(styles.iconWrap)}>
             <ThemeIcon name="note" style={styles.icon30} />
           </div>
           <div {...stylex.props(styles.dropMain)}>
-            {t.dropMain} <em {...stylex.props(styles.browseEm)}>{t.dropBrowse}</em>
+            {importing ? t.importing : (
+              <>
+                {t.dropMain} <em {...stylex.props(styles.browseEm)}>{t.dropBrowse}</em>
+              </>
+            )}
           </div>
           <div {...stylex.props(styles.dropHint)}>{t.dropHint}</div>
         </div>
-        {/* 解析入库（processFile/musicxml-io）尚未接入；选择文件暂不产生效果 */}
+        {/* 解析入库走 processFile（musicxml.md §1）；任何错误不入库、不留半成品 */}
         <input
           ref={inputRef}
           type="file"
           accept=".musicxml,.xml,.mxl"
+          onChange={(event) => {
+            onFilesSelected(event.target.files)
+            event.target.value = ''
+          }}
           {...stylex.props(styles.hiddenInput)}
           aria-hidden="true"
           tabIndex={-1}
         />
+
+        {errorText !== null && (
+          <p role="alert" {...stylex.props(styles.errorBanner)}>
+            <span aria-hidden>⚠</span>
+            {errorText}
+          </p>
+        )}
 
         <div {...stylex.props(styles.recentSection)}>
           <h4 {...stylex.props(styles.recentHead)}>
@@ -286,7 +339,8 @@ export default function FileLoaderModal({ open, onClose }: FileLoaderModalProps)
           {items.length > 0 ? (
             <FileHistoryList
               items={items}
-              onDelete={(id) => setItems((list) => list.filter((item) => item.id !== id))}
+              onSelect={onSelectItem}
+              onDelete={onDeleteItem}
             />
           ) : (
             <p {...stylex.props(styles.recentEmpty)}>{t.recentEmpty}</p>

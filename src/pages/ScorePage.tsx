@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import FileLoaderModal from '../components/FileLoaderModal'
+import type { FileHistoryItem } from '../components/FileLoader/FileHistoryList'
 import InstrumentSelect from '../components/InstrumentSelect'
 import OsmdNotation from '../components/OsmdNotation'
 import PlaybackControls from '../components/PlaybackControls/PlaybackControls'
@@ -10,7 +11,18 @@ import StatusBar from '../components/StatusBar'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useI18n } from '../locales/useI18n'
+import type { TranslationSet } from '../locales/en-US'
 import type { InstrumentType, MetronomeSoundType } from '../types/audio'
+import type { ParsedScore } from '../types/notation'
+import { createDemoScore } from '../utils/createDemoScore'
+import {
+  deleteStoredFile,
+  getLatestStoredFile,
+  getStoredFile,
+  listStoredFiles,
+  saveStoredFile,
+} from '../utils/storage/indexedDB'
+import { ImportFileError, processFile, type ImportErrorCode } from '../utils/notation/processFile'
 
 const styles = stylex.create({
   page: {
@@ -103,7 +115,26 @@ interface ScorePageProps {
   onTempoChange: (tempo: number) => void
 }
 
-/** 乐谱练习页（/）。乐谱渲染、选择模型与播放引擎尚未接入，当前为 UI 层。 */
+interface LoadedScore {
+  rawContent: string
+  parsedScore: ParsedScore
+}
+
+/** E1–E4 → i18n 键（docs/musicxml.md §6） */
+function importErrorText(t: TranslationSet, code: ImportErrorCode): string {
+  switch (code) {
+    case 'corrupt-archive':
+      return t.errorCorruptArchive
+    case 'not-musicxml':
+      return t.errorNotMusicXML
+    case 'parse-failed':
+      return t.errorParseFailed
+    case 'unsupported-encoding':
+      return t.errorUnsupportedEncoding
+  }
+}
+
+/** 乐谱练习页（/）：OSMD 渲染 + IndexedDB 历史与启动恢复；选择模型与播放引擎尚未接入 */
 export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   const { t } = useI18n()
   const [instrument, setInstrument] = useLocalStorage<InstrumentType>('note-slice-preferred-instrument', 'piano')
@@ -115,6 +146,94 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   const [playing, setPlaying] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
 
+  const [score, setScore] = useState<LoadedScore>(createDemoScore)
+  const [history, setHistory] = useState<FileHistoryItem[]>([])
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  const refreshHistory = useCallback(() => {
+    listStoredFiles()
+      .then((records) => setHistory(records))
+      .catch((error: unknown) => console.warn('[ScorePage] list history failed:', error))
+  }, [])
+
+  // 启动恢复：IndexedDB 最新一份，无/失败保持内置示范曲（docs/tech.md §7.3）
+  useEffect(() => {
+    let cancelled = false
+    getLatestStoredFile()
+      .then((stored) => {
+        if (!cancelled && stored !== undefined) {
+          setScore({ rawContent: stored.rawContent, parsedScore: stored.parsedScore })
+        }
+      })
+      .catch((error: unknown) => console.warn('[ScorePage] startup restore failed:', error))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshHistory()
+  }, [refreshHistory])
+
+  const handleFilesSelected = useCallback(
+    async (files: FileList | null) => {
+      const file = files?.[0]
+      if (file === undefined) return
+      setImporting(true)
+      setImportError(null)
+      try {
+        const processed = await processFile(file)
+        // 入库失败不阻塞本次使用（仅告警）；非法文件在 processFile 已被拒，不入库不留半成品
+        try {
+          await saveStoredFile({
+            fileName: processed.fileName,
+            title: processed.parsedScore.title || processed.fileName,
+            ...(processed.parsedScore.composer !== undefined
+              ? { composer: processed.parsedScore.composer }
+              : {}),
+            fileSize: processed.fileSize,
+            rawContent: processed.rawContent,
+            parsedScore: processed.parsedScore,
+          })
+        } catch (storageError: unknown) {
+          console.warn('[ScorePage] save to IndexedDB failed:', storageError)
+        }
+        setScore({ rawContent: processed.rawContent, parsedScore: processed.parsedScore })
+        refreshHistory()
+        setModalOpen(false)
+      } catch (error: unknown) {
+        const code = error instanceof ImportFileError ? error.code : 'parse-failed'
+        setImportError(importErrorText(t, code))
+      } finally {
+        setImporting(false)
+      }
+    },
+    [refreshHistory, t],
+  )
+
+  const handleSelectItem = useCallback(
+    (id: string) => {
+      getStoredFile(id)
+        .then((stored) => {
+          if (stored === undefined) return
+          setScore({ rawContent: stored.rawContent, parsedScore: stored.parsedScore })
+          setModalOpen(false)
+        })
+        .catch((error: unknown) => console.warn('[ScorePage] load file failed:', error))
+    },
+    [],
+  )
+
+  const handleDeleteItem = useCallback(
+    (id: string) => {
+      deleteStoredFile(id)
+        .then(refreshHistory)
+        .catch((error: unknown) => console.warn('[ScorePage] delete file failed:', error))
+    },
+    [refreshHistory],
+  )
+
   const handlePlayToggle = useCallback(() => setPlaying((value) => !value), [])
   const handleStop = useCallback(() => setPlaying(false), [])
   const handleCloseModal = useCallback(() => setModalOpen(false), [])
@@ -124,6 +243,8 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
     onStop: handleStop,
     enabled: !modalOpen,
   })
+
+  const parsed = score.parsedScore
 
   return (
     <div {...stylex.props(styles.page)}>
@@ -140,16 +261,16 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
           </div>
         </div>
 
-        {/* 纸面乐谱卡：ScoreInfo 标题 + OSMD 渲染区（占位，flex-1 撑满）+ 缩放页脚 */}
+        {/* 纸面乐谱卡：ScoreInfo 标题 + OSMD 渲染区 + 缩放页脚 */}
         <div {...stylex.props(styles.scoreCard)}>
           <ScoreInfo
-            title={t.demoScoreTitle}
-            composer={t.demoScoreComposer}
-            keySignature={t.keyCMajor}
-            timeSignature="4/4"
-            tempo={60}
+            title={parsed.title || t.untitledScore}
+            composer={parsed.composer}
+            keySignature={parsed.keySignature}
+            timeSignature={parsed.timeSignature}
+            tempo={parsed.tempo}
           />
-          <OsmdNotation />
+          <OsmdNotation rawContent={score.rawContent} />
         </div>
 
         <SelectionInfo />
@@ -175,7 +296,16 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
 
       <StatusBar playing={playing} skipBeats={skipBeats} instrument={instrument} tempo={tempo} />
 
-      <FileLoaderModal open={modalOpen} onClose={handleCloseModal} />
+      <FileLoaderModal
+        open={modalOpen}
+        onClose={handleCloseModal}
+        items={history}
+        importing={importing}
+        errorText={importError}
+        onFilesSelected={(files) => void handleFilesSelected(files)}
+        onSelectItem={handleSelectItem}
+        onDeleteItem={handleDeleteItem}
+      />
     </div>
   )
 }

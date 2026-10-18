@@ -20,9 +20,7 @@ export const frFR: TranslationSet = {
   instrumentTrumpet: 'Trompette',
 
   // Morceau de démonstration
-  demoScoreTitle: 'Ah ! vous dirai-je, maman',
-  demoScoreComposer: 'Traditionnel',
-  keyCMajor: 'Do majeur',
+  untitledScore: 'Partition sans titre',
 
   // Carte partition papier
   notationPlaceholder: 'La partition s’affichera ici — le moteur de rendu et de lecture n’est pas encore connecté.',
@@ -80,14 +78,27 @@ export const frFR: TranslationSet = {
   // Page audio original
   audioDropMain: 'Déposez un fichier audio ici ou',
   audioDropHint: 'Formats pris en charge : mp3 · wav · ogg · m4a — traitement local dans votre navigateur',
-  audioStubHint: 'Mode démo : cliquez pour charger un audio d’exemple (pas encore de son)',
   removeAudio: 'Retirer l’audio',
   sliceTag: (start: string, end: string) => `Extrait ${start} – ${end}`,
   loopChipLabel: (seconds: number) => `BOUCLE ${seconds}s`,
   loopRange: (start: string, end: string) => `Boucle de ${start} à ${end}`,
   gapInfo: (beats: number, duration: string) => `+${beats} temps de silence par tour (≈ ${duration})`,
   waveHint: 'Glissez sur la forme d’onde pour créer un extrait · ajustez les bords · double-cliquez pour supprimer',
-  demoAudioName: 'Audio d’exemple.mp3',
+  audioDropOverlay: 'Déposez pour charger l’audio',
+  zoomOut: 'Zoom arrière de la forme d’onde',
+  zoomIn: 'Zoom avant de la forme d’onde',
+  zoomFit: 'Ajuster à la fenêtre',
+
+  // Erreurs d’import de partition (docs/musicxml.md §6, E1–E4)
+  importing: 'Analyse de la partition…',
+  errorCorruptArchive: 'Archive corrompue : impossible d’ouvrir ce fichier .mxl',
+  errorNotMusicXML: 'Format non pris en charge : seules les partitions MusicXML score-partwise sont acceptées',
+  errorParseFailed: 'Échec de l’analyse de ce fichier de partition',
+  errorUnsupportedEncoding: 'Encodage non pris en charge : seuls les fichiers MusicXML UTF-8 sont acceptés',
+
+  // Erreurs d’import audio (docs/audio.md §5.1, double validation)
+  errorUnsupportedAudio: 'Fichier audio non pris en charge : utilisez mp3, wav, ogg ou m4a',
+  errorAudioDecode: 'Impossible de décoder ce fichier audio',
 
   // Changement de thème (skin-switching.html v1.1 §③)
   theme: {

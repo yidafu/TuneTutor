@@ -1,12 +1,41 @@
-import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { DragEvent } from 'react'
 import * as stylex from '@stylexjs/stylex'
+import WaveSurfer from 'wavesurfer.js'
+import RegionsPlugin, { type Region } from 'wavesurfer.js/dist/plugins/regions.esm.js'
+import ZoomPlugin from 'wavesurfer.js/dist/plugins/zoom.esm.js'
+import { beatsToSeconds } from '../audio/TempoConverter'
 import { ThemeIcon } from '../components/icons/ThemeIcon'
 import LoopSkipSelector from '../components/PlaybackControls/LoopSkipSelector'
 import TempoSlider from '../components/PlaybackControls/TempoSlider'
 import TransportButtons from '../components/PlaybackControls/TransportButtons'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import { useTheme } from '../hooks/useTheme'
 import { useI18n } from '../locales/useI18n'
+import { isSupportedAudioFile } from '../utils/audio/audioFile'
+import {
+  MIN_SLICE_SECONDS,
+  ZOOM_FIT_EPSILON,
+  ZOOM_MAX_PX_PER_SEC,
+  buildAudioLoopPlan,
+  formatFileSize,
+  formatTime,
+  isTapWithinSlice,
+  zoomInPx,
+  zoomOutPx,
+  zoomPercent,
+} from '../utils/audio/sliceUtils'
+import { useDoubleTap } from '../hooks/useDoubleTap'
+import { deleteAudioFile, getLatestAudioFile, saveAudioFile } from '../utils/storage/indexedDB'
+import type { StoredAudioFile } from '../types/storedFile'
+
+/**
+ * 原曲练习页（/audio，docs/audio.md §5）：音频导入（MIME/扩展名 + 解码双重校验，支持点击与拖放两条入口）、
+ * wavesurfer v7 波形（内建 canvas 管线，A9；官方 ZoomPlugin 滚轮/捏合 + －/%/＋ 步进控件，A13）、
+ * 拖选切片（RegionsPlugin，单切片约束）、region-out 驱动的切片循环 + 空拍（A5）、
+ * 音频与切片持久化（IndexedDB + localStorage）。
+ */
 
 const styles = stylex.create({
   page: {
@@ -20,6 +49,7 @@ const styles = stylex.create({
     },
   },
   card: {
+    position: 'relative',
     width: '100%',
     borderRadius: 'var(--radius-card)',
     borderWidth: 1,
@@ -50,6 +80,10 @@ const styles = stylex.create({
       backgroundColor: 'var(--color-verm-soft)',
     },
   },
+  emptyBtnActive: {
+    borderColor: 'var(--color-verm)',
+    backgroundColor: 'var(--color-verm-soft)',
+  },
   icon32: {
     display: 'block',
     marginInline: 'auto',
@@ -78,11 +112,24 @@ const styles = stylex.create({
     lineHeight: '16px',
     color: 'var(--color-fg-3)',
   },
-  stubHint: {
-    marginTop: '8px',
-    display: 'block',
-    fontSize: '11px',
-    color: 'var(--color-fg-3)',
+  hiddenInput: {
+    display: 'none',
+  },
+  errorBanner: {
+    marginTop: '12px',
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '8px',
+    borderRadius: '10px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-clay-line)',
+    backgroundColor: 'var(--color-clay-soft)',
+    paddingInline: '12px',
+    paddingBlock: '9px',
+    fontSize: '12.5px',
+    lineHeight: '18px',
+    color: 'var(--color-clay)',
   },
   inner: {
     marginInline: 'auto',
@@ -153,116 +200,59 @@ const styles = stylex.create({
   },
   stage: {
     position: 'relative',
-    height: '150px',
-    cursor: 'crosshair',
-    touchAction: 'none',
-    userSelect: 'none',
+    minHeight: '150px',
     overflow: 'hidden',
     borderRadius: '10px',
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: 'var(--color-line)',
     backgroundColor: 'var(--color-wave-bg)',
+    // 拖拽面禁掉浏览器手势接管（触控拖选/拖动 region 时页面滚动会发 pointercancel 吞掉手势；
+    // 双指捏合缩放交给 ZoomPlugin 的合成 wheel）。wavesurfer 产物不含 touch-action。
+    touchAction: 'none',
   },
-  barsRow: {
-    position: 'absolute',
-    inset: 0,
+  zoomRow: {
+    marginBottom: '8px',
     display: 'flex',
     alignItems: 'center',
-    gap: '3px',
-    paddingInline: '10px',
+    justifyContent: 'flex-end',
+    gap: '4px',
   },
-  bar: {
-    minWidth: '2px',
-    flex: 1,
-    borderRadius: '2px',
-    backgroundImage: 'linear-gradient(to bottom, var(--color-wave-bar-a), var(--color-wave-bar-b))',
+  chipBtn: {
+    borderRadius: '6px',
+    backgroundColor: 'var(--color-surface-3)',
+    color: 'var(--color-fg-2)',
+    paddingInline: '9px',
+    paddingBlock: '2px',
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontVariantNumeric: 'tabular-nums',
+    ':hover': {
+      backgroundColor: 'var(--color-wash)',
+      color: 'var(--color-fg)',
+    },
+    ':disabled': {
+      opacity: 0.4,
+      backgroundColor: 'var(--color-surface-3)',
+      color: 'var(--color-fg-2)',
+    },
   },
-  mask: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'color-mix(in srgb, var(--color-wave-bg) 72%, transparent)',
-  },
-  sliceBox: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-  },
-  sliceInner: {
+  dropOverlay: {
+    pointerEvents: 'none',
     position: 'absolute',
     inset: 0,
-    borderLeftWidth: '2.5px',
-    borderRightWidth: '2.5px',
-    borderLeftColor: 'var(--color-verm)',
-    borderRightColor: 'var(--color-verm)',
-    backgroundColor: 'color-mix(in srgb, var(--color-verm) 10%, transparent)',
-    boxShadow: 'inset 0 0 20px color-mix(in srgb, var(--color-verm) 14%, transparent)',
-  },
-  sliceTag: {
-    position: 'absolute',
-    left: '50%',
-    top: '8px',
-    transform: 'translateX(-50%)',
-    whiteSpace: 'nowrap',
-    borderRadius: 9999,
-    backgroundColor: 'var(--color-verm)',
-    paddingInline: '10px',
-    paddingBlock: '3px',
-    fontSize: '11px',
-    fontWeight: 700,
-    fontVariantNumeric: 'tabular-nums',
-    color: 'var(--color-cream)',
-    boxShadow: '0 2px 8px -2px color-mix(in srgb, var(--color-verm) 50%, transparent)',
-  },
-  handle: {
-    position: 'absolute',
-    top: '50%',
-    display: 'grid',
-    height: '30px',
-    width: '14px',
-    transform: 'translateY(-50%)',
-    cursor: 'ew-resize',
+    zIndex: 30,
+    display: 'flex',
     alignItems: 'center',
-    justifyItems: 'center',
-    borderRadius: '6px',
-    backgroundColor: 'var(--color-verm)',
-    boxShadow: '0 2px 8px color-mix(in srgb, var(--color-verm) 45%, transparent)',
-  },
-  handleLeft: {
-    left: '-8px',
-  },
-  handleRight: {
-    right: '-8px',
-  },
-  handleGrip: {
-    height: '12px',
-    width: '2px',
-    borderRadius: '2px',
-    backgroundColor: 'color-mix(in srgb, var(--color-cream) 90%, transparent)',
-    boxShadow: '-4px 0 0 var(--color-cream), 4px 0 0 var(--color-cream)',
-  },
-  playhead: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: '38%',
-    width: '2px',
-    backgroundColor: 'var(--color-gold-bright)',
-    boxShadow: '0 0 8px color-mix(in srgb, var(--color-gold-bright) 70%, transparent)',
-  },
-  playheadArrow: {
-    position: 'absolute',
-    left: '-5px',
-    top: 0,
-    height: 0,
-    width: 0,
-    borderLeftWidth: '5px',
-    borderRightWidth: '5px',
-    borderTopWidth: '7px',
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: 'var(--color-gold-bright)',
+    justifyContent: 'center',
+    borderRadius: 'var(--radius-card)',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: 'var(--color-verm)',
+    backgroundColor: 'color-mix(in srgb, var(--color-verm) 6%, transparent)',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: 'var(--color-verm-deep)',
   },
   sliceInfoRow: {
     marginTop: '12px',
@@ -311,241 +301,527 @@ const styles = stylex.create({
   },
 })
 
-/** 切片区间（0–1 时长占比）；音频解码接入后换算为秒（docs/tech.md §3 AudioSlice） */
-interface SliceRange {
-  start: number
-  end: number
+interface AudioSlice {
+  startTime: number
+  endTime: number
 }
 
-/** 演示音频元数据；wavesurfer 解码接入后由真实文件提供 */
-const DEMO_AUDIO = {
-  sizeLabel: '8.4 MB',
-  durationSec: 204,
-  sampleRateLabel: '44.1 kHz',
-} as const
+const SLICE_STORAGE_KEY = 'note-slice-audio-slice'
 
-const MIN_SLICE_FRACTION = 0.02
+/** canvas 不认 CSS 变量：创建/换肤时读取 token 具体值（T1 皮肤契约：色值只出自 index.css token） */
+function themeColor(tokenName: string): string | undefined {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(tokenName).trim()
+  return value === '' ? undefined : value
+}
 
-/** 确定性伪随机波形条（与 ui-design.html v3 演示一致） */
-function buildWaveBars(count: number): number[] {
-  let seed = 7
-  const next = () => {
-    seed = (seed * 16807) % 2147483647
-    return seed / 2147483647
+function waveColors(): Partial<Parameters<typeof WaveSurfer.create>[0]> {
+  const waveColor = themeColor('--color-wave-bar-a')
+  const progressColor = themeColor('--color-verm')
+  const cursorColor = themeColor('--color-gold-bright')
+  return {
+    ...(waveColor !== undefined ? { waveColor } : {}),
+    ...(progressColor !== undefined ? { progressColor } : {}),
+    ...(cursorColor !== undefined ? { cursorColor } : {}),
   }
-  return Array.from({ length: count }, (_, index) => {
-    const envelope = 0.35 + 0.65 * Math.abs(Math.sin(index / 9))
-    return Math.round((10 + next() * 118) * envelope)
-  })
 }
 
-function formatTime(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds))
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+/** 切片朱砂色 = verm token + 8 位 hex 透明度（brand 铁律：切片恒朱砂） */
+function regionColor(): string | undefined {
+  const vermilion = themeColor('--color-verm')
+  return vermilion === undefined ? undefined : `${vermilion}2e`
 }
 
-/** 原曲练习页（/audio）。音频导入/解码与循环播放尚未接入，波形为静态演示。 */
+function readPersistedSlice(): AudioSlice | null {
+  try {
+    const raw = window.localStorage.getItem(SLICE_STORAGE_KEY)
+    if (raw === null) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      typeof (parsed as AudioSlice).startTime !== 'number' ||
+      typeof (parsed as AudioSlice).endTime !== 'number'
+    ) {
+      return null
+    }
+    const { startTime, endTime } = parsed as AudioSlice
+    if (!(Number.isFinite(startTime) && Number.isFinite(endTime)) || endTime - startTime < MIN_SLICE_SECONDS) {
+      return null
+    }
+    return { startTime, endTime }
+  } catch {
+    return null
+  }
+}
+
+function persistSlice(slice: AudioSlice | null): void {
+  if (slice === null) window.localStorage.removeItem(SLICE_STORAGE_KEY)
+  else window.localStorage.setItem(SLICE_STORAGE_KEY, JSON.stringify(slice))
+}
+
+/** 原曲切片循环页。tempo 由 App 共享、本页只读（docs/tech.md §2.3） */
 export default function OriginalAudioPage({ tempo }: { tempo: number }) {
   const { t } = useI18n()
-  const [hasAudio, setHasAudio] = useState(false)
-  const [slice, setSlice] = useState<SliceRange | null>(null)
-  const [gapBeats, setGapBeats] = useLocalStorage<number>('note-slice-audio-gap', 0)
+  const { theme } = useTheme()
+  const [audio, setAudio] = useState<StoredAudioFile | null>(null)
+  const [duration, setDuration] = useState(0)
+  const [sampleRateLabel, setSampleRateLabel] = useState<string | null>(null)
+  const [slice, setSlice] = useState<AudioSlice | null>(null)
   const [playing, setPlaying] = useState(false)
+  const [errorText, setErrorText] = useState<string | null>(null)
+  const [gapBeats, setGapBeats] = useLocalStorage<number>('note-slice-audio-gap', 0)
+  // 拖放导入的悬停高亮（FileLoaderModal 同款 data-drag-active 约定）
+  const [dragActive, setDragActive] = useState(false)
+  // 当前缩放（px/秒，来自 wavesurfer zoom 事件）；null = 未缩放（适应窗口宽度）
+  const [pxPerSec, setPxPerSec] = useState<number | null>(null)
 
-  const stageRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{ mode: 'create' | 'edge-l' | 'edge-r'; anchor: number } | null>(null)
-  const waveBars = useMemo(() => buildWaveBars(96), [])
+  const containerRef = useRef<HTMLDivElement>(null)
+  const wsRef = useRef<WaveSurfer | null>(null)
+  const sliceRegionRef = useRef<Region | null>(null)
+  const sliceRef = useRef<AudioSlice | null>(null)
+  const gapWaitingRef = useRef(false)
+  const draggingRef = useRef(false)
+  const loopTimerRef = useRef<number | null>(null)
 
-  const handlePlayToggle = useCallback(() => setPlaying((value) => !value), [])
-  const handleStop = useCallback(() => setPlaying(false), [])
+  // 稳定回调里读取的实时值（避免重建 wavesurfer 事件订阅）
+  const tempoRef = useRef(tempo)
+  tempoRef.current = tempo
+  const gapRef = useRef(gapBeats)
+  gapRef.current = gapBeats
+  // 缩放值的同步 ref：缩放回调不需要重订阅（zoom 事件随时改写）
+  const pxPerSecRef = useRef(0)
+
+  function updateSlice(next: AudioSlice | null, persist = true): void {
+    sliceRef.current = next
+    setSlice(next)
+    if (persist) persistSlice(next)
+  }
+
+  // 启动恢复：IndexedDB 最新一条音频（docs/tech.md §7.3）；切片在 wavesurfer ready 后按已存时长回放
+  useEffect(() => {
+    let cancelled = false
+    getLatestAudioFile()
+      .then((stored) => {
+        if (!cancelled && stored !== undefined) setAudio(stored)
+      })
+      .catch((error: unknown) => console.warn('[OriginalAudioPage] restore audio failed:', error))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // wavesurfer 生命周期：一个 audio 一个实例；region 事件驱动切片与循环（docs/audio.md §5.1/§5.2）
+  useEffect(() => {
+    if (audio === null) return
+    const container = containerRef.current
+    if (container === null) return
+
+    const ws = WaveSurfer.create({
+      container,
+      height: 150,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      normalize: true,
+      cursorWidth: 2,
+      backend: 'WebAudio',
+      dragToSeek: false,
+      ...waveColors(),
+    })
+    const regions = ws.registerPlugin(RegionsPlugin.create())
+    // 官方 ZoomPlugin：波形上滚轮/双指捏合缩放（指针锚定）；步进控件走同一 ws.zoom()（A13）
+    ws.registerPlugin(ZoomPlugin.create({ maxZoom: ZOOM_MAX_PX_PER_SEC }))
+    wsRef.current = ws
+
+    const subscriptions: (() => void)[] = []
+    let unsubscribeDrag: (() => void) | null = null
+
+    subscriptions.push(
+      ws.on('ready', (readyDuration: number) => {
+        setDuration(readyDuration)
+        // 新实例从适应窗口宽度起步（未调用过 zoom）
+        pxPerSecRef.current = 0
+        setPxPerSec(null)
+        const decoded = ws.getDecodedData()
+        if (decoded !== null) {
+          setSampleRateLabel(`${Math.round((decoded.sampleRate / 1000) * 10) / 10} kHz`)
+        }
+        // addRegion / enableDragSelection 统一在 ready 后调用（docs/audio.md §5.1）
+        unsubscribeDrag = regions.enableDragSelection({ color: regionColor() })
+        const stored = readPersistedSlice()
+        if (
+          stored !== null &&
+          stored.endTime <= readyDuration &&
+          buildAudioLoopPlan(stored.startTime, stored.endTime, 0, readyDuration).loop
+        ) {
+          regions.addRegion({
+            start: stored.startTime,
+            end: stored.endTime,
+            color: regionColor(),
+            drag: true,
+            resize: true,
+            minLength: MIN_SLICE_SECONDS,
+          })
+          // 恢复的切片同步回 UI 状态（持久化已在 localStorage，不重写）
+          updateSlice({ startTime: stored.startTime, endTime: stored.endTime }, false)
+        }
+      }),
+    )
+    // 滚轮/捏合与步进控件共用同一事实来源：核心 zoom() 广播的 minPxPerSec
+    subscriptions.push(
+      ws.on('zoom', (minPxPerSec: number) => {
+        pxPerSecRef.current = minPxPerSec
+        setPxPerSec(minPxPerSec)
+      }),
+    )
+    subscriptions.push(ws.on('play', () => setPlaying(true)))
+    subscriptions.push(ws.on('pause', () => setPlaying(false)))
+    subscriptions.push(ws.on('finish', () => setPlaying(false)))
+    subscriptions.push(
+      ws.on('error', (error: Error) => {
+        console.error('[OriginalAudioPage] wavesurfer error:', error)
+        setErrorText(t.errorAudioDecode)
+      }),
+    )
+
+    // 单切片约束：新 region 出现即移除旧 region；update-end（拖动/resize 结束）才回写持久化
+    subscriptions.push(
+      regions.on('region-created', (region: Region) => {
+        const previous = sliceRegionRef.current
+        if (previous !== null && previous !== region) previous.remove()
+        sliceRegionRef.current = region
+        subscriptions.push(
+          region.on('update', () => {
+            draggingRef.current = true
+          }),
+          region.on('update-end', () => {
+            draggingRef.current = false
+            updateSlice({ startTime: region.start, endTime: region.end })
+          }),
+        )
+      }),
+    )
+    subscriptions.push(
+      regions.on('region-removed', (region: Region) => {
+        if (region === sliceRegionRef.current) {
+          sliceRegionRef.current = null
+          updateSlice(null)
+        }
+      }),
+    )
+    // 双击 region = 移除切片与持久化（docs/audio.md §5.1）
+    subscriptions.push(
+      regions.on('region-double-clicked', (region: Region) => {
+        if (region === sliceRegionRef.current) region.remove()
+      }),
+    )
+
+    // 切片循环：region-out → 暂停 → 空拍 setTimeout → 回卷重播（决策 A5；0 拍 = setTimeout(0) 立即回卷）
+    subscriptions.push(
+      regions.on('region-out', (region: Region) => {
+        if (region !== sliceRegionRef.current) return
+        if (gapWaitingRef.current || draggingRef.current) return
+        const gapSeconds = Math.max(0, beatsToSeconds(gapRef.current, tempoRef.current))
+        const plan = buildAudioLoopPlan(region.start, region.end, gapSeconds, ws.getDuration())
+        if (!plan.loop) return
+        ws.pause()
+        gapWaitingRef.current = true
+        loopTimerRef.current = window.setTimeout(() => {
+          gapWaitingRef.current = false
+          loopTimerRef.current = null
+          ws.setTime(plan.offset)
+          void ws.play()
+        }, Math.round(gapSeconds * 1000))
+      }),
+    )
+
+    void ws.loadBlob(new Blob([audio.data]))
+
+    return () => {
+      if (loopTimerRef.current !== null) window.clearTimeout(loopTimerRef.current)
+      loopTimerRef.current = null
+      gapWaitingRef.current = false
+      draggingRef.current = false
+      for (const unsubscribe of subscriptions) unsubscribe()
+      unsubscribeDrag?.()
+      sliceRegionRef.current = null
+      wsRef.current = null
+      ws.destroy()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audio])
+
+  // 皮肤切换：setOptions 重着色（不重解码），canvas 不认 CSS 变量故读 token 具体值
+  useEffect(() => {
+    wsRef.current?.setOptions(waveColors())
+  }, [theme])
+
+  // 后台标签页 rAF 停摆 → region-out 不触发；隐藏即暂停循环（docs/audio.md §5.2，最小正确解）
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) wsRef.current?.pause()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
+
+  const handleFilesSelected = useCallback(
+    async (files: FileList | null) => {
+      const file = files?.[0]
+      if (file === undefined) return
+      // 第一道闸：MIME/扩展名白名单；第二道闸是 wavesurfer 解码（error 事件，docs/audio.md §5.1）
+      if (!isSupportedAudioFile(file)) {
+        setErrorText(t.errorUnsupportedAudio)
+        return
+      }
+      setErrorText(null)
+      try {
+        const data = await file.arrayBuffer()
+        let stored: StoredAudioFile
+        try {
+          stored = await saveAudioFile({ fileName: file.name, fileSize: file.size, data })
+        } catch (storageError: unknown) {
+          console.warn('[OriginalAudioPage] save audio failed:', storageError)
+          stored = { id: 'session', fileName: file.name, fileSize: file.size, uploadedAt: Date.now(), data }
+        }
+        persistSlice(null)
+        updateSlice(null, false)
+        setDuration(0)
+        setSampleRateLabel(null)
+        setAudio(stored)
+      } catch (readError: unknown) {
+        console.error('[OriginalAudioPage] read audio failed:', readError)
+        setErrorText(t.errorAudioDecode)
+      }
+    },
+    [t],
+  )
+
+  const handleRemoveAudio = useCallback(() => {
+    const current = audio
+    if (current !== null && current.id !== 'session') {
+      deleteAudioFile(current.id).catch((error: unknown) =>
+        console.warn('[OriginalAudioPage] delete audio failed:', error),
+      )
+    }
+    persistSlice(null)
+    updateSlice(null, false)
+    setAudio(null)
+    setDuration(0)
+    setSampleRateLabel(null)
+    setErrorText(null)
+    setPlaying(false)
+  }, [audio])
+
+  // 播放键：有切片 → 从切片起点播；无切片 → 全曲顺序（docs/audio.md §5.2）
+  const handlePlayToggle = useCallback(() => {
+    const ws = wsRef.current
+    if (ws === null) return
+    if (ws.isPlaying()) {
+      ws.pause()
+      return
+    }
+    const current = sliceRef.current
+    if (current !== null) {
+      ws.setTime(Math.max(0, Math.min(current.startTime, ws.getDuration())))
+    }
+    void ws.play()
+  }, [])
+
+  const handleStop = useCallback(() => {
+    wsRef.current?.stop()
+  }, [])
+
+  // 双击/双触删切片：触控端 iOS/iPadOS Safari 不触发原生 dblclick（WebKit bug 202143），
+  // pointer 双击检测与桌面 region-double-clicked 并存，双方都经 sliceRegionRef 护栏幂等
+  const handleWaveDoubleTap = useCallback((event: PointerEvent) => {
+    const ws = wsRef.current
+    const region = sliceRegionRef.current
+    const slice = sliceRef.current
+    const container = containerRef.current
+    if (ws === null || region === null || slice === null || container === null) return
+    const rect = container.getBoundingClientRect()
+    if (isTapWithinSlice(event.clientX - rect.left, rect.width, ws.getDuration(), slice)) {
+      region.remove() // region-removed 订阅负责清 UI 状态与持久化
+    }
+  }, [])
+  useDoubleTap(containerRef, handleWaveDoubleTap)
+
+  // ---- 波形缩放（A13）：适应宽度 = 容器宽 / 时长；步进控件与滚轮/捏合共享 ws.zoom() ----
+  const fitPxPerSec = useCallback((): number => {
+    const ws = wsRef.current
+    const container = containerRef.current
+    if (ws === null || container === null) return 0
+    const total = ws.getDuration()
+    const width = container.clientWidth
+    return width > 0 && total > 0 ? width / total : 0
+  }, [])
+
+  const atFitWidth = useCallback((): boolean => {
+    const fit = fitPxPerSec()
+    return fit <= 0 || Math.max(pxPerSecRef.current, fit) <= fit * ZOOM_FIT_EPSILON
+  }, [fitPxPerSec])
+
+  const handleZoomIn = useCallback(() => {
+    const ws = wsRef.current
+    const fit = fitPxPerSec()
+    if (ws === null || fit <= 0) return
+    ws.zoom(zoomInPx(pxPerSecRef.current, fit))
+  }, [fitPxPerSec])
+
+  const handleZoomOut = useCallback(() => {
+    const ws = wsRef.current
+    if (ws === null || atFitWidth()) return
+    ws.zoom(zoomOutPx(pxPerSecRef.current, fitPxPerSec()))
+  }, [atFitWidth, fitPxPerSec])
+
+  const handleZoomFit = useCallback(() => {
+    const ws = wsRef.current
+    if (ws === null || atFitWidth()) return
+    ws.zoom(fitPxPerSec())
+  }, [atFitWidth, fitPxPerSec])
+
+  // 拖放导入（FileLoaderModal 同款约定）：dragover 高亮、drop 复用点击入口的校验管线
+  const dragHandlers = {
+    onDragOver: (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      setDragActive(true)
+    },
+    onDragLeave: () => setDragActive(false),
+    onDrop: (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      setDragActive(false)
+      const files = event.dataTransfer.files
+      if (files.length > 0) void handleFilesSelected(files)
+    },
+  }
+
   useKeyboardShortcuts({ onPlayToggle: handlePlayToggle, onStop: handleStop })
 
-  const loadDemoAudio = () => {
-    setHasAudio(true)
-    setSlice({
-      start: 42 / DEMO_AUDIO.durationSec,
-      end: 65 / DEMO_AUDIO.durationSec,
-    })
-  }
-  const removeAudio = () => {
-    setHasAudio(false)
-    setSlice(null)
-    setPlaying(false)
-  }
+  const inputRef = useRef<HTMLInputElement>(null)
+  const openFilePicker = useCallback(() => inputRef.current?.click(), [])
+  const fileInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept=".mp3,.wav,.ogg,.m4a,audio/*"
+      onChange={(event) => {
+        void handleFilesSelected(event.target.files)
+        event.target.value = ''
+      }}
+      {...stylex.props(styles.hiddenInput)}
+      aria-hidden="true"
+      tabIndex={-1}
+    />
+  )
 
-  function fractionFromPointer(event: ReactPointerEvent): number {
-    const rect = stageRef.current?.getBoundingClientRect()
-    if (rect === undefined || rect.width === 0) return 0
-    return Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
-  }
-
-  function handleStagePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    const fraction = fractionFromPointer(event)
-    dragRef.current = { mode: 'create', anchor: fraction }
-    stageRef.current?.setPointerCapture(event.pointerId)
-    setSlice({ start: fraction, end: fraction })
-  }
-
-  function handleEdgePointerDown(event: ReactPointerEvent<HTMLSpanElement>, edge: 'l' | 'r') {
-    event.stopPropagation()
-    if (slice === null) return
-    dragRef.current = { mode: edge === 'l' ? 'edge-l' : 'edge-r', anchor: 0 }
-    stageRef.current?.setPointerCapture(event.pointerId)
-  }
-
-  function handleStagePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    if (drag === null) return
-    const fraction = fractionFromPointer(event)
-    setSlice((current) => {
-      if (drag.mode === 'create') return { start: drag.anchor, end: fraction }
-      if (current === null) return current
-      return drag.mode === 'edge-l'
-        ? { start: fraction, end: current.end }
-        : { start: current.start, end: fraction }
-    })
-  }
-
-  function handleStagePointerUp() {
-    const drag = dragRef.current
-    dragRef.current = null
-    setSlice((current) => {
-      if (current === null) return current
-      let { start, end } = current
-      if (start > end) [start, end] = [end, start]
-      if (end - start < MIN_SLICE_FRACTION) {
-        // 点按（未拖出宽度）不产生切片；微调越界时收缩到最小宽度
-        if (drag?.mode === 'create') return null
-        start = Math.max(0, Math.min(start, 1 - MIN_SLICE_FRACTION))
-        return { start, end: Math.min(1, start + MIN_SLICE_FRACTION) }
-      }
-      return { start, end }
-    })
-  }
-
-  if (!hasAudio) {
+  if (audio === null) {
     return (
-      <div {...stylex.props(styles.page)}>
+      <div {...stylex.props(styles.page)} {...dragHandlers} data-drag-active={dragActive || undefined}>
         <div {...stylex.props(styles.card)}>
+          {fileInput}
           <button
             type="button"
-            onClick={loadDemoAudio}
-            {...stylex.props(styles.emptyBtn)}
+            onClick={openFilePicker}
+            {...stylex.props(styles.emptyBtn, dragActive && styles.emptyBtnActive)}
           >
             <ThemeIcon name="phones" style={styles.icon32} />
             <span {...stylex.props(styles.dropMain)}>
               {t.audioDropMain} <em {...stylex.props(styles.browseEm)}>{t.dropBrowse}</em>
             </span>
             <span {...stylex.props(styles.dropHint)}>{t.audioDropHint}</span>
-            <span {...stylex.props(styles.stubHint)}>{t.audioStubHint}</span>
           </button>
+          {errorText !== null && (
+            <p role="alert" {...stylex.props(styles.errorBanner)}>
+              <span aria-hidden>⚠</span>
+              {errorText}
+            </p>
+          )}
         </div>
       </div>
     )
   }
 
-  const gapSeconds = ((60 / tempo) * gapBeats).toFixed(1)
+  const gapSeconds = beatsToSeconds(gapBeats, tempo).toFixed(1)
+  const fit = fitPxPerSec()
+  const zoomLabel = `${zoomPercent(pxPerSec ?? 0, fit)}%`
+  const atFit = atFitWidth()
+  const atMax = pxPerSec !== null && pxPerSec >= ZOOM_MAX_PX_PER_SEC
 
   return (
-    <div {...stylex.props(styles.page)}>
+    <div {...stylex.props(styles.page)} {...dragHandlers} data-drag-active={dragActive || undefined}>
       <div {...stylex.props(styles.card, styles.cardCompact)}>
         <div {...stylex.props(styles.inner)}>
           <div {...stylex.props(styles.headRow)}>
             <div {...stylex.props(styles.metaRow)}>
-              <span
-                aria-hidden
-                {...stylex.props(styles.iconBox)}
-              >
+              <span aria-hidden {...stylex.props(styles.iconBox)}>
                 <ThemeIcon name="phones" style={styles.icon18} />
               </span>
               <span {...stylex.props(styles.metaText)}>
-                <div {...stylex.props(styles.audioName)}>{t.demoAudioName}</div>
+                <div {...stylex.props(styles.audioName)}>{audio.fileName}</div>
                 <div {...stylex.props(styles.audioMeta)}>
-                  {DEMO_AUDIO.sizeLabel} · {formatTime(DEMO_AUDIO.durationSec)} · {DEMO_AUDIO.sampleRateLabel}
+                  {formatFileSize(audio.fileSize)}
+                  {duration > 0 && ` · ${formatTime(duration)}`}
+                  {sampleRateLabel !== null && ` · ${sampleRateLabel}`}
                 </div>
               </span>
             </div>
-            <button
-              type="button"
-              onClick={removeAudio}
-              {...stylex.props(styles.removeBtn)}
-            >
+            <button type="button" onClick={handleRemoveAudio} {...stylex.props(styles.removeBtn)}>
               {t.removeAudio}
             </button>
           </div>
 
-          {/* 波形 + 切片（拖拽新建 / 边界微调 / 双击移除） */}
-          <div
-            ref={stageRef}
-            aria-label={t.waveHint}
-            onPointerDown={handleStagePointerDown}
-            onPointerMove={handleStagePointerMove}
-            onPointerUp={handleStagePointerUp}
-            {...stylex.props(styles.stage)}
-          >
-            <div aria-hidden {...stylex.props(styles.barsRow)}>
-              {waveBars.map((height, index) => (
-                <div
-                  key={index}
-                  {...stylex.props(styles.bar)}
-                  style={{ height: `${Math.min(height, 130)}px` }}
-                />
-              ))}
-            </div>
-            {slice !== null && (
-              <>
-                <div
-                  aria-hidden
-                  {...stylex.props(styles.mask)}
-                  style={{ left: 0, width: `${slice.start * 100}%` }}
-                />
-                <div
-                  aria-hidden
-                  {...stylex.props(styles.mask)}
-                  style={{ right: 0, left: `${slice.end * 100}%` }}
-                />
-                <div
-                  data-slice-box=""
-                  {...stylex.props(styles.sliceBox)}
-                  style={{ left: `${slice.start * 100}%`, width: `${(slice.end - slice.start) * 100}%` }}
-                  onDoubleClick={() => setSlice(null)}
-                >
-                  <div aria-hidden {...stylex.props(styles.sliceInner)} />
-                  <span {...stylex.props(styles.sliceTag)}>
-                    {t.sliceTag(
-                      formatTime(slice.start * DEMO_AUDIO.durationSec),
-                      formatTime(slice.end * DEMO_AUDIO.durationSec),
-                    )}
-                  </span>
-                  {(['l', 'r'] as const).map((edge) => (
-                    <span
-                      key={edge}
-                      onPointerDown={(event) => handleEdgePointerDown(event, edge)}
-                      {...stylex.props(styles.handle, edge === 'l' ? styles.handleLeft : styles.handleRight)}
-                    >
-                      <span aria-hidden {...stylex.props(styles.handleGrip)} />
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
-            {playing && (
-              <div aria-hidden {...stylex.props(styles.playhead)}>
-                <span {...stylex.props(styles.playheadArrow)} />
-              </div>
-            )}
+          {/* 缩放控件（A13）：－/倍率/＋ 步进；滚轮与捏合由 ZoomPlugin 处理 */}
+          <div {...stylex.props(styles.zoomRow)}>
+            <button
+              type="button"
+              aria-label={t.zoomOut}
+              title={t.zoomOut}
+              disabled={atFit}
+              onClick={handleZoomOut}
+              {...stylex.props(styles.chipBtn)}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label={t.zoomFit}
+              title={t.zoomFit}
+              disabled={atFit}
+              onClick={handleZoomFit}
+              {...stylex.props(styles.chipBtn)}
+            >
+              {zoomLabel}
+            </button>
+            <button
+              type="button"
+              aria-label={t.zoomIn}
+              title={t.zoomIn}
+              disabled={atMax}
+              onClick={handleZoomIn}
+              {...stylex.props(styles.chipBtn)}
+            >
+              ＋
+            </button>
           </div>
+
+          {/* wavesurfer 波形：拖选新建切片 / 拖动移位 / 把手微调 / 双击移除；滚轮缩放（A13） */}
+          <div ref={containerRef} data-wave-stage aria-label={t.waveHint} {...stylex.props(styles.stage)} />
+
+          {errorText !== null && (
+            <p role="alert" {...stylex.props(styles.errorBanner)}>
+              <span aria-hidden>⚠</span>
+              {errorText}
+            </p>
+          )}
 
           {slice !== null && (
             <div {...stylex.props(styles.sliceInfoRow)}>
               <span {...stylex.props(styles.loopChip)}>
-                {t.loopChipLabel(Math.round((slice.end - slice.start) * DEMO_AUDIO.durationSec))}
+                {t.loopChipLabel(Math.round(slice.endTime - slice.startTime))}
               </span>
               <span>
-                {t.loopRange(
-                  formatTime(slice.start * DEMO_AUDIO.durationSec),
-                  formatTime(slice.end * DEMO_AUDIO.durationSec),
-                )}
+                {t.loopRange(formatTime(slice.startTime), formatTime(slice.endTime))}
                 {gapBeats > 0 && ` · ${t.gapInfo(gapBeats, `${gapSeconds}s`)}`}
               </span>
               <span {...stylex.props(styles.waveHint)}>{t.waveHint}</span>
@@ -561,7 +837,13 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
             </div>
           </div>
         </div>
+        {dragActive && (
+          <div aria-hidden {...stylex.props(styles.dropOverlay)}>
+            {t.audioDropOverlay}
+          </div>
+        )}
       </div>
+      {fileInput}
     </div>
   )
 }

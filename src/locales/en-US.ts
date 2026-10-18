@@ -22,9 +22,7 @@ export const enUS = {
   instrumentTrumpet: 'Trumpet',
 
   // 示范曲信息（内置《小星星》回落）
-  demoScoreTitle: 'Twinkle, Twinkle, Little Star',
-  demoScoreComposer: 'Traditional',
-  keyCMajor: 'C major',
+  untitledScore: 'Untitled score',
 
   // 纸面乐谱卡
   notationPlaceholder: 'Sheet music will render here — the rendering/playback engine is not wired up yet.',
@@ -79,17 +77,30 @@ export const enUS = {
   localNote: 'Files are stored locally in your browser (IndexedDB)',
   closeHint: 'Close',
 
+  // 乐谱导入错误（docs/musicxml.md §6，E1–E4）
+  importing: 'Parsing score…',
+  errorCorruptArchive: 'Corrupted archive: this .mxl file could not be opened',
+  errorNotMusicXML: 'Unsupported format: only MusicXML score-partwise files are supported',
+  errorParseFailed: 'Failed to parse this score file',
+  errorUnsupportedEncoding: 'Unsupported encoding: only UTF-8 MusicXML files are supported',
+
   // 原曲页
   audioDropMain: 'Drop an audio file here, or',
   audioDropHint: 'Supports mp3 · wav · ogg · m4a — processed locally in your browser',
-  audioStubHint: 'Demo mode: click to load a sample track (no sound yet)',
   removeAudio: 'Remove audio',
   sliceTag: (start: string, end: string) => `Slice ${start} – ${end}`,
   loopChipLabel: (seconds: number) => `LOOP ${seconds}s`,
   loopRange: (start: string, end: string) => `Loop ${start} → ${end}`,
   gapInfo: (beats: number, duration: string) => `+${beats} beats of silence per round (≈ ${duration})`,
   waveHint: 'Drag on the waveform to create a slice · drag its edges to adjust · double-click to remove',
-  demoAudioName: 'Sample track.mp3',
+  audioDropOverlay: 'Drop to load audio',
+  zoomOut: 'Zoom out waveform',
+  zoomIn: 'Zoom in waveform',
+  zoomFit: 'Fit to window',
+
+  // 音频导入错误（docs/audio.md §5.1 双重校验）
+  errorUnsupportedAudio: 'Unsupported audio file: use mp3, wav, ogg or m4a',
+  errorAudioDecode: 'Could not decode this audio file',
 
   // 皮肤切换（skin-switching.html v1.1 §③：四语言全量硬约束）
   theme: {

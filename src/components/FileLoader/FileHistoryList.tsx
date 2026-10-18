@@ -48,9 +48,18 @@ const styles = stylex.create({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    borderWidth: 0,
+    paddingInline: 0,
+    backgroundColor: 'transparent',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
     fontSize: '13px',
     fontWeight: 600,
     color: 'var(--color-fg)',
+    textAlign: 'left',
+    ':hover': {
+      color: 'var(--color-verm-deep)',
+    },
   },
   meta: {
     marginTop: '1px',
@@ -86,6 +95,8 @@ export interface FileHistoryItem {
 interface FileHistoryListProps {
   items: FileHistoryItem[]
   onDelete: (id: string) => void
+  /** 点击条目载入该乐谱 */
+  onSelect?: (id: string) => void
 }
 
 function formatFileSize(bytes: number): string {
@@ -104,8 +115,8 @@ function formatRelativeTime(timestamp: number, language: Language): string {
   return new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).format(timestamp)
 }
 
-/** 加载弹窗内的最近文件列表（悬停显示删除） */
-export default function FileHistoryList({ items, onDelete }: FileHistoryListProps) {
+/** 加载弹窗内的最近文件列表（悬停显示删除；点击标题载入） */
+export default function FileHistoryList({ items, onDelete, onSelect }: FileHistoryListProps) {
   const { t, language } = useI18n()
 
   return (
@@ -116,7 +127,13 @@ export default function FileHistoryList({ items, onDelete }: FileHistoryListProp
             <ThemeIcon name="note" style={styles.icon15} />
           </span>
           <span {...stylex.props(styles.textCol)}>
-            <span {...stylex.props(styles.title)}>{item.title}</span>
+            <button
+              type="button"
+              onClick={onSelect === undefined ? undefined : () => onSelect(item.id)}
+              {...stylex.props(styles.title)}
+            >
+              {item.title}
+            </button>
             <span {...stylex.props(styles.meta)}>
               {formatFileSize(item.fileSize)} · {formatRelativeTime(item.uploadedAt, language)}
             </span>

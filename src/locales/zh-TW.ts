@@ -20,9 +20,7 @@ export const zhTW: TranslationSet = {
   instrumentTrumpet: '小號',
 
   // 示範曲資訊
-  demoScoreTitle: '小星星',
-  demoScoreComposer: '傳統童謠',
-  keyCMajor: 'C 大調',
+  untitledScore: '未命名樂譜',
 
   // 紙面樂譜卡
   notationPlaceholder: '樂譜將在此渲染——渲染與播放引擎尚未接入。',
@@ -80,14 +78,27 @@ export const zhTW: TranslationSet = {
   // 原曲頁
   audioDropMain: '拖放音訊檔案至此處，或',
   audioDropHint: '支援 mp3 · wav · ogg · m4a，在瀏覽器本地處理',
-  audioStubHint: '示範模式：點擊載入範例音訊（暫無聲音）',
   removeAudio: '移除音訊',
   sliceTag: (start: string, end: string) => `切片 ${start} – ${end}`,
   loopChipLabel: (seconds: number) => `循環 ${seconds} 秒`,
   loopRange: (start: string, end: string) => `循環區間 ${start} → ${end}`,
   gapInfo: (beats: number, duration: string) => `每輪 +${beats} 拍靜音（約 ${duration}）`,
   waveHint: '拖拽波形新建切片 · 拖動邊界微調 · 雙擊移除',
-  demoAudioName: '範例音訊.mp3',
+  audioDropOverlay: '放開以匯入音訊',
+  zoomOut: '縮小波形',
+  zoomIn: '放大波形',
+  zoomFit: '符合視窗',
+
+  // 樂譜匯入錯誤（docs/musicxml.md §6，E1–E4）
+  importing: '正在解析樂譜…',
+  errorCorruptArchive: '壓縮檔已損壞：無法讀取該 .mxl 檔案',
+  errorNotMusicXML: '格式不支援：僅支援 MusicXML score-partwise 樂譜',
+  errorParseFailed: '樂譜檔案解析失敗',
+  errorUnsupportedEncoding: '編碼不支援：僅支援 UTF-8 的 MusicXML 檔案',
+
+  // 音訊匯入錯誤（docs/audio.md §5.1 雙重校驗）
+  errorUnsupportedAudio: '音訊格式不支援：請使用 mp3、wav、ogg 或 m4a',
+  errorAudioDecode: '音訊檔案解碼失敗',
 
   // 皮膚切換
   theme: {
