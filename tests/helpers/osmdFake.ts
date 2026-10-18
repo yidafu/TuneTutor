@@ -60,8 +60,66 @@ export interface FakeGraphicNote {
   PositionAndShape: { AbsolutePosition: { x: number; y: number } }
 }
 
+/** 播放数据构建用光标替身 + 光标跟随 UI 的调用记录（buildPlaybackData 与光标跟随共用） */
+export interface FakeCursor {
+  /** reset/next/show/hide 调用序（按序追加） */
+  calls: string[]
+  reset(): void
+  next(): void
+  show(): void
+  hide(): void
+  iterator: {
+    readonly EndReached: boolean
+    readonly CurrentVoiceEntries: Array<{ IsGrace: boolean; Notes: Array<Record<string, unknown>> }>
+    readonly CurrentMeasureIndex: number
+    /** 绝对时间戳（fake 音符固定四分，每步推进 0.25）——buildPlaybackData 的 startRv 来源 */
+    readonly currentTimeStamp: { RealValue: number }
+  }
+}
+
+/** 逐步光标替身：每个音符一个 cursor step（单声部）；供 buildPlaybackData 遍历 */
+export function createFakeCursor(
+  notes: Array<{ source: Record<string, unknown>; measureIndex: number }>,
+): FakeCursor {
+  const calls: string[] = []
+  let index = 0
+  return {
+    calls,
+    reset: () => {
+      calls.push('reset')
+      index = 0
+    },
+    next: () => {
+      calls.push('next')
+      index += 1
+    },
+    show: () => {
+      calls.push('show')
+    },
+    hide: () => {
+      calls.push('hide')
+    },
+    iterator: {
+      get EndReached(): boolean {
+        return index >= notes.length
+      },
+      get CurrentVoiceEntries(): Array<{ IsGrace: boolean; Notes: Array<Record<string, unknown>> }> {
+        const note = notes[Math.min(index, notes.length - 1)]
+        return note === undefined ? [] : [{ IsGrace: false, Notes: [note.source] }]
+      },
+      get CurrentMeasureIndex(): number {
+        return notes[Math.min(index, notes.length - 1)]?.measureIndex ?? 0
+      },
+      get currentTimeStamp(): { RealValue: number } {
+        return { RealValue: index * 0.25 }
+      },
+    },
+  }
+}
+
 export interface FakeOsmdInstance {
   zoom: number
+  cursor: FakeCursor
   GraphicSheet: {
     MeasureList: unknown[]
     GetNearestNote: (point: { x: number; y: number }, maxDist: { x: number; y: number }) => unknown
@@ -82,9 +140,10 @@ export function buildFakeScore(spec: FakeScoreSpec, container: HTMLElement): Fak
   const graphicNotes: FakeGraphicNote[] = []
   const rowIds = new Map<number, Record<string, unknown>>()
   const measureList: unknown[] = []
+  const cursorNotes: Array<{ source: Record<string, unknown>; measureIndex: number }> = []
 
   let pendingTie: TieLike | null = null
-  spec.measures.forEach((measureSpec) => {
+  spec.measures.forEach((measureSpec, measureIndex) => {
     let rowKey = rowIds.get(measureSpec.row ?? 0)
     if (rowKey === undefined) {
       rowKey = { row: measureSpec.row ?? 0 }
@@ -94,6 +153,10 @@ export function buildFakeScore(spec: FakeScoreSpec, container: HTMLElement): Fak
       const sourceNote: Record<string, unknown> = {
         IsGraceNote: noteSpec.isGrace === true,
         PrintObject: noteSpec.printObject === false ? false : true,
+        // buildPlaybackData 需要的音符面：音高固定 C4、时值四分（spec 未建模音高/时值）
+        halfTone: 48,
+        Length: { RealValue: 0.25 },
+        isRest: () => false,
       }
       if (noteSpec.tie === 'start') {
         pendingTie = { StartNote: sourceNote }
@@ -101,6 +164,7 @@ export function buildFakeScore(spec: FakeScoreSpec, container: HTMLElement): Fak
       } else if (noteSpec.tie === 'continue') {
         sourceNote.NoteTie = pendingTie
       }
+      cursorNotes.push({ source: sourceNote, measureIndex })
       const width = noteSpec.width ?? 12
       const height = noteSpec.height ?? 10
       if (noteSpec.printObject !== false) {
@@ -124,6 +188,7 @@ export function buildFakeScore(spec: FakeScoreSpec, container: HTMLElement): Fak
 
   const osmd: FakeOsmdInstance = {
     zoom: 1,
+    cursor: createFakeCursor(cursorNotes),
     GraphicSheet: {
       MeasureList: measureList,
       // 官方最近邻原语的替身：unit 距离双轴都在 maxDist 内取最近（V-S5 语义）

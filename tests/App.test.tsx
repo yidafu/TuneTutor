@@ -24,6 +24,32 @@ vi.mock('wavesurfer.js/dist/plugins/zoom.esm.js', async () => {
   const { FakeZoomPlugin } = await import('./helpers/wavesurferFake')
   return { default: { create: FakeZoomPlugin.create } }
 })
+// 乐谱页播放引擎以替身注入（引擎行为在 usePlayback/PlaybackEngine 测试覆盖）：
+// 默认工厂会引入 Tone + 采样包，jsdom 无 AudioContext 不能真实构造
+vi.mock('@/hooks/usePlayback', async () => {
+  const { useCallback, useState } = await import('react')
+  return {
+    usePlayback: () => {
+      const [playing, setPlaying] = useState(false)
+      const toggle = useCallback((): void => {
+        setPlaying((value) => !value)
+      }, [])
+      const stop = useCallback((): void => {
+        setPlaying(false)
+      }, [])
+      return { ready: true, playing, progress: 0, play: toggle, stop, toggle, engine: null }
+    },
+    parseTimeSignature: (timeSignature: string) => {
+      const [beats, beatType] = timeSignature.split('/')
+      const numerator = Number.parseInt(beats ?? '', 10)
+      const denominator = Number.parseInt(beatType ?? '', 10)
+      return {
+        beatsPerMeasure: Number.isFinite(numerator) && numerator > 0 ? numerator : 4,
+        beatValue: Number.isFinite(denominator) && denominator > 0 ? denominator : 4,
+      }
+    },
+  }
+})
 
 describe('App 路由壳', () => {
   it('默认路由渲染乐谱页', () => {

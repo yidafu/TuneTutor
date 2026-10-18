@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useState, type ReactElement } from 'react'
 
 import OsmdNotation from '@/components/OsmdNotation'
+import type { PlaybackEngine, PlaybackIterationEvent, PlaybackState } from '@/audio/PlaybackEngine'
+import type { PlaybackEntry } from '@/types/playback'
 import { enUS } from '@/locales/en-US'
 import type { ScoreSelection, SelectionSummary } from '@/utils/notation/selection'
 import { renderWithProviders } from '../helpers/ui'
@@ -283,5 +285,170 @@ describe('OsmdNotation', () => {
     fireEvent.doubleClick(notes[3]!)
 
     expect(onSelectionChange).not.toHaveBeenCalled()
+  })
+})
+
+// ── 光标跟随与播放数据（docs/audio.md §3.8，P3 接入）────────────────────
+
+/** 引擎替身：只暴露 OsmdNotation 订阅的面（onIteration/onStateChange/指针直读） */
+class FakePlaybackEngine {
+  state: PlaybackState = 'STOPPED'
+  entryIndex = -1
+  private readonly iterationHandlers = new Set<(event: PlaybackIterationEvent) => void>()
+  private readonly stateHandlers = new Set<(state: PlaybackState) => void>()
+
+  onIteration(handler: (event: PlaybackIterationEvent) => void): () => void {
+    this.iterationHandlers.add(handler)
+    return () => this.iterationHandlers.delete(handler)
+  }
+
+  onStateChange(handler: (state: PlaybackState) => void): () => void {
+    this.stateHandlers.add(handler)
+    return () => this.stateHandlers.delete(handler)
+  }
+
+  getState(): PlaybackState {
+    return this.state
+  }
+
+  getCurrentEntryIndex(): number {
+    return this.entryIndex
+  }
+
+  emitState(state: PlaybackState): void {
+    this.state = state
+    for (const handler of this.stateHandlers) handler(state)
+  }
+
+  emitIteration(resetOccurred = false): void {
+    // 载荷契约与真实引擎同构：entry = 刚发声条目（索引由测试显式设 entryIndex）
+    const index = this.entryIndex
+    const entry =
+      index < 0
+        ? null
+        : { startRv: 0, durationRv: 0.25, measureIndex: 0, noteIndex: index, noteName: 'C4' }
+    for (const handler of this.iterationHandlers) {
+      handler({ entry, resetOccurred })
+    }
+  }
+}
+
+function engineHarness(engine: FakePlaybackEngine): {
+  onPlaybackDataReady: ReturnType<typeof vi.fn>
+} {
+  const onPlaybackDataReady = vi.fn<(entries: PlaybackEntry[], scoreKey: string) => void>()
+  FakeOsmdRender.spec = TWO_ROW_SPEC
+  renderWithProviders(
+    <OsmdNotation
+      rawContent="<fake-score/>"
+      selection={null}
+      onSelectionChange={vi.fn()}
+      onSelectionInvalid={vi.fn()}
+      engine={engine as unknown as PlaybackEngine}
+      onPlaybackDataReady={onPlaybackDataReady}
+    />,
+  )
+  return { onPlaybackDataReady }
+}
+
+function cursorCalls(): string[] {
+  const last = FakeOsmdRender.last
+  expect(last).not.toBeNull()
+  return last!.instance!.cursor.calls
+}
+
+function playheadElement(): HTMLElement | null {
+  return document.querySelector('[data-playhead]')
+}
+
+describe('OsmdNotation 播放光标带与播放数据（docs/audio.md §3.8）', () => {
+  afterEach(() => {
+    FakeOsmdRender.spec = null
+    FakeOsmdRender.last = null
+  })
+
+  it('装载后上报播放数据（乐谱时域条目 + 谱键），光标遍历后复位', async () => {
+    const engine = new FakePlaybackEngine()
+    const { onPlaybackDataReady } = engineHarness(engine)
+    await waitForGeometry()
+    await waitFor(() => expect(onPlaybackDataReady).toHaveBeenCalled())
+    const [entries, scoreKey] = onPlaybackDataReady.mock.calls[0]!
+    expect(scoreKey).toBe('<fake-score/>')
+    // TWO_ROW_SPEC：3 小节 10 音，全四分符，halfTone 48（OSMD 记法 C4）
+    expect(entries).toHaveLength(10)
+    expect(entries[0]).toEqual({
+      startRv: 0,
+      durationRv: 0.25,
+      measureIndex: 0,
+      noteIndex: 0,
+      noteName: 'C4',
+    })
+    expect(entries[9]).toMatchObject({ startRv: 2.25, noteIndex: 9 })
+    expect(cursorCalls()).toContain('reset') // 构建后复位（数据只读）
+  })
+
+  it('未播放无光标带；PLAYING + 首 iteration 起显示，位置跟随引擎指针', async () => {
+    const engine = new FakePlaybackEngine()
+    engineHarness(engine)
+    await waitForGeometry()
+    expect(playheadElement()).toBeNull()
+
+    engine.emitState('PLAYING')
+    engine.entryIndex = 0
+    engine.emitIteration()
+    const band = await waitFor(() => {
+      const element = playheadElement()
+      expect(element).not.toBeNull()
+      return element as HTMLElement
+    })
+    expect(band.style.left).toBe('77px') // 音符 0 @ spec x 60 + 容器偏移 20，带左缘外扩 3px
+    expect(band.style.top).toBe('22px') // 行带 y 38（音符包络 + 偏移 − 12px 外扩）再外扩 4px，盖过五线谱
+  })
+
+  it('同帧多次 iteration 合并，位置取最新指针；回跳（resetOccurred）自动跟随', async () => {
+    const engine = new FakePlaybackEngine()
+    engineHarness(engine)
+    await waitForGeometry()
+
+    engine.emitState('PLAYING')
+    engine.entryIndex = 2
+    engine.emitIteration()
+    engine.emitIteration() // 同帧第二击
+    await waitFor(() => expect(playheadElement()?.style.left).toBe('197px')) // 音符 2 @ spec x 180 + 偏移
+    expect(document.querySelectorAll('[data-playhead]')).toHaveLength(1)
+
+    engine.entryIndex = 0 // 循环回跳后指针回起点：索引直读，无需显式复位
+    engine.emitIteration(true)
+    await waitFor(() => expect(playheadElement()?.style.left).toBe('77px'))
+  })
+
+  it('播放中缩放重渲染：光标带不丢不跳（视觉活在覆盖层，无需 OSMD 光标重同步）', async () => {
+    const engine = new FakePlaybackEngine()
+    engineHarness(engine)
+    await waitForGeometry()
+
+    engine.emitState('PLAYING')
+    engine.entryIndex = 6 // 第二行首音 @ spec x 60, y 180（+ 容器偏移）
+    engine.emitIteration()
+    await waitFor(() => expect(playheadElement()?.style.top).toBe('174px'))
+
+    fireEvent.click(screen.getByRole('button', { name: enUS.notationZoomIn }))
+    await waitFor(() => expect(screen.getByText('110%')).toBeInTheDocument())
+    expect(playheadElement()?.style.top).toBe('174px')
+    expect(playheadElement()?.style.left).toBe('77px')
+  })
+
+  it('STOPPED：光标带立即移除', async () => {
+    const engine = new FakePlaybackEngine()
+    engineHarness(engine)
+    await waitForGeometry()
+
+    engine.emitState('PLAYING')
+    engine.entryIndex = 1
+    engine.emitIteration()
+    await waitFor(() => expect(playheadElement()).not.toBeNull())
+
+    engine.emitState('STOPPED')
+    await waitFor(() => expect(playheadElement()).toBeNull())
   })
 })

@@ -77,6 +77,17 @@ const styles = stylex.create({
     borderRadius: '3px',
     backgroundColor: 'color-mix(in srgb, var(--color-ink) 8%, transparent)',
   },
+  // 播放光标带（ui-design.html v3：金铜仅表示播放中）：行带再外扩一档盖过五线谱，
+  // 左缘金铜竖线读作光标本体；仅水平位移过渡（跨行瞬移，不纵向滑动）
+  playhead: {
+    position: 'absolute',
+    borderRadius: '6px',
+    backgroundColor: 'color-mix(in srgb, var(--color-gold-bright) 15%, transparent)',
+    boxShadow: 'inset 2.5px 0 0 var(--color-gold-bright)',
+    transitionProperty: 'left',
+    transitionDuration: '80ms',
+    transitionTimingFunction: 'linear',
+  },
   dragLayer: {
     position: 'absolute',
     display: 'none',
@@ -111,6 +122,8 @@ interface ScoreSelectionOverlayProps {
   /** pending 起点音符（弱高亮），无则 null */
   pendingNoteIndex: number | null
   selection: ScoreSelection | null
+  /** 播放中音符（金铜光标带，audio.md §3.8 引擎指针直读）；null = 未播放 */
+  playingNoteIndex?: number | null
   /** 拖拽实时矩形层（pointermove 期间由容器直写 style；句柄按下由容器 closest 路由） */
   dragLayerRef: RefObject<HTMLDivElement | null>
 }
@@ -120,6 +133,7 @@ export default function ScoreSelectionOverlay({
   rows,
   pendingNoteIndex,
   selection,
+  playingNoteIndex = null,
   dragLayerRef,
 }: ScoreSelectionOverlayProps) {
   const { t } = useI18n()
@@ -141,6 +155,17 @@ export default function ScoreSelectionOverlay({
     return positions.find((p) => p.occupiesSlot && p.noteIndex === pendingNoteIndex) ?? null
   }, [pendingNoteIndex, positions])
 
+  const playingNote = useMemo(() => {
+    if (playingNoteIndex === null) return null
+    return positions.find((p) => p.occupiesSlot && p.noteIndex === playingNoteIndex) ?? null
+  }, [playingNoteIndex, positions])
+
+  const playingRow = useMemo(
+    () =>
+      playingNote === null ? undefined : rows.find((row) => row.rowIndex === playingNote.rowIndex),
+    [playingNote, rows],
+  )
+
   const firstRow = highlights[0]
   const lastRow = highlights[highlights.length - 1]
 
@@ -157,6 +182,18 @@ export default function ScoreSelectionOverlay({
 
   return (
     <div {...stylex.props(styles.root)} aria-hidden="true">
+      {playingNote !== null && playingRow !== undefined && (
+        <div
+          data-playhead=""
+          {...stylex.props(styles.playhead)}
+          style={{
+            left: playingNote.x - 3,
+            top: playingRow.y - 4,
+            width: playingNote.width + 6,
+            height: playingRow.height + 8,
+          }}
+        />
+      )}
       {highlights.map((rect) => (
         <div
           key={`band-${rect.rowIndex}`}

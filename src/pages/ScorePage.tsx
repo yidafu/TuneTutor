@@ -10,10 +10,13 @@ import SelectionInfo from '../components/SelectionInfo'
 import StatusBar from '../components/StatusBar'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import { usePlayback, parseTimeSignature } from '../hooks/usePlayback'
 import { useI18n } from '../locales/useI18n'
 import type { TranslationSet } from '../locales/en-US'
 import type { InstrumentType, MetronomeSoundType } from '../types/audio'
 import type { ParsedScore } from '../types/notation'
+import type { PlaybackEntry } from '../types/playback'
+import type { MetronomeSettings } from '../audio/PlaybackEngine'
 import {
   describeSelection,
   type ScoreSelection,
@@ -139,7 +142,7 @@ function importErrorText(t: TranslationSet, code: ImportErrorCode): string {
   }
 }
 
-/** 乐谱练习页（/）：OSMD 渲染 + 选择模型（单击小节/双击乐句/框选）+ IndexedDB 历史与启动恢复 */
+/** 乐谱练习页（/）：OSMD 渲染 + 选择模型（单击小节/双击乐句/框选）+ 播放引擎接线 + 历史与启动恢复 */
 export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   const { t } = useI18n()
   const [instrument, setInstrument] = useLocalStorage<InstrumentType>('note-slice-preferred-instrument', 'piano')
@@ -148,13 +151,14 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   const [strongVolume, setStrongVolume] = useLocalStorage<number>('note-slice-metronome-strong-volume', 0.8)
   const [weakVolume, setWeakVolume] = useLocalStorage<number>('note-slice-metronome-weak-volume', 0.5)
   const [skipBeats, setSkipBeats] = useState(0)
-  const [playing, setPlaying] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
 
   const [score, setScore] = useState<LoadedScore>(createDemoScore)
   const [history, setHistory] = useState<FileHistoryItem[]>([])
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  /** 播放数据（OsmdNotation 装载新谱后上报，docs/audio.md §3.2 接线序列的 load 入参） */
+  const [entries, setEntries] = useState<PlaybackEntry[]>([])
 
   // 选择会话态（selection.md S8：不持久化）；摘要供 SelectionInfo/StatusBar 展示。
   // LoopRange 推导（selection.ts computeLoopRange）在播放数据落地（P1）后接入 usePlayback。
@@ -285,23 +289,44 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
     [refreshHistory],
   )
 
-  const handlePlayToggle = useCallback(() => setPlaying((value) => !value), [])
-  const handleStop = useCallback(() => setPlaying(false), [])
-  // Esc = 停止并清除（tech.md §6.3）；Stop 按钮只停不走清除
-  const handleEscape = useCallback(() => {
-    setPlaying(false)
-    clearSelection()
-  }, [clearSelection])
-  const handleCloseModal = useCallback(() => setModalOpen(false), [])
+  // 播放引擎（P3 接入）：usePlayback 持有引擎生命周期，接线序列见 hooks/usePlayback.ts。
+  // Esc = 停止并清除（tech.md §6.3）；Stop 按钮只停不走清除。
+  const parsed = score.parsedScore
+  const handlePlaybackDataReady = useCallback((next: PlaybackEntry[]) => setEntries(next), [])
+  const metronomeSettings = useMemo<MetronomeSettings>(() => {
+    const { beatsPerMeasure, beatValue } = parseTimeSignature(parsed.timeSignature)
+    return {
+      enabled: metronomeOn,
+      sound: metroSound,
+      strongVolume,
+      weakVolume,
+      beatsPerMeasure,
+      beatValue,
+    }
+  }, [metronomeOn, metroSound, strongVolume, weakVolume, parsed.timeSignature])
+  const playback = usePlayback({
+    tempo,
+    instrument,
+    metronome: metronomeSettings,
+    entries,
+    selection,
+    skipBeats,
+  })
+  const { playing, stop: stopPlayback } = playback
 
+  const handlePlayToggle = playback.toggle
+  const handleStop = playback.stop
+  const handleEscape = useCallback(() => {
+    stopPlayback()
+    clearSelection()
+  }, [stopPlayback, clearSelection])
+  const handleCloseModal = useCallback(() => setModalOpen(false), [])
   useKeyboardShortcuts({
     onPlayToggle: handlePlayToggle,
     onStop: handleStop,
     onEscape: handleEscape,
     enabled: !modalOpen,
   })
-
-  const parsed = score.parsedScore
 
   return (
     <div {...stylex.props(styles.page)}>
@@ -310,7 +335,7 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
         <div {...stylex.props(styles.toolRow)}>
           <h2 {...stylex.props(styles.libraryTitle)}>{t.libraryTitle}</h2>
           <div {...stylex.props(styles.toolActions)}>
-            <InstrumentSelect value={instrument} onChange={setInstrument} />
+            <InstrumentSelect value={instrument} onChange={setInstrument} disabled={playing} />
             <button type="button" {...stylex.props(styles.loadBtn)} onClick={() => setModalOpen(true)}>
               <span aria-hidden>＋</span>
               {t.loadScore}
@@ -333,6 +358,8 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
             onSelectionChange={handleSelectionChange}
             onSelectionInvalid={handleSelectionInvalid}
             clearPendingSignal={clearPendingSignal}
+            engine={playback.engine}
+            onPlaybackDataReady={handlePlaybackDataReady}
           />
         </div>
 

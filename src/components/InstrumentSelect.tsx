@@ -37,6 +37,13 @@ const styles = stylex.create({
     fontSize: '10px',
     color: 'var(--color-fg-3)',
   },
+  triggerDisabled: {
+    opacity: 0.45,
+    cursor: 'not-allowed',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-2)',
+    },
+  },
   option: {
     gap: '8px',
   },
@@ -58,10 +65,12 @@ const styles = stylex.create({
 interface InstrumentSelectProps {
   value: InstrumentType
   onChange: (instrument: InstrumentType) => void
+  /** 播放中禁用（乐器切换仅停止态，docs/audio.md §3.6） */
+  disabled?: boolean
 }
 
-/** 乐器音色选择器（7 种采样，仅停止态可换——引擎接入后由调用方约束） */
-export default function InstrumentSelect({ value, onChange }: InstrumentSelectProps) {
+/** 乐器音色选择器（7 种采样，仅停止态可换——播放中由调用方以 disabled 约束） */
+export default function InstrumentSelect({ value, onChange, disabled = false }: InstrumentSelectProps) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
@@ -70,10 +79,11 @@ export default function InstrumentSelect({ value, onChange }: InstrumentSelectPr
     <div {...stylex.props(styles.anchor)} ref={ref}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        {...stylex.props(styles.trigger)}
+        {...stylex.props(styles.trigger, disabled && styles.triggerDisabled)}
       >
         <InstrumentGlyph instrument={value} style={styles.glyph15} />
         {instrumentLabel(t, value)}

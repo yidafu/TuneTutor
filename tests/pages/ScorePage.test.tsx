@@ -15,6 +15,33 @@ vi.mock('@/utils/notation/OsmdRender', async (importOriginal) => {
   return { ...actual, OsmdRender: FakeOsmdRender }
 })
 
+// 播放引擎以替身注入（引擎行为在 usePlayback/PlaybackEngine 测试覆盖）：
+// 默认工厂会引入 Tone + 采样包，jsdom 无 AudioContext 不能真实构造
+vi.mock('@/hooks/usePlayback', async () => {
+  const { useCallback, useState } = await import('react')
+  return {
+    usePlayback: () => {
+      const [playing, setPlaying] = useState(false)
+      const toggle = useCallback((): void => {
+        setPlaying((value) => !value)
+      }, [])
+      const stop = useCallback((): void => {
+        setPlaying(false)
+      }, [])
+      return { ready: true, playing, progress: 0, play: toggle, stop, toggle, engine: null }
+    },
+    parseTimeSignature: (timeSignature: string) => {
+      const [beats, beatType] = timeSignature.split('/')
+      const numerator = Number.parseInt(beats ?? '', 10)
+      const denominator = Number.parseInt(beatType ?? '', 10)
+      return {
+        beatsPerMeasure: Number.isFinite(numerator) && numerator > 0 ? numerator : 4,
+        beatValue: Number.isFinite(denominator) && denominator > 0 ? denominator : 4,
+      }
+    },
+  }
+})
+
 const SCORE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
   <work><work-title>Import Score</work-title></work>

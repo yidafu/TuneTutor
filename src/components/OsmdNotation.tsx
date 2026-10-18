@@ -4,6 +4,9 @@ import ScoreSelectionOverlay from './ScoreSelectionOverlay'
 import { useDoubleTap } from '../hooks/useDoubleTap'
 import { useI18n } from '../locales/useI18n'
 import { useTheme } from '../hooks/useTheme'
+import type { PlaybackEngine } from '../audio/PlaybackEngine'
+import { buildPlaybackData } from '../audio/playbackData'
+import type { PlaybackEntry } from '../types/playback'
 import {
   NoteInteraction,
   hitNoteFromPosition,
@@ -63,6 +66,13 @@ const styles = stylex.create({
   osmdContainer: {
     width: '100%',
   },
+  // 覆盖层锚定盒（selection.md §5/S4 坐标契约）：与 osmdContainer 同原点的相对定位层。
+  // stage 是垂直居中的 grid，覆盖层若直接挂在 stage 上，坐标会随卡面高度漂移
+  // （播放光标带悬空在谱表上方，2026-10-18 实测）；全部覆盖层视觉必须挂在这里。
+  sheetBox: {
+    position: 'relative',
+    width: '100%',
+  },
   footer: {
     marginTop: '14px',
     display: 'flex',
@@ -111,6 +121,10 @@ interface OsmdNotationProps {
   onSelectionInvalid: () => void
   /** 外部清零信号（Esc/清除按钮）：递增即销毁内部 pending 意图 */
   clearPendingSignal?: number
+  /** 播放引擎（usePlayback 持有）；非空时订阅 iteration/state 事件驱动播放光标带（audio.md §3.8） */
+  engine?: PlaybackEngine | null
+  /** 新谱装载完成后上报播放数据（乐谱时域条目）与谱键 rawContent（P3 接线 §3.2） */
+  onPlaybackDataReady?: (entries: PlaybackEntry[], scoreKey: string) => void
 }
 
 type Gesture =
@@ -149,6 +163,8 @@ export default function OsmdNotation({
   onSelectionChange,
   onSelectionInvalid,
   clearPendingSignal = 0,
+  engine = null,
+  onPlaybackDataReady,
 }: OsmdNotationProps) {
   const { t } = useI18n()
   const { theme } = useTheme()
@@ -171,9 +187,9 @@ export default function OsmdNotation({
   const [pendingNoteIndex, setPendingNoteIndex] = useState<number | null>(null)
 
   // 跨 render 的最新值镜像：原生监听只挂一次，回调经 ref 读最新 props/几何
-  const settingsRef = useRef({ selection, onSelectionChange, onSelectionInvalid })
+  const settingsRef = useRef({ selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady })
   useEffect(() => {
-    settingsRef.current = { selection, onSelectionChange, onSelectionInvalid }
+    settingsRef.current = { selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady }
   })
   const geometryRef = useRef(geometry)
   useEffect(() => {
@@ -215,6 +231,74 @@ export default function OsmdNotation({
     })
   }, [])
 
+  /** 播放数据上报（P3 接线）：光标步进构建后复位光标（构建只读数据，不复位会停在谱尾） */
+  const emitPlaybackData = useCallback((renderer: OsmdRender, scoreKey: string) => {
+    const report = settingsRef.current.onPlaybackDataReady
+    if (report === undefined) return
+    const cursor = renderer.instance.cursor
+    const built = buildPlaybackData(cursor)
+    cursor.reset()
+    report(built, scoreKey)
+  }, [])
+
+  // ── 播放光标（audio.md §3.8 契约；视觉由 ScoreSelectionOverlay 的金铜带承载）────
+  // 引擎迭代器指针直读 → playingNoteIndex；同帧多次 iteration 以 rAF 合并（取最新指针）。
+  // 视觉活在覆盖层：重渲染/回跳无需 OSMD 光标重同步；OSMD 自带光标仅装载时遍历播放
+  // 数据用（buildPlaybackData），从不 show（其颜色经 canvas 导出 PNG、高度锁死谱表内）。
+
+  const [playingNoteIndex, setPlayingNoteIndex] = useState<number | null>(null)
+  const playheadTargetRef = useRef<number | null>(null)
+  const playheadFrameRef = useRef<number | null>(null)
+  const playheadFrameIsRafRef = useRef(false)
+
+  useEffect(() => {
+    if (engine === null) return
+    const cancelFrame = (): void => {
+      if (playheadFrameRef.current === null) return
+      if (playheadFrameIsRafRef.current && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(playheadFrameRef.current)
+      } else {
+        window.clearTimeout(playheadFrameRef.current)
+      }
+      playheadFrameRef.current = null
+    }
+    const flush = (): void => {
+      playheadFrameRef.current = null
+      setPlayingNoteIndex(playheadTargetRef.current)
+    }
+    const schedule = (): void => {
+      if (playheadFrameRef.current !== null) return
+      if (typeof requestAnimationFrame === 'function') {
+        playheadFrameIsRafRef.current = true
+        playheadFrameRef.current = requestAnimationFrame(flush)
+      } else {
+        playheadFrameIsRafRef.current = false
+        playheadFrameRef.current = window.setTimeout(flush, 0)
+      }
+    }
+    const offIteration = engine.onIteration((event) => {
+      // 光标带只信事件载荷（刚发声的条目），不读活指针：指针在 look-ahead 调度时刻
+      // 已前进（窗口内多音、调度 tick 与 rAF 之间），按指针走会在密集段提前到下一音
+      playheadTargetRef.current = event.entry?.noteIndex ?? null
+      schedule()
+    })
+    const offState = engine.onStateChange((state) => {
+      if (state === 'PLAYING') {
+        playheadTargetRef.current = null
+        schedule() // 先清上一轮的带；首 iteration 到来前不显示
+      } else {
+        playheadTargetRef.current = null
+        cancelFrame()
+        setPlayingNoteIndex(null) // 停止即清，不等帧
+      }
+    })
+    return () => {
+      offIteration()
+      offState()
+      cancelFrame()
+    }
+  }, [engine])
+
   // 内容装载：rawContent 变更即重载（幂等），换谱清选择（选择是谱内会话态，S8）。
   // 首次挂载不回调清除（选择本来为空，避免无意义的父级状态更新）。
   const loadedContentRef = useRef<string | undefined>(undefined)
@@ -240,6 +324,7 @@ export default function OsmdNotation({
         await renderer.waitForSvgContent()
         if (cancelled) return
         rebuild(renderer, container)
+        emitPlaybackData(renderer, rawContent)
       } catch (error: unknown) {
         console.error('[OsmdNotation] render failed:', error)
       } finally {
@@ -250,7 +335,7 @@ export default function OsmdNotation({
       cancelled = true
       container.innerHTML = ''
     }
-  }, [rawContent, rebuild, destroyPending])
+  }, [rawContent, rebuild, destroyPending, emitPlaybackData])
 
   /** 缩放/换肤/容器尺寸变化后的重渲染 + 缓存重建（选择保留：noteIndex 不变，§2.4） */
   const rerender = useCallback(
@@ -406,12 +491,12 @@ export default function OsmdNotation({
 
   const writeDragRect = useCallback((gesture: { x0: number; y0: number; x1: number; y1: number }) => {
     const layer = dragLayerRef.current
-    const stageRect = stageRef.current?.getBoundingClientRect()
-    if (layer === null || stageRect === undefined) return
-    const x1 = Math.min(gesture.x0, gesture.x1) - stageRect.x
-    const y1 = Math.min(gesture.y0, gesture.y1) - stageRect.y
-    const x2 = Math.max(gesture.x0, gesture.x1) - stageRect.x
-    const y2 = Math.max(gesture.y0, gesture.y1) - stageRect.y
+    const boxRect = containerRef.current?.getBoundingClientRect()
+    if (layer === null || boxRect === undefined) return
+    const x1 = Math.min(gesture.x0, gesture.x1) - boxRect.x
+    const y1 = Math.min(gesture.y0, gesture.y1) - boxRect.y
+    const x2 = Math.max(gesture.x0, gesture.x1) - boxRect.x
+    const y2 = Math.max(gesture.y0, gesture.y1) - boxRect.y
     layer.style.display = 'block'
     layer.style.left = `${x1}px`
     layer.style.top = `${y1}px`
@@ -447,9 +532,10 @@ export default function OsmdNotation({
     if (stage === null) return
 
     const localRect = (gesture: { x0: number; y0: number; x1: number; y1: number }): DragRect => {
-      const stageRect = stageRef.current?.getBoundingClientRect()
-      const ox = stageRect?.x ?? 0
-      const oy = stageRect?.y ?? 0
+      // 与 positions 同一坐标系（容器相对，S4）：框选矩形必须减容器 rect 而非 stage
+      const boxRect = containerRef.current?.getBoundingClientRect()
+      const ox = boxRect?.x ?? 0
+      const oy = boxRect?.y ?? 0
       return {
         x1: Math.min(gesture.x0, gesture.x1) - ox,
         y1: Math.min(gesture.y0, gesture.y1) - oy,
@@ -598,7 +684,7 @@ export default function OsmdNotation({
         {rawContent === undefined ? (
           <p {...stylex.props(styles.placeholder)}>{t.notationPlaceholder}</p>
         ) : (
-          <>
+          <div {...stylex.props(styles.sheetBox)}>
             <div ref={containerRef} {...stylex.props(styles.osmdContainer)} />
             {geometry !== null && (
               <ScoreSelectionOverlay
@@ -606,10 +692,11 @@ export default function OsmdNotation({
                 rows={geometry.rows}
                 pendingNoteIndex={pendingNoteIndex}
                 selection={selection}
+                playingNoteIndex={playingNoteIndex}
                 dragLayerRef={dragLayerRef}
               />
             )}
-          </>
+          </div>
         )}
       </div>
       <div {...stylex.props(styles.footer)}>
