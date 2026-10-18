@@ -88,6 +88,10 @@ export const zhCN: TranslationSet = {
   zoomOut: '缩小波形',
   zoomIn: '放大波形',
   zoomFit: '适应窗口',
+  audioLibraryTitle: '音频库',
+  recentAudio: '最近音频',
+  audioRecentEmpty: '尚未导入音频',
+  importingAudio: '音频导入中…',
 
   // 乐谱导入错误（docs/musicxml.md §6，E1–E4）
   importing: '正在解析乐谱…',

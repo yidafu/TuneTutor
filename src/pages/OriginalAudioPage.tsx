@@ -5,7 +5,9 @@ import WaveSurfer from 'wavesurfer.js'
 import RegionsPlugin, { type Region } from 'wavesurfer.js/dist/plugins/regions.esm.js'
 import ZoomPlugin from 'wavesurfer.js/dist/plugins/zoom.esm.js'
 import { beatsToSeconds } from '../audio/TempoConverter'
+import AudioLibraryModal from '../components/AudioLibraryModal'
 import { ThemeIcon } from '../components/icons/ThemeIcon'
+import FileHistoryList, { type FileHistoryItem } from '../components/FileLoader/FileHistoryList'
 import LoopSkipSelector from '../components/PlaybackControls/LoopSkipSelector'
 import TempoSlider from '../components/PlaybackControls/TempoSlider'
 import TransportButtons from '../components/PlaybackControls/TransportButtons'
@@ -27,14 +29,21 @@ import {
   zoomPercent,
 } from '../utils/audio/sliceUtils'
 import { useDoubleTap } from '../hooks/useDoubleTap'
-import { deleteAudioFile, getLatestAudioFile, saveAudioFile } from '../utils/storage/indexedDB'
-import type { StoredAudioFile } from '../types/storedFile'
+import {
+  deleteAudioFile,
+  getAudioFile,
+  getLatestAudioFile,
+  listAudioFiles,
+  saveAudioFile,
+} from '../utils/storage/indexedDB'
+import type { StoredAudioFile, StoredAudioFileMeta } from '../types/storedFile'
 
 /**
- * 原曲练习页（/audio，docs/audio.md §5）：音频导入（MIME/扩展名 + 解码双重校验，支持点击与拖放两条入口）、
- * wavesurfer v7 波形（内建 canvas 管线，A9；官方 ZoomPlugin 滚轮/捏合 + －/%/＋ 步进控件，A13）、
- * 拖选切片（RegionsPlugin，单切片约束）、region-out 驱动的切片循环 + 空拍（A5）、
- * 音频与切片持久化（IndexedDB + localStorage）。
+ * 原曲练习页（/audio，docs/audio.md §5）：音频导入（MIME/扩展名 + 解码双重校验，点击/拖放/音频库
+ * 三条入口，多选逐个入库）、wavesurfer v7 波形（内建 canvas 管线，A9；官方 ZoomPlugin 滚轮/捏合 +
+ * －/%/＋ 步进控件，A13）、拖选切片（RegionsPlugin，单切片约束）、切片域视图规则（A14/A15：切片内关
+ * 播放头跟随、进度高亮限定切片，切片内已播段朱砂 region 做明暗区分）、region-out 驱动的切片循环 + 空拍（A5）、
+ * 多音频库与切片持久化（IndexedDB + localStorage，切片按音频 id 归属，A16）。
  */
 
 const styles = stylex.create({
@@ -198,6 +207,29 @@ const styles = stylex.create({
       color: 'var(--color-clay)',
     },
   },
+  headActions: {
+    display: 'flex',
+    flex: 'none',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  recentSection: {
+    marginTop: '18px',
+  },
+  recentHead: {
+    marginBottom: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontWeight: 600,
+    letterSpacing: '0.5px',
+    color: 'var(--color-fg-3)',
+  },
+  recentCount: {
+    fontWeight: 500,
+  },
   stage: {
     position: 'relative',
     minHeight: '150px',
@@ -306,7 +338,14 @@ interface AudioSlice {
   endTime: number
 }
 
-const SLICE_STORAGE_KEY = 'note-slice-audio-slice'
+/** 切片键按音频归属（A16）：`note-slice-audio-slice:<audioId>`；多音频互不串切片，切回即恢复。
+ * 旧全局键（v2.3 及前单音频时代）无归属信息，默认属于启动恢复的最新一条——首次读取时迁移。 */
+const SLICE_KEY_PREFIX = 'note-slice-audio-slice'
+const LEGACY_SLICE_KEY = 'note-slice-audio-slice'
+
+function sliceKey(audioId: string): string {
+  return `${SLICE_KEY_PREFIX}:${audioId}`
+}
 
 /** canvas 不认 CSS 变量：创建/换肤时读取 token 具体值（T1 皮肤契约：色值只出自 index.css token） */
 function themeColor(tokenName: string): string | undefined {
@@ -314,9 +353,12 @@ function themeColor(tokenName: string): string | undefined {
   return value === '' ? undefined : value
 }
 
-function waveColors(): Partial<Parameters<typeof WaveSurfer.create>[0]> {
+/** 波形配色。进度高亮域（决策 A15）：内置进度层恒从 0 画到播放头、无法裁剪进切片——
+ * 切片域内整层退化为波形色（视觉关闭），高亮只来自切片 region 覆盖层 + 金色播放头；
+ * 无切片恢复朱砂双层进度。 */
+function waveColors(sliceActive: boolean): Partial<Parameters<typeof WaveSurfer.create>[0]> {
   const waveColor = themeColor('--color-wave-bar-a')
-  const progressColor = themeColor('--color-verm')
+  const progressColor = sliceActive ? waveColor : themeColor('--color-verm')
   const cursorColor = themeColor('--color-gold-bright')
   return {
     ...(waveColor !== undefined ? { waveColor } : {}),
@@ -331,9 +373,20 @@ function regionColor(): string | undefined {
   return vermilion === undefined ? undefined : `${vermilion}2e`
 }
 
-function readPersistedSlice(): AudioSlice | null {
+/** 已播段朱砂色 = verm token + 更高不透明度（A15 补强：切片内已播/未播明暗区分）。
+ * 叠在切片底衬之上（第二实例容器在后，天然盖住第一实例），有效浓度约为底衬两倍半。 */
+function playedColor(): string | undefined {
+  const vermilion = themeColor('--color-verm')
+  return vermilion === undefined ? undefined : `${vermilion}59`
+}
+
+/** 读当前音频的切片；旧全局键存在于启动恢复路径时迁移到该音频名下（仅内容合法才迁移） */
+function readPersistedSlice(audioId: string): AudioSlice | null {
   try {
-    const raw = window.localStorage.getItem(SLICE_STORAGE_KEY)
+    const ownKey = sliceKey(audioId)
+    let raw = window.localStorage.getItem(ownKey)
+    const migrated = raw === null
+    if (migrated) raw = window.localStorage.getItem(LEGACY_SLICE_KEY)
     if (raw === null) return null
     const parsed: unknown = JSON.parse(raw)
     if (
@@ -348,15 +401,21 @@ function readPersistedSlice(): AudioSlice | null {
     if (!(Number.isFinite(startTime) && Number.isFinite(endTime)) || endTime - startTime < MIN_SLICE_SECONDS) {
       return null
     }
+    if (migrated) {
+      window.localStorage.removeItem(LEGACY_SLICE_KEY)
+      window.localStorage.setItem(ownKey, raw)
+    }
     return { startTime, endTime }
   } catch {
     return null
   }
 }
 
-function persistSlice(slice: AudioSlice | null): void {
-  if (slice === null) window.localStorage.removeItem(SLICE_STORAGE_KEY)
-  else window.localStorage.setItem(SLICE_STORAGE_KEY, JSON.stringify(slice))
+function persistSlice(audioId: string | null, slice: AudioSlice | null): void {
+  if (audioId === null) return
+  const key = sliceKey(audioId)
+  if (slice === null) window.localStorage.removeItem(key)
+  else window.localStorage.setItem(key, JSON.stringify(slice))
 }
 
 /** 原曲切片循环页。tempo 由 App 共享、本页只读（docs/tech.md §2.3） */
@@ -370,6 +429,10 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
   const [playing, setPlaying] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [gapBeats, setGapBeats] = useLocalStorage<number>('note-slice-audio-gap', 0)
+  // 音频库：IndexedDB 元信息投影（uploadedAt 降序）+ 弹窗开关 + 多文件转存进行中
+  const [library, setLibrary] = useState<StoredAudioFileMeta[]>([])
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
   // 拖放导入的悬停高亮（FileLoaderModal 同款 data-drag-active 约定）
   const [dragActive, setDragActive] = useState(false)
   // 当前缩放（px/秒，来自 wavesurfer zoom 事件）；null = 未缩放（适应窗口宽度）
@@ -382,6 +445,13 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
   const gapWaitingRef = useRef(false)
   const draggingRef = useRef(false)
   const loopTimerRef = useRef<number | null>(null)
+  // 已播段高亮（A15 补强）：第二 RegionsPlugin 实例与它的唯一 region；
+  // 页面只订阅第一实例（切片约束/循环），第二实例的事件总线天然隔离
+  const playedRegionsRef = useRef<RegionsPlugin | null>(null)
+  const playedRegionRef = useRef<Region | null>(null)
+  // 切片键归属当前音频（A16）：稳定回调里读 ref，避免闭包拿到旧音频 id
+  const audioIdRef = useRef<string | null>(null)
+  audioIdRef.current = audio?.id ?? null
 
   // 稳定回调里读取的实时值（避免重建 wavesurfer 事件订阅）
   const tempoRef = useRef(tempo)
@@ -391,14 +461,61 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
   // 缩放值的同步 ref：缩放回调不需要重订阅（zoom 事件随时改写）
   const pxPerSecRef = useRef(0)
 
-  function updateSlice(next: AudioSlice | null, persist = true): void {
+  // 已播段同步（A15 补强）：区间恒为 [切片起点, min(播放头, 切片终点)]；播放头未进切片（≤ 起点）
+  // 即整条移除。元素 pointerEvents: none——第二实例容器叠在切片 region 之上，放行指针事件
+  // 才不挡拖移与把手。timeupdate 在 setTime/点击定位时也会广播，暂停态同样即时更新。
+  const syncPlayedRegion = useCallback((playhead: number): void => {
+    const playedRegions = playedRegionsRef.current
+    if (playedRegions === null) return
+    const existing = playedRegionRef.current
+    const removePlayed = (): void => {
+      if (playedRegionRef.current === null) return
+      const region = playedRegionRef.current
+      playedRegionRef.current = null
+      region.remove()
+    }
+    const slice = sliceRef.current
+    if (slice === null || playhead <= slice.startTime) {
+      removePlayed()
+      return
+    }
+    const end = Math.min(playhead, slice.endTime)
+    if (existing === null) {
+      const region = playedRegions.addRegion({
+        start: slice.startTime,
+        end,
+        color: playedColor(),
+        drag: false,
+        resize: false,
+      })
+      if (region.element !== null) region.element.style.pointerEvents = 'none'
+      playedRegionRef.current = region
+    } else {
+      existing.setOptions({ start: slice.startTime, end })
+    }
+  }, [])
+
+  const updateSlice = useCallback((next: AudioSlice | null, persist = true): void => {
     sliceRef.current = next
     setSlice(next)
-    if (persist) persistSlice(next)
-    // 播放头跟随（决策 A14）：切片循环把播放头锁在切片内，放任官方默认 autoScroll 会在放大后
-    // 每次回卷猛拉视口、与手动平移（触控板横扫/横向滚轮）拉锯——有切片即关，视图由用户掌控
-    wsRef.current?.setOptions({ autoScroll: next === null })
-  }
+    if (persist) persistSlice(audioIdRef.current, next)
+    // 切片域视图参数（决策 A14/A15）：切片循环把播放头锁在切片内，放任官方默认 autoScroll 会在
+    // 放大后每次回卷猛拉视口、与手动平移拉锯——有切片即关；进度高亮同理退化（高亮只来自 region）
+    const sliceActive = next !== null
+    wsRef.current?.setOptions({ autoScroll: !sliceActive, ...waveColors(sliceActive) })
+    // 已播段随切片界重算：删切片即移除，改界后按当前播放头重新钳位
+    syncPlayedRegion(wsRef.current?.getCurrentTime() ?? 0)
+  }, [syncPlayedRegion])
+
+  const refreshLibrary = useCallback(() => {
+    listAudioFiles()
+      .then(setLibrary)
+      .catch((error: unknown) => console.warn('[OriginalAudioPage] list audio failed:', error))
+  }, [])
+
+  useEffect(() => {
+    refreshLibrary()
+  }, [refreshLibrary])
 
   // 启动恢复：IndexedDB 最新一条音频（docs/tech.md §7.3）；切片在 wavesurfer ready 后按已存时长回放
   useEffect(() => {
@@ -429,9 +546,12 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       cursorWidth: 2,
       backend: 'WebAudio',
       dragToSeek: false,
-      ...waveColors(),
+      ...waveColors(false),
     })
     const regions = ws.registerPlugin(RegionsPlugin.create())
+    // 已播段容器（A15 补强）：第二实例只用来挂一条 pointerEvents:none 的已播 region，
+    // 不订阅其事件——与第一实例的切片约束/循环判定互不干扰
+    playedRegionsRef.current = ws.registerPlugin(RegionsPlugin.create())
     // 官方 ZoomPlugin：波形上滚轮/双指捏合缩放（指针锚定）；步进控件走同一 ws.zoom()（A13）
     ws.registerPlugin(ZoomPlugin.create({ maxZoom: ZOOM_MAX_PX_PER_SEC }))
     wsRef.current = ws
@@ -451,7 +571,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
         }
         // addRegion / enableDragSelection 统一在 ready 后调用（docs/audio.md §5.1）
         unsubscribeDrag = regions.enableDragSelection({ color: regionColor() })
-        const stored = readPersistedSlice()
+        const stored = readPersistedSlice(audio.id)
         if (
           stored !== null &&
           stored.endTime <= readyDuration &&
@@ -484,6 +604,13 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       ws.on('error', (error: Error) => {
         console.error('[OriginalAudioPage] wavesurfer error:', error)
         setErrorText(t.errorAudioDecode)
+      }),
+    )
+
+    // 已播段跟随播放头（A15 补强）
+    subscriptions.push(
+      ws.on('timeupdate', (time: number) => {
+        syncPlayedRegion(time)
       }),
     )
 
@@ -548,15 +675,20 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       for (const unsubscribe of subscriptions) unsubscribe()
       unsubscribeDrag?.()
       sliceRegionRef.current = null
+      playedRegionRef.current = null
+      playedRegionsRef.current = null
       wsRef.current = null
       ws.destroy()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audio])
 
-  // 皮肤切换：setOptions 重着色（不重解码），canvas 不认 CSS 变量故读 token 具体值
+  // 皮肤切换：setOptions 重着色（不重解码），canvas 不认 CSS 变量故读 token 具体值；随切片域状态出进度色（A15）
   useEffect(() => {
-    wsRef.current?.setOptions(waveColors())
+    wsRef.current?.setOptions(waveColors(sliceRef.current !== null))
+    // region 配色同样出自 token：切片底衬与已播段随主题重读
+    sliceRegionRef.current?.setOptions({ color: regionColor() })
+    playedRegionRef.current?.setOptions({ color: playedColor() })
   }, [theme])
 
   // 后台标签页 rAF 停摆 → region-out 不触发；隐藏即暂停循环（docs/audio.md §5.2，最小正确解）
@@ -568,53 +700,107 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
+  /** 装载一条音频（导入/库切换共口）：重置瞬时 UI 态；切片 UI 清空但不落盘——
+   *  旧音频的切片键保留（A16 归属隔离），新实例 ready 后读自己的键 */
+  const activateAudio = useCallback(
+    (stored: StoredAudioFile) => {
+      setDuration(0)
+      setSampleRateLabel(null)
+      updateSlice(null, false)
+      setErrorText(null)
+      setAudio(stored)
+    },
+    [updateSlice],
+  )
+
   const handleFilesSelected = useCallback(
     async (files: FileList | null) => {
-      const file = files?.[0]
-      if (file === undefined) return
-      // 第一道闸：MIME/扩展名白名单；第二道闸是 wavesurfer 解码（error 事件，docs/audio.md §5.1）
-      if (!isSupportedAudioFile(file)) {
-        setErrorText(t.errorUnsupportedAudio)
-        return
-      }
-      setErrorText(null)
+      if (files === null || files.length === 0 || importing) return
+      setImporting(true)
+      // 多选/多文件投放（A16）：逐个过白名单与转存，全部合法文件入库，活动音频取最后一个——
+      // 其 uploadedAt 最新，与库列表（降序）头部一致
+      let lastStored: StoredAudioFile | null = null
+      let unsupported = false
+      let decodeFailed = false
       try {
-        const data = await file.arrayBuffer()
-        let stored: StoredAudioFile
-        try {
-          stored = await saveAudioFile({ fileName: file.name, fileSize: file.size, data })
-        } catch (storageError: unknown) {
-          console.warn('[OriginalAudioPage] save audio failed:', storageError)
-          stored = { id: 'session', fileName: file.name, fileSize: file.size, uploadedAt: Date.now(), data }
+        for (const file of Array.from(files)) {
+          // 第一道闸：MIME/扩展名白名单；第二道闸是 wavesurfer 解码（error 事件，docs/audio.md §5.1）
+          if (!isSupportedAudioFile(file)) {
+            unsupported = true
+            continue
+          }
+          try {
+            const data = await file.arrayBuffer()
+            let stored: StoredAudioFile
+            try {
+              stored = await saveAudioFile({ fileName: file.name, fileSize: file.size, data })
+            } catch (storageError: unknown) {
+              console.warn('[OriginalAudioPage] save audio failed:', storageError)
+              stored = { id: 'session', fileName: file.name, fileSize: file.size, uploadedAt: Date.now(), data }
+            }
+            lastStored = stored
+          } catch (readError: unknown) {
+            console.error('[OriginalAudioPage] read audio failed:', readError)
+            decodeFailed = true
+          }
         }
-        persistSlice(null)
-        updateSlice(null, false)
-        setDuration(0)
-        setSampleRateLabel(null)
-        setAudio(stored)
-      } catch (readError: unknown) {
-        console.error('[OriginalAudioPage] read audio failed:', readError)
-        setErrorText(t.errorAudioDecode)
+        if (lastStored !== null) activateAudio(lastStored)
+        setErrorText(unsupported ? t.errorUnsupportedAudio : decodeFailed ? t.errorAudioDecode : null)
+        refreshLibrary()
+      } finally {
+        setImporting(false)
       }
     },
-    [t],
+    [activateAudio, importing, refreshLibrary, t],
+  )
+
+  /** 库列表/弹窗点选：装载该音频并收起弹窗 */
+  const handleSelectItem = useCallback(
+    (id: string) => {
+      getAudioFile(id)
+        .then((stored) => {
+          if (stored === undefined) return
+          activateAudio(stored)
+          setLibraryOpen(false)
+        })
+        .catch((error: unknown) => console.warn('[OriginalAudioPage] load audio failed:', error))
+    },
+    [activateAudio],
+  )
+
+  /** 库内删除：数据行与其切片键一并清除；若删的是当前装载音频，内存副本继续可用 */
+  const handleDeleteItem = useCallback(
+    (id: string) => {
+      persistSlice(id, null)
+      deleteAudioFile(id)
+        .then(refreshLibrary)
+        .catch((error: unknown) => console.warn('[OriginalAudioPage] delete audio failed:', error))
+    },
+    [refreshLibrary],
   )
 
   const handleRemoveAudio = useCallback(() => {
     const current = audio
+    // 列表在删除落地后刷新（先行刷新会把刚删的行列成仍在库）
+    const refreshAfterDelete = () => refreshLibrary()
     if (current !== null && current.id !== 'session') {
-      deleteAudioFile(current.id).catch((error: unknown) =>
-        console.warn('[OriginalAudioPage] delete audio failed:', error),
-      )
+      deleteAudioFile(current.id)
+        .then(refreshAfterDelete)
+        .catch((error: unknown) => {
+          console.warn('[OriginalAudioPage] delete audio failed:', error)
+          refreshAfterDelete()
+        })
+    } else {
+      refreshAfterDelete()
     }
-    persistSlice(null)
+    if (current !== null) persistSlice(current.id, null)
     updateSlice(null, false)
     setAudio(null)
     setDuration(0)
     setSampleRateLabel(null)
     setErrorText(null)
     setPlaying(false)
-  }, [audio])
+  }, [audio, refreshLibrary, updateSlice])
 
   // 播放键：有切片 → 从切片起点播；无切片 → 全曲顺序（docs/audio.md §5.2）
   const handlePlayToggle = useCallback(() => {
@@ -699,7 +885,8 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
     },
   }
 
-  useKeyboardShortcuts({ onPlayToggle: handlePlayToggle, onStop: handleStop })
+  // 弹窗打开时停用全局快捷键（Space/Esc 由弹窗自身接管，FileLoaderModal 同约定）
+  useKeyboardShortcuts({ onPlayToggle: handlePlayToggle, onStop: handleStop, enabled: !libraryOpen })
 
   const inputRef = useRef<HTMLInputElement>(null)
   const openFilePicker = useCallback(() => inputRef.current?.click(), [])
@@ -708,6 +895,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       ref={inputRef}
       type="file"
       accept=".mp3,.wav,.ogg,.m4a,audio/*"
+      multiple
       onChange={(event) => {
         void handleFilesSelected(event.target.files)
         event.target.value = ''
@@ -715,6 +903,21 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       {...stylex.props(styles.hiddenInput)}
       aria-hidden="true"
       tabIndex={-1}
+    />
+  )
+
+  /** StoredAudioFileMeta → FileHistoryList 条目（title 位放文件名） */
+  function toHistoryItem(meta: StoredAudioFileMeta): FileHistoryItem {
+    return { id: meta.id, title: meta.fileName, fileSize: meta.fileSize, uploadedAt: meta.uploadedAt }
+  }
+
+  const libraryList = (
+    <FileHistoryList
+      items={library.map(toHistoryItem)}
+      icon="phones"
+      activeId={audioIdRef.current}
+      onSelect={handleSelectItem}
+      onDelete={handleDeleteItem}
     />
   )
 
@@ -740,6 +943,16 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
               {errorText}
             </p>
           )}
+          {/* 加载款（A16）：最近音频直接陈列在空态，点选即装载（与音频库弹窗同源 IndexedDB） */}
+          {library.length > 0 && (
+            <div {...stylex.props(styles.recentSection)}>
+              <h4 {...stylex.props(styles.recentHead)}>
+                <span>{t.recentAudio}</span>
+                <span {...stylex.props(styles.recentCount)}>{library.length}</span>
+              </h4>
+              {libraryList}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -752,101 +965,128 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
   const atMax = pxPerSec !== null && pxPerSec >= ZOOM_MAX_PX_PER_SEC
 
   return (
-    <div {...stylex.props(styles.page)} {...dragHandlers} data-drag-active={dragActive || undefined}>
-      <div {...stylex.props(styles.card, styles.cardCompact)}>
-        <div {...stylex.props(styles.inner)}>
-          <div {...stylex.props(styles.headRow)}>
-            <div {...stylex.props(styles.metaRow)}>
-              <span aria-hidden {...stylex.props(styles.iconBox)}>
-                <ThemeIcon name="phones" style={styles.icon18} />
-              </span>
-              <span {...stylex.props(styles.metaText)}>
-                <div {...stylex.props(styles.audioName)}>{audio.fileName}</div>
-                <div {...stylex.props(styles.audioMeta)}>
-                  {formatFileSize(audio.fileSize)}
-                  {duration > 0 && ` · ${formatTime(duration)}`}
-                  {sampleRateLabel !== null && ` · ${sampleRateLabel}`}
-                </div>
-              </span>
+    <>
+      <div {...stylex.props(styles.page)} {...dragHandlers} data-drag-active={dragActive || undefined}>
+        <div {...stylex.props(styles.card, styles.cardCompact)}>
+          <div {...stylex.props(styles.inner)}>
+            <div {...stylex.props(styles.headRow)}>
+              <div {...stylex.props(styles.metaRow)}>
+                <span aria-hidden {...stylex.props(styles.iconBox)}>
+                  <ThemeIcon name="phones" style={styles.icon18} />
+                </span>
+                <span {...stylex.props(styles.metaText)}>
+                  <div {...stylex.props(styles.audioName)}>{audio.fileName}</div>
+                  <div {...stylex.props(styles.audioMeta)}>
+                    {formatFileSize(audio.fileSize)}
+                    {duration > 0 && ` · ${formatTime(duration)}`}
+                    {sampleRateLabel !== null && ` · ${sampleRateLabel}`}
+                  </div>
+                </span>
+              </div>
+              <div {...stylex.props(styles.headActions)}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 打开即对账一次：入库都经页面导入路径，正常无漂移；防外部/并发写入的陈旧列表
+                    refreshLibrary()
+                    setLibraryOpen(true)
+                  }}
+                  {...stylex.props(styles.removeBtn)}
+                >
+                  <span aria-hidden>＋</span> {t.audioLibraryTitle}
+                </button>
+                <button type="button" onClick={handleRemoveAudio} {...stylex.props(styles.removeBtn)}>
+                  {t.removeAudio}
+                </button>
+              </div>
             </div>
-            <button type="button" onClick={handleRemoveAudio} {...stylex.props(styles.removeBtn)}>
-              {t.removeAudio}
-            </button>
+
+            {/* 缩放控件（A13）：－/倍率/＋ 步进；滚轮与捏合由 ZoomPlugin 处理 */}
+            <div {...stylex.props(styles.zoomRow)}>
+              <button
+                type="button"
+                aria-label={t.zoomOut}
+                title={t.zoomOut}
+                disabled={atFit}
+                onClick={handleZoomOut}
+                {...stylex.props(styles.chipBtn)}
+              >
+                −
+              </button>
+              <button
+                type="button"
+                aria-label={t.zoomFit}
+                title={t.zoomFit}
+                disabled={atFit}
+                onClick={handleZoomFit}
+                {...stylex.props(styles.chipBtn)}
+              >
+                {zoomLabel}
+              </button>
+              <button
+                type="button"
+                aria-label={t.zoomIn}
+                title={t.zoomIn}
+                disabled={atMax}
+                onClick={handleZoomIn}
+                {...stylex.props(styles.chipBtn)}
+              >
+                ＋
+              </button>
+            </div>
+
+            {/* wavesurfer 波形：拖选新建切片 / 拖动移位 / 把手微调 / 双击移除；滚轮缩放（A13） */}
+            <div ref={containerRef} data-wave-stage aria-label={t.waveHint} {...stylex.props(styles.stage)} />
+
+            {errorText !== null && (
+              <p role="alert" {...stylex.props(styles.errorBanner)}>
+                <span aria-hidden>⚠</span>
+                {errorText}
+              </p>
+            )}
+
+            {slice !== null && (
+              <div {...stylex.props(styles.sliceInfoRow)}>
+                <span {...stylex.props(styles.loopChip)}>
+                  {t.loopChipLabel(Math.round(slice.endTime - slice.startTime))}
+                </span>
+                <span>
+                  {t.loopRange(formatTime(slice.startTime), formatTime(slice.endTime))}
+                  {gapBeats > 0 && ` · ${t.gapInfo(gapBeats, `${gapSeconds}s`)}`}
+                </span>
+                <span {...stylex.props(styles.waveHint)}>{t.waveHint}</span>
+              </div>
+            )}
+
+            <div {...stylex.props(styles.controlsRow)}>
+              <TransportButtons playing={playing} onPlayToggle={handlePlayToggle} onStop={handleStop} />
+              <LoopSkipSelector value={gapBeats} onChange={setGapBeats} />
+              <div {...stylex.props(styles.tempoCell)}>
+                {/* 原曲页速度只读，与乐谱页共享（docs/tech.md §2.3） */}
+                <TempoSlider value={tempo} onChange={() => {}} disabled />
+              </div>
+            </div>
           </div>
-
-          {/* 缩放控件（A13）：－/倍率/＋ 步进；滚轮与捏合由 ZoomPlugin 处理 */}
-          <div {...stylex.props(styles.zoomRow)}>
-            <button
-              type="button"
-              aria-label={t.zoomOut}
-              title={t.zoomOut}
-              disabled={atFit}
-              onClick={handleZoomOut}
-              {...stylex.props(styles.chipBtn)}
-            >
-              −
-            </button>
-            <button
-              type="button"
-              aria-label={t.zoomFit}
-              title={t.zoomFit}
-              disabled={atFit}
-              onClick={handleZoomFit}
-              {...stylex.props(styles.chipBtn)}
-            >
-              {zoomLabel}
-            </button>
-            <button
-              type="button"
-              aria-label={t.zoomIn}
-              title={t.zoomIn}
-              disabled={atMax}
-              onClick={handleZoomIn}
-              {...stylex.props(styles.chipBtn)}
-            >
-              ＋
-            </button>
-          </div>
-
-          {/* wavesurfer 波形：拖选新建切片 / 拖动移位 / 把手微调 / 双击移除；滚轮缩放（A13） */}
-          <div ref={containerRef} data-wave-stage aria-label={t.waveHint} {...stylex.props(styles.stage)} />
-
-          {errorText !== null && (
-            <p role="alert" {...stylex.props(styles.errorBanner)}>
-              <span aria-hidden>⚠</span>
-              {errorText}
-            </p>
+          {dragActive && (
+            <div aria-hidden {...stylex.props(styles.dropOverlay)}>
+              {t.audioDropOverlay}
+            </div>
           )}
-
-          {slice !== null && (
-            <div {...stylex.props(styles.sliceInfoRow)}>
-              <span {...stylex.props(styles.loopChip)}>
-                {t.loopChipLabel(Math.round(slice.endTime - slice.startTime))}
-              </span>
-              <span>
-                {t.loopRange(formatTime(slice.startTime), formatTime(slice.endTime))}
-                {gapBeats > 0 && ` · ${t.gapInfo(gapBeats, `${gapSeconds}s`)}`}
-              </span>
-              <span {...stylex.props(styles.waveHint)}>{t.waveHint}</span>
-            </div>
-          )}
-
-          <div {...stylex.props(styles.controlsRow)}>
-            <TransportButtons playing={playing} onPlayToggle={handlePlayToggle} onStop={handleStop} />
-            <LoopSkipSelector value={gapBeats} onChange={setGapBeats} />
-            <div {...stylex.props(styles.tempoCell)}>
-              {/* 原曲页速度只读，与乐谱页共享（docs/tech.md §2.3） */}
-              <TempoSlider value={tempo} onChange={() => {}} disabled />
-            </div>
-          </div>
         </div>
-        {dragActive && (
-          <div aria-hidden {...stylex.props(styles.dropOverlay)}>
-            {t.audioDropOverlay}
-          </div>
-        )}
+        {fileInput}
       </div>
-      {fileInput}
-    </div>
+      {/* 音频库弹窗挂在拖放容器外：弹窗内的 drop 不冒泡进页面级导入管线造成双重入库 */}
+      <AudioLibraryModal
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        items={library}
+        activeId={audioIdRef.current}
+        importing={importing}
+        errorText={errorText}
+        onFilesSelected={(files) => void handleFilesSelected(files)}
+        onSelectItem={handleSelectItem}
+        onDeleteItem={handleDeleteItem}
+      />
+    </>
   )
 }

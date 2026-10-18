@@ -34,6 +34,8 @@ export class FakeRegion extends FakeEmitter {
   end: number
   color?: string
   removed = false
+  /** 真实插件构造时即建 DOM 元素；替身只带 style 袋，供 pointerEvents 之类的断言 */
+  readonly element: { style: Record<string, string> } = { style: {} }
 
   constructor(params: { start: number; end?: number; color?: string; [key: string]: unknown }) {
     super()

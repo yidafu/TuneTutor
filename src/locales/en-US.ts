@@ -97,6 +97,10 @@ export const enUS = {
   zoomOut: 'Zoom out waveform',
   zoomIn: 'Zoom in waveform',
   zoomFit: 'Fit to window',
+  audioLibraryTitle: 'Audio Library',
+  recentAudio: 'Recent audio',
+  audioRecentEmpty: 'No audio imported yet',
+  importingAudio: 'Importing audio…',
 
   // 音频导入错误（docs/audio.md §5.1 双重校验）
   errorUnsupportedAudio: 'Unsupported audio file: use mp3, wav, ogg or m4a',

@@ -88,6 +88,10 @@ export const zhTW: TranslationSet = {
   zoomOut: '縮小波形',
   zoomIn: '放大波形',
   zoomFit: '符合視窗',
+  audioLibraryTitle: '音訊庫',
+  recentAudio: '最近音訊',
+  audioRecentEmpty: '尚未匯入音訊',
+  importingAudio: '音訊匯入中…',
 
   // 樂譜匯入錯誤（docs/musicxml.md §6，E1–E4）
   importing: '正在解析樂譜…',

@@ -1,6 +1,7 @@
 import type { Language } from '../../locales/languages'
 import * as stylex from '@stylexjs/stylex'
 import { useI18n } from '../../locales/useI18n'
+import type { ThemeIconName } from '../icons/geometry'
 import { ThemeIcon } from '../icons/ThemeIcon'
 
 const styles = stylex.create({
@@ -82,6 +83,10 @@ const styles = stylex.create({
       color: 'var(--color-clay)',
     },
   },
+  rowActive: {
+    borderColor: 'var(--color-verm-line)',
+    backgroundColor: 'color-mix(in srgb, var(--color-verm) 4%, transparent)',
+  },
 })
 
 /** 最近文件条目（stub：接入 IndexedDB 后由 utils/storage 返回同形数据） */
@@ -97,6 +102,10 @@ interface FileHistoryListProps {
   onDelete: (id: string) => void
   /** 点击条目载入该乐谱 */
   onSelect?: (id: string) => void
+  /** 条目图标（默认乐谱 'note'；音频库传 'phones'） */
+  icon?: ThemeIconName
+  /** 当前已装载条目（音频库高亮用；null/缺省 = 无高亮） */
+  activeId?: string | null
 }
 
 function formatFileSize(bytes: number): string {
@@ -116,15 +125,19 @@ function formatRelativeTime(timestamp: number, language: Language): string {
 }
 
 /** 加载弹窗内的最近文件列表（悬停显示删除；点击标题载入） */
-export default function FileHistoryList({ items, onDelete, onSelect }: FileHistoryListProps) {
+export default function FileHistoryList({ items, onDelete, onSelect, icon = 'note', activeId }: FileHistoryListProps) {
   const { t, language } = useI18n()
 
   return (
     <div {...stylex.props(styles.list)}>
       {items.map((item) => (
-        <div key={item.id} {...stylex.props(styles.row)}>
+        <div
+          key={item.id}
+          {...stylex.props(styles.row, item.id === activeId && styles.rowActive)}
+          data-active={item.id === activeId || undefined}
+        >
           <span aria-hidden {...stylex.props(styles.iconBox)}>
-            <ThemeIcon name="note" style={styles.icon15} />
+            <ThemeIcon name={icon} style={styles.icon15} />
           </span>
           <span {...stylex.props(styles.textCol)}>
             <button

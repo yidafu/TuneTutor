@@ -4,6 +4,11 @@ import FileHistoryList, { type FileHistoryItem } from '@/components/FileLoader/F
 import { enUS } from '@/locales/en-US'
 import { renderWithProviders } from '../../helpers/ui'
 
+// 图标是叶子组件、有自己的专属测试；这里只断言调用方传入的名字
+vi.mock('@/components/icons/ThemeIcon', () => ({
+  ThemeIcon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
+}))
+
 const ITEMS: FileHistoryItem[] = [
   { id: 'a', title: 'Twinkle.musicxml', fileSize: 120 * 1024, uploadedAt: Date.now() - 5 * 60_000 },
   { id: 'b', title: 'Sonata.musicxml', fileSize: 2.5 * 1024 * 1024, uploadedAt: Date.now() },
@@ -45,5 +50,29 @@ describe('FileHistoryList', () => {
     rerender(<FileHistoryList items={ITEMS} onDelete={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Sonata.musicxml' }))
     expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('icon prop 换条目图标（音频库传 phones），缺省仍为乐谱 note', () => {
+    const { rerender } = renderWithProviders(<FileHistoryList items={ITEMS} onDelete={() => {}} />)
+
+    expect(screen.getAllByTestId('icon-note')).toHaveLength(ITEMS.length)
+
+    rerender(<FileHistoryList items={ITEMS} onDelete={() => {}} icon="phones" />)
+    expect(screen.getAllByTestId('icon-phones')).toHaveLength(ITEMS.length)
+  })
+
+  it('activeId 命中条目标记 data-active；缺省无标记', () => {
+    const { rerender } = renderWithProviders(
+      <FileHistoryList items={ITEMS} onDelete={() => {}} activeId="c" />,
+    )
+
+    expect(screen.getByText('Tiny.musicxml').closest('[data-active]')).toHaveAttribute(
+      'data-active',
+      'true',
+    )
+    expect(screen.getByText('Sonata.musicxml').closest('[data-active]')).toBeNull()
+
+    rerender(<FileHistoryList items={ITEMS} onDelete={() => {}} />)
+    expect(screen.getByText('Tiny.musicxml').closest('[data-active]')).toBeNull()
   })
 })

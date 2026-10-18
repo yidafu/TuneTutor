@@ -12,6 +12,11 @@ vi.mock('wavesurfer.js', async () => {
   const { FakeWaveSurfer } = await import('../helpers/wavesurferFake')
   return { default: { create: FakeWaveSurfer.create } }
 })
+// 图标是叶子组件、有自己的专属测试（tests/components/icons/）；页面测试只断言页面逻辑，
+// mock 掉以免皮肤图标系统内部重构（geometry/sets）震荡传导到本文件
+vi.mock('@/components/icons/ThemeIcon', () => ({
+  ThemeIcon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
+}))
 vi.mock('wavesurfer.js/dist/plugins/regions.esm.js', async () => {
   const { FakeRegionsPlugin } = await import('../helpers/wavesurferFake')
   return { default: { create: FakeRegionsPlugin.create } }
@@ -30,15 +35,22 @@ function importAudioFile(name = 'song.mp3', type = 'audio/mpeg'): File {
   return new File([new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00, 0x00, 0x00, 0x00])], name, { type })
 }
 
+/** 切片持久化键按音频归属（A16） */
+function sliceKey(audioId: string): string {
+  return `note-slice-audio-slice:${audioId}`
+}
+
 async function importViaInput(file: File) {
   const input = document.querySelector('input[type="file"]')!
   fireEvent.change(input, { target: { files: [file] } })
 }
 
-function latestPage(): { ws: FakeWaveSurfer; regions: FakeRegionsPlugin } {
+function latestPage(): { ws: FakeWaveSurfer; regions: FakeRegionsPlugin; playedRegions: FakeRegionsPlugin } {
   const ws = FakeWaveSurfer.all.at(-1)!
-  const regions = FakeRegionsPlugin.all.at(-1)!
-  return { ws, regions }
+  // 页面按序注册两个 RegionsPlugin：第一个管切片约束/循环，第二个挂已播段（A15 补强）
+  const regions = FakeRegionsPlugin.all.at(-2)!
+  const playedRegions = FakeRegionsPlugin.all.at(-1)!
+  return { ws, regions, playedRegions }
 }
 
 beforeEach(() => {
@@ -77,16 +89,17 @@ function stubStageRect(width: number): void {
   }
 }
 
-/** 走「启动恢复」路径装载：导入路径会清空旧切片（新音频不继承切片） */
+/** 走「启动恢复」路径装载：导入路径会清空旧切片（新音频不继承切片）。
+ *  切片故意写旧全局键：顺带验证 A16 的启动迁移（迁到恢复音频名下）。 */
 async function loadWithSlice() {
   localStorage.setItem('note-slice-audio-slice', JSON.stringify({ startTime: 42, endTime: 65 }))
-  await saveAudioFile({ fileName: 'song.mp3', fileSize: 8, data: new ArrayBuffer(8) })
+  const saved = await saveAudioFile({ fileName: 'song.mp3', fileSize: 8, data: new ArrayBuffer(8) })
   renderAudioPage()
   await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
-  const { ws, regions } = latestPage()
+  const { ws, regions, playedRegions } = latestPage()
   ws.emitReady(204)
   await screen.findByText(/3:24/)
-  return { ws, regions }
+  return { ws, regions, playedRegions, audioId: saved.id }
 }
 
 describe('OriginalAudioPage 空态与导入', () => {
@@ -203,16 +216,18 @@ describe('OriginalAudioPage 切片与循环', () => {
     expect(ws.isPlaying()).toBe(true)
   })
 
-  it('update-end 回写切片并持久化到 localStorage（§5.1）', async () => {
-    const { ws, regions } = await loadWithSlice()
+  it('update-end 回写切片并持久化（§5.1，键按音频归属 A16）', async () => {
+    const { ws, regions, audioId } = await loadWithSlice()
     const region = regions.getRegions()[0]!
 
     act(() => region.setOptions({ start: 10, end: 35 }))
 
-    expect(JSON.parse(localStorage.getItem('note-slice-audio-slice')!)).toEqual({
+    expect(JSON.parse(localStorage.getItem(sliceKey(audioId))!)).toEqual({
       startTime: 10,
       endTime: 35,
     })
+    // 旧全局键已迁移走
+    expect(localStorage.getItem('note-slice-audio-slice')).toBeNull()
     expect(screen.getByText(enUS.loopChipLabel(25))).toBeInTheDocument()
     expect(ws.options.autoScroll).toBe(false)
   })
@@ -240,18 +255,18 @@ describe('OriginalAudioPage 切片与循环', () => {
   })
 
   it('双击 region 移除切片并清除持久化', async () => {
-    const { regions } = await loadWithSlice()
+    const { regions, audioId } = await loadWithSlice()
     const region = regions.getRegions()[0]!
 
     regions.emitRegionDoubleClicked(region)
 
     await waitFor(() => expect(screen.queryByText(/LOOP|循环/)).not.toBeInTheDocument())
-    expect(localStorage.getItem('note-slice-audio-slice')).toBeNull()
+    expect(localStorage.getItem(sliceKey(audioId))).toBeNull()
     expect(screen.queryByText(enUS.loopRange('0:42', '1:05'))).not.toBeInTheDocument()
   })
 
   it('双触（pointer 双击）切片区间内移除切片：iOS/iPadOS 无原生 dblclick 的触控路径', async () => {
-    await loadWithSlice()
+    const { audioId } = await loadWithSlice()
     stubStageRect(100)
 
     // 落点 26px → 26/100 × 204s ≈ 53s ∈ [42, 65]
@@ -260,11 +275,11 @@ describe('OriginalAudioPage 切片与循环', () => {
     fireEvent.pointerDown(stage, { isPrimary: true, clientX: 26 })
 
     await waitFor(() => expect(screen.queryByText(/LOOP|循环/)).not.toBeInTheDocument())
-    expect(localStorage.getItem('note-slice-audio-slice')).toBeNull()
+    expect(localStorage.getItem(sliceKey(audioId))).toBeNull()
   })
 
   it('双触切片区间外不删除', async () => {
-    await loadWithSlice()
+    const { audioId } = await loadWithSlice()
     stubStageRect(100)
 
     // 落点 5px → 10.2s < 切片起点 42s
@@ -273,7 +288,7 @@ describe('OriginalAudioPage 切片与循环', () => {
     fireEvent.pointerDown(stage, { isPrimary: true, clientX: 5 })
 
     expect(screen.getByText(enUS.loopChipLabel(23))).toBeInTheDocument()
-    expect(localStorage.getItem('note-slice-audio-slice')).not.toBeNull()
+    expect(localStorage.getItem(sliceKey(audioId))).not.toBeNull()
   })
 
   it('过短切片不恢复 region（F10：<0.05s 拒绝循环）', async () => {
@@ -314,14 +329,14 @@ describe('OriginalAudioPage 切片与循环', () => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: false })
   })
 
-  it('移除音频：回空态、删除 IndexedDB 行、清除切片持久化', async () => {
-    await loadWithSlice()
+  it('移除音频：回空态、删除 IndexedDB 行与该音频的切片键', async () => {
+    const { audioId } = await loadWithSlice()
 
     fireEvent.click(screen.getByRole('button', { name: enUS.removeAudio }))
 
     expect(screen.getByText(enUS.audioDropMain)).toBeInTheDocument()
     expect(await listAudioFiles()).toHaveLength(0)
-    expect(localStorage.getItem('note-slice-audio-slice')).toBeNull()
+    expect(localStorage.getItem(sliceKey(audioId))).toBeNull()
   })
 
   it('解码失败（wavesurfer error）：报 errorAudioDecode（第二道闸）', async () => {
@@ -378,8 +393,8 @@ describe('OriginalAudioPage 拖放导入', () => {
     await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
   })
 
-  it('已装载态 drop 替换当前音频，不继承旧切片', async () => {
-    await loadWithSlice()
+  it('已装载态 drop 替换当前音频，不继承旧切片；旧音频的切片键保留（A16 归属隔离）', async () => {
+    const { audioId } = await loadWithSlice()
     // 已装载分支：隐藏 input 是页面根节点的直接子元素
     const pageRoot = document.querySelector('input[type="file"]')!.parentElement!
 
@@ -387,8 +402,9 @@ describe('OriginalAudioPage 拖放导入', () => {
 
     await screen.findByText('replaced.ogg')
     expect(FakeWaveSurfer.all).toHaveLength(2)
-    expect(FakeRegionsPlugin.all.at(-1)!.getRegions()).toHaveLength(0)
-    expect(localStorage.getItem('note-slice-audio-slice')).toBeNull()
+    expect(FakeRegionsPlugin.all.at(-2)!.getRegions()).toHaveLength(0)
+    // 旧音频切片不丢：切回（经音频库）可恢复
+    expect(JSON.parse(localStorage.getItem(sliceKey(audioId))!)).toEqual({ startTime: 42, endTime: 65 })
   })
 })
 
@@ -459,5 +475,241 @@ describe('OriginalAudioPage 波形缩放', () => {
 
     expect(ws.zoomCalls.at(-1)).toBe(ZOOM_MAX_PX_PER_SEC)
     expect(zoomIn).toBeDisabled()
+  })
+})
+
+describe('OriginalAudioPage 进度高亮域（A15）', () => {
+  /** themeColor 走 getComputedStyle，jsdom 返回空串：钉假 token 值验证配色规则 */
+  const FAKE_TOKENS: Record<string, string> = {
+    '--color-wave-bar-a': '#b9ae8d',
+    '--color-verm': '#c8451f',
+    '--color-gold-bright': '#d9a441',
+  }
+
+  function stubThemeTokens(): void {
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      getPropertyValue: (name: string) => FAKE_TOKENS[name] ?? '',
+    } as unknown as CSSStyleDeclaration)
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('有切片：进度层退化为波形色（[0, 播放头] 不再越界涂色），高亮只来自切片 region', async () => {
+    stubThemeTokens()
+    const { ws } = await loadWithSlice()
+
+    expect(ws.options.progressColor).toBe(FAKE_TOKENS['--color-wave-bar-a'])
+    expect(ws.options.waveColor).toBe(FAKE_TOKENS['--color-wave-bar-a'])
+  })
+
+  it('移除切片：进度层恢复朱砂双层进度', async () => {
+    stubThemeTokens()
+    const { ws, regions } = await loadWithSlice()
+
+    regions.emitRegionDoubleClicked(regions.getRegions()[0]!)
+
+    await waitFor(() => expect(ws.options.progressColor).toBe(FAKE_TOKENS['--color-verm']))
+  })
+
+  it('无切片：朱砂双层进度保持默认', async () => {
+    stubThemeTokens()
+    renderAudioPage()
+    await importViaInput(importAudioFile())
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
+    const { ws } = latestPage()
+    ws.emitReady(204)
+    await screen.findByText(/3:24/)
+
+    expect(ws.options.progressColor).toBe(FAKE_TOKENS['--color-verm'])
+  })
+
+  it('已播段（A15 补强）：播放头进切片 → 第二实例出现 [起点, 播放头] 深朱砂 region，不挡指针', async () => {
+    stubThemeTokens()
+    const { ws, playedRegions } = await loadWithSlice()
+
+    act(() => ws.emit('timeupdate', 50))
+
+    const played = playedRegions.getRegions()
+    expect(played).toHaveLength(1)
+    expect(played[0]!.start).toBe(42)
+    expect(played[0]!.end).toBe(50)
+    expect(played[0]!.color).toBe(`${FAKE_TOKENS['--color-verm']}59`)
+    expect(played[0]!.element.style.pointerEvents).toBe('none')
+  })
+
+  it('已播段：播放头越过切片终点钳到终点；回卷到起点（循环回卷）即移除', async () => {
+    stubThemeTokens()
+    const { ws, playedRegions } = await loadWithSlice()
+
+    act(() => ws.emit('timeupdate', 100))
+    expect(playedRegions.getRegions()[0]!.end).toBe(65)
+
+    act(() => ws.emit('timeupdate', 42))
+    expect(playedRegions.getRegions()).toHaveLength(0)
+  })
+
+  it('已播段：播放头未进切片不出现', async () => {
+    stubThemeTokens()
+    const { ws, playedRegions } = await loadWithSlice()
+
+    act(() => ws.emit('timeupdate', 10))
+
+    expect(playedRegions.getRegions()).toHaveLength(0)
+  })
+
+  it('已播段：移除切片随之移除；切片改界后按当前播放头重新钳位', async () => {
+    stubThemeTokens()
+    const { ws, regions, playedRegions } = await loadWithSlice()
+
+    act(() => ws.emit('timeupdate', 50))
+    expect(playedRegions.getRegions()).toHaveLength(1)
+
+    regions.emitRegionDoubleClicked(regions.getRegions()[0]!)
+    expect(playedRegions.getRegions()).toHaveLength(0)
+
+    // 拖出新切片 [10, 35]，播放头停在 20 → 已播段 [10, 20]
+    regions.addRegion({ start: 10, end: 35 })
+    const region = regions.getRegions().at(-1)!
+    act(() => {
+      ws.setTime(20)
+      region.setOptions({ start: 10, end: 35 })
+    })
+    expect(playedRegions.getRegions()[0]!.start).toBe(10)
+    expect(playedRegions.getRegions()[0]!.end).toBe(20)
+  })
+})
+
+describe('OriginalAudioPage 多选导入与音频库（A16）', () => {
+  it('隐藏 input 带 multiple；多选导入逐个入库，装载最后一个合法文件', async () => {
+    renderAudioPage()
+    const input = document.querySelector('input[type="file"]')!
+    expect(input).toHaveAttribute('multiple')
+
+    fireEvent.change(input, {
+      target: {
+        files: [importAudioFile('a.mp3'), importAudioFile('b.wav', 'audio/wav'), importAudioFile('c.mp3')],
+      },
+    })
+
+    await screen.findByText('c.mp3')
+    expect((await listAudioFiles()).map((record) => record.fileName).sort()).toEqual([
+      'a.mp3',
+      'b.wav',
+      'c.mp3',
+    ])
+    expect(FakeWaveSurfer.all).toHaveLength(1)
+  })
+
+  it('drop 多文件：合法的逐个入库，非法的报错不入库', async () => {
+    const { container } = renderAudioPage()
+    const pageRoot = container.firstElementChild!
+
+    fireEvent.drop(pageRoot, {
+      dataTransfer: {
+        files: [
+          importAudioFile('a.mp3'),
+          new File(['plain'], 'notes.txt', { type: 'text/plain' }),
+          importAudioFile('c.ogg', 'audio/ogg'),
+        ],
+      },
+    })
+
+    await screen.findByText('c.ogg')
+    expect((await listAudioFiles()).map((record) => record.fileName).sort()).toEqual(['a.mp3', 'c.ogg'])
+    expect(screen.getByRole('alert')).toHaveTextContent(enUS.errorUnsupportedAudio)
+    expect(FakeWaveSurfer.all).toHaveLength(1)
+  })
+
+  it('移除当前音频后，空态陈列最近音频，点选即装载', async () => {
+    renderAudioPage()
+    await importViaInput(importAudioFile('active.mp3'))
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
+    await saveAudioFile({ fileName: 'kept.mp3', fileSize: 8, data: new ArrayBuffer(8) })
+
+    fireEvent.click(screen.getByRole('button', { name: enUS.removeAudio }))
+
+    expect(screen.getByText(enUS.audioDropMain)).toBeInTheDocument()
+    // 列表在删除落地后刷新（含刚入库的 kept.mp3，不含已删的 active.mp3）
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'active.mp3' })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByText(enUS.recentAudio)).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: 'kept.mp3' }))
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(2))
+    expect(screen.getByText('kept.mp3')).toBeInTheDocument()
+  })
+
+  it('音频库弹窗：头部按钮打开、当前条目高亮、库内删除不动当前装载', async () => {
+    // 先入库另一条再渲染：song.mp3 后存 → 启动恢复取 song.mp3，库列表含两条
+    await saveAudioFile({ fileName: 'other.mp3', fileSize: 8, data: new ArrayBuffer(8) })
+    const { audioId } = await loadWithSlice()
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(enUS.audioLibraryTitle) }))
+
+    const dialog = screen.getByRole('dialog', { name: enUS.audioLibraryTitle })
+    expect(within(dialog).getByText('song.mp3')).toBeInTheDocument()
+    expect(within(dialog).getByText('other.mp3')).toBeInTheDocument()
+    // 当前装载条目高亮（data-active），另一条无
+    expect(within(dialog).getByText('song.mp3').closest('[data-active]')).toHaveAttribute(
+      'data-active',
+      'true',
+    )
+    expect(within(dialog).getByText('other.mp3').closest('[data-active]')).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: `${enUS.delete} other.mp3` }))
+
+    expect(await listAudioFiles()).toHaveLength(1)
+    // other.mp3 行消失；song.mp3 仍在（弹窗未关 + 装载态元信息行同文名，作用域到弹窗内断言）
+    await waitFor(() =>
+      expect(within(dialog).queryByRole('button', { name: 'other.mp3' })).not.toBeInTheDocument(),
+    )
+    expect(within(dialog).getByRole('button', { name: 'song.mp3' })).toBeInTheDocument()
+    // 装载态元信息行仍显示当前音频名（弹窗行同文名，取全量断言非空）
+    expect(screen.getAllByText('song.mp3').length).toBeGreaterThan(0)
+    expect(localStorage.getItem(sliceKey(audioId))).not.toBeNull()
+  })
+
+  it('音频库切换音频：弹窗关闭、新音频不继承切片；切回后自身切片恢复', async () => {
+    const { audioId } = await loadWithSlice()
+    await saveAudioFile({ fileName: 'other.mp3', fileSize: 8, data: new ArrayBuffer(8) })
+    const openLibrary = () =>
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(enUS.audioLibraryTitle) }))
+
+    openLibrary()
+    // other.mp3 在挂载后才入库：靠弹窗打开时的对账刷新出现
+    fireEvent.click(await screen.findByRole('button', { name: 'other.mp3' }))
+
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(2))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('other.mp3')).toBeInTheDocument()
+    // other.mp3 名下无切片键：不继承 song.mp3 的切片
+    expect(FakeRegionsPlugin.all.at(-2)!.getRegions()).toHaveLength(0)
+    // song.mp3 的切片键保留
+    expect(JSON.parse(localStorage.getItem(sliceKey(audioId))!)).toEqual({ startTime: 42, endTime: 65 })
+
+    openLibrary()
+    fireEvent.click(await screen.findByRole('button', { name: 'song.mp3' }))
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(3))
+
+    FakeWaveSurfer.all.at(-1)!.emitReady(204)
+    await waitFor(() => expect(FakeRegionsPlugin.all.at(-2)!.getRegions()).toHaveLength(1))
+    expect(FakeRegionsPlugin.all.at(-2)!.getRegions()[0]!.start).toBe(42)
+    expect(screen.getByText(enUS.loopChipLabel(23))).toBeInTheDocument()
+  })
+
+  it('音频库弹窗打开时全局快捷键停用：Space 不触发播放，Esc 只关弹窗', async () => {
+    const { ws } = await loadWithSlice()
+    await saveAudioFile({ fileName: 'other.mp3', fileSize: 8, data: new ArrayBuffer(8) })
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(enUS.audioLibraryTitle) }))
+    expect(screen.getByRole('dialog', { name: enUS.audioLibraryTitle })).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { code: 'Space' })
+    expect(ws.isPlaying()).toBe(false)
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

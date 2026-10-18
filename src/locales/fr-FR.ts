@@ -88,6 +88,10 @@ export const frFR: TranslationSet = {
   zoomOut: 'Zoom arrière de la forme d’onde',
   zoomIn: 'Zoom avant de la forme d’onde',
   zoomFit: 'Ajuster à la fenêtre',
+  audioLibraryTitle: 'Bibliothèque audio',
+  recentAudio: 'Audio récents',
+  audioRecentEmpty: 'Aucun audio importé',
+  importingAudio: 'Importation audio…',
 
   // Erreurs d’import de partition (docs/musicxml.md §6, E1–E4)
   importing: 'Analyse de la partition…',

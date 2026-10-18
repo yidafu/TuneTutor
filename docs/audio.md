@@ -1,9 +1,9 @@
 # TuneTutor 音频播放技术规格
 
-**版本**: 2.1
+**版本**: 2.5
 **日期**: 2026-10-18
 **状态**: Ready for Re-implementation
-**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。**v2.1(2026-10-18)**:§5.1 补波形缩放(官方 ZoomPlugin + 适应宽度基准步进控件,新增 A13)与拖放导入入口;服务 F10 精准定位切片。**v2.2(2026-10-18)**:§5.1 播放头自动跟随改为切片域规则(新增 A14)——存在切片即关 autoScroll,无切片全曲播放保留官方默认;消除切片循环与视口自动右滚的冲突。
+**变更**: 自 [tech.md](./tech.md) v2.0 §4(时间轴模型)/§5(播放引擎)拆分并扩写;成文前完成同类实现调研(osmd-audio-player、alphaTab、abcjs、wavesurfer 官方示例、LoopMate,摘录见 §9);v1.1 补充 §5.1 波形可视化方法(渲染管线、进度机制、peaks 预载否决,决策 A9);v1.2 依据官方播放器逆向行为规格(2026-10-17 REA,见 [spike/sponsors-demo-extract/rea/REA-ANALYSIS.md](../spike/sponsors-demo-extract/rea/REA-ANALYSIS.md),下称「官方规格」)全面复核(新增 A10/A11)。**v2.0 架构改版(2026-10-18)**:按决策「参考 osmd-player 实现」整体对齐官方播放器架构——废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part 路线,改为 `playbackData`(乐谱时域播放数据,构建与 BPM 解耦)+ `TimingSource`(可注入锚点时钟)+ `PlaybackEngine` 内 look-ahead 窗口调度与循环状态机;A1/A2 推翻重写,新增 A12;BPM 变更由「全停重建」改为「即时重锚定」;`LoopRange` 由秒域改乐谱时域(tech.md §3、selection.md §2.4 同步)。本文生效后 tech.md 对应章节降为摘要。**v2.1(2026-10-18)**:§5.1 补波形缩放(官方 ZoomPlugin + 适应宽度基准步进控件,新增 A13)与拖放导入入口;服务 F10 精准定位切片。**v2.2(2026-10-18)**:§5.1 播放头自动跟随改为切片域规则(新增 A14)——存在切片即关 autoScroll,无切片全曲播放保留官方默认;消除切片循环与视口自动右滚的冲突。**v2.3(2026-10-18)**:§5.1 进度高亮域改为切片域规则(新增 A15)——切片内内置进度层退化为波形色,高亮只来自切片 region 覆盖层;消除 [0, 切片起点] 被进度层越界涂色的冲突。**v2.4(2026-10-18)**:§5.1 多音频库(新增 A16)——文件选择器与拖放支持多选逐个入库(活动音频取最后一个合法文件),新增 AudioLibraryModal 音频库弹窗(切换/库内删除)与空态「最近音频」陈列;切片持久化键由全局单键改按音频归属 `note-slice-audio-slice:<id>`,多音频互不串切片、切回即恢复,旧全局键启动时迁移到恢复音频名下。**v2.5(2026-10-18)**:§5.1 落地 A15 让位的切片内已播段高亮——第二 RegionsPlugin 实例驱动一条 `[切片起点, min(播放头, 切片终点)]` 的深朱砂 region(timeupdate 跟随、`pointerEvents: none` 不挡把手、随切片改界/移除重算),切片内已播/未播明暗区分,§8 对应候选移除。
 
 ---
 
@@ -199,15 +199,16 @@ Tone Sampler `releaseAll` 可立即释放全部发声采样(官方 `stopSound` �
 - **peaks 预载不采用**:`load(url, peaks, duration)` 的预计算峰值服务于「先展示后解码」的网络流场景;本产品音频全在本地(IndexedDB ArrayBuffer),全量解码不可避免,预载零收益,反而多一份要持久化/校验的数据。
 - **region 是 DOM 覆盖层,不画进 canvas**:RegionsPlugin 在波形 wrapper 上叠绝对定位容器(z-index 5),region 按时间百分比定位、两侧 6px 拖动把手;切片的朱砂色即 region color(取值随 ui-design 基线);`enableDragSelection` 返回解绑函数,卸载时必须调用。
 - `WaveSurfer.create`(WebAudio 后端)+ `RegionsPlugin`;**`addRegion` / `enableDragSelection` 统一在 `ready` 事件后调用**(7.12 起 addRegion 早于 ready 会自动挂起到 ready 再建区,勿依赖该行为;拖选换算与回写本就依赖已解码时长)。
-- 单切片约束:`region-created` 时移除旧 region;`update-end`(拖动/resize 结束)才回写 `AudioSlice` 并持久化(`note-slice-audio-slice`);双击 region = 移除切片与持久化(触控端 iOS Safari 不触发原生 dblclick,页面另挂 pointer 双击检测,双方经切片状态护栏幂等)。
+- 单切片约束:`region-created` 时移除旧 region;`update-end`(拖动/resize 结束)才回写 `AudioSlice` 并持久化(键 `note-slice-audio-slice:<audioId>`,A16);双击 region = 移除切片与持久化(触控端 iOS Safari 不触发原生 dblclick,页面另挂 pointer 双击检测,双方经切片状态护栏幂等)。
 - **波形缩放(决策 A13,v2.1)**:渲染仍全走内建管线,缩放 = 官方 ZoomPlugin(波形上滚轮/双指捏合,指针锚定)+ 页面步进控件 `－ / 倍率 / ＋`(倍率钮即适应窗口复位)。细则:
   - 步进以「适应窗口宽度」(`containerWidth / duration` px/s)为基准逐级 ×2 / ÷2,钳到 `ZOOM_MAX_PX_PER_SEC = 2000`(1px ≈ 0.5ms,足够精准定位切片边界);阶梯纯函数 `zoomInPx` / `zoomOutPx` / `zoomPercent` 收在 sliceUtils(可单测),控件只做 DOM 接线;
   - 控件与滚轮/捏合共享单一事实来源 `ws.zoom(minPxPerSec)`(核心广播 `zoom` 事件),页面不持第二份缩放状态;适应宽度不可得(容器 0 宽/无时长)时步进不动作;
   - 缩放后内建管线自动重渲染(多 canvas 分片 + wrapper 滚动),region 按时间百分比定位天然跟随;播放中 `autoScroll` 保持播放头可见(默认开;切片域的开关闭合规则见 A14);
   - `minPxPerSec` 落在核心 options 与 ZoomPlugin `maxZoom`,两处共用同一常量。
 - **播放头自动跟随(决策 A14,v2.2)**:存在切片即 `ws.setOptions({ autoScroll: false })`,无切片的全曲顺序播放保留官方默认跟随。切片循环把播放头锁在切片内,放任 autoScroll 会在放大到切片宽于视口时每次循环回卷都把视口猛拉一次,且与用户手动平移(触控板横扫/横向滚轮——ZoomPlugin 只拦 deltaY 主导的滚轮,deltaX 主导穿透为原生横向滚动)形成拉锯,拖 region 把手微调同理;关闭后视图完全由用户掌控(缩放 A13/原生平移/点选定位)。同步点收在切片状态唯一变更口 `updateSlice`,region 替换/恢复/移除各路径自然收敛。
-- 音频持久化:IndexedDB `audioFiles`(ArrayBuffer,tech.md §7);启动恢复最新一条 + 已存切片与空拍(`note-slice-audio-gap`)。
-- 导入校验:MIME 白名单 + 解码(wavesurfer `error` 事件)双重校验;失败提示走 i18n。入口两条:文件选择器与**页面级拖放**(FileLoaderModal 同款 `data-drag-active` 高亮约定)——`dragover` 高亮、`drop` 复用同一校验管线;空态与已装载态均可投放,已装载态投放即替换当前音频且不继承旧切片(新音频切片清空)。
+- **进度高亮域(决策 A15,v2.3;已播段补强 v2.5)**:内置双层进度的下层恒从 0 画到播放头、无空间裁剪能力——存在切片时进度层退化为波形色(`progressColor = waveColor`,视觉关闭),高亮只来自切片 region 覆盖层 + 金色播放头;无切片恢复朱砂双层进度。配色与 A14 同口同步(`updateSlice` 与主题切换 effect 共用 `waveColors(sliceActive)`)。切片内「已播/未播」明暗区分由**第二 RegionsPlugin 实例**驱动一条 `[切片起点, min(播放头, 切片终点)]` 的深朱砂 region(v2.5 落地,原记 §8 候选):`timeupdate` 逐帧 `setOptions({ start, end })`,setTime/点击定位也广播 timeupdate 故暂停态即时;播放头 ≤ 切片起点即整条移除,切片改界/移除经 `updateSlice` 单一变更口重算;region 元素 `pointerEvents: none` 不挡切片拖移与把手,第二实例只挂 region、页面不订阅其事件——与切片约束/循环判定天然隔离;主题切换 effect 同步重读两层 region 配色。
+- **音频持久化与多音频库(决策 A16,v2.4)**:IndexedDB `audioFiles`(ArrayBuffer,tech.md §7)存全量音频历史;启动恢复最新一条 + 该音频的切片与空拍(`note-slice-audio-gap` 全局共享)。切片键按音频归属 `note-slice-audio-slice:<id>`——多音频各持切片互不覆盖,切回即恢复(练习多首乐曲免重拉切片);切换音频(导入替换/库点选)只换 UI 状态、不动旧音频的键,新实例 ready 后读自己的键,「不继承旧切片」由归属天然保证;库内删除条目连其切片键一并清除;旧全局键 `note-slice-audio-slice`(v2.3 及前)无归属信息,启动恢复读取时迁移到被恢复音频名下后删除。
+- 导入校验:MIME 白名单 + 解码(wavesurfer `error` 事件)双重校验;失败提示走 i18n。入口三条:文件选择器(`multiple` 多选)、**页面级拖放**(FileLoaderModal 同款 `data-drag-active` 高亮约定)与**音频库弹窗**(AudioLibraryModal,FileLoaderModal 同构:拖放区 + 最近音频列表 + Esc/遮罩关闭,空态另有「最近音频」直接陈列)——三条入口复用同一校验管线;多选/多文件投放逐个过白名单与转存,非法文件跳过并报 `errorUnsupportedAudio`,全部合法文件入库,活动音频取最后一个合法文件(其 `uploadedAt` 最新,与库列表 uploadedAt 降序头部一致);已装载态投放/切换即替换当前音频(切片归属见 A16)。
 
 ### 5.2 切片循环 + 空拍(决策 A5,v2 变更)
 
@@ -289,6 +290,8 @@ UI 与播放共用此函数,保证「显示的切片」与「循环的切片」�
 | A12 | (v2.0 新增)架构对齐官方播放器:播放数据存乐谱时域(构建与 BPM 解耦)+ 可注入锚点时钟 + 引擎内 look-ahead 调度与循环状态机;废弃 buildTimeline 绝对秒时间轴与 Tone.Transport + Part | 决策「参考 osmd-player 实现」(2026-10-18);官方为唯一逆向到行为参数级的参照(REA);一次换型解锁即时变速(A2)、真暂停(G1)、离线导出(G13);Transport 的网格对齐能力对拍点调度不再必要——节拍器与音符同处乐谱时域(§3.7) |
 | A13 | (v2.1 新增)波形缩放 = 官方 ZoomPlugin(滚轮/双指捏合,指针锚定)+ 步进控件(适应窗口宽度为基准 ×2/÷2,钳到 2000px/s),两路共用 `ws.zoom()` 单一事实来源;不自研滚轮换算、不自绘缩放 | 服务 F10 精准定位切片边界(用户需求「波形可缩放」);官方插件即 wavesurfer 示例同款,内建多 canvas 分片/滚动/autoScroll/自动重绘全保留;阶梯换算收 sliceUtils 纯函数(可单测);上限 2000px/s ≈ 0.5ms/px(§5.1) |
 | A14 | (v2.2 新增)播放头自动跟随按切片域开闭:存在切片即 `autoScroll: false`(视图由用户掌控),无切片全曲播放保留官方默认;同步点收在 `updateSlice` 单一变更口 | 切片循环把播放头锁在切片内,官方默认 autoScroll(播放头出视口即瞬移滚动容器)在放大到切片宽于视口时每次回卷猛拉视口,播放中手动平移(deltaX 主导滚轮不被 ZoomPlugin 拦截,走原生滚动)即被拉回形成拉锯;无切片长音频仍需跟随防播放头出屏(§5.1) |
+| A15 | (v2.3 新增)进度高亮域:存在切片即 `progressColor = waveColor`(内置进度层视觉关闭),高亮只来自切片 region 覆盖层;无切片保留朱砂双层进度;配色与 A14 同口(`updateSlice`/主题 effect 共用 `waveColors(sliceActive)`)。v2.5 补强:切片内已播段由第二 RegionsPlugin 实例驱动深朱砂 region(`[起点, min(播放头, 终点)]`,timeupdate 跟随、pointerEvents:none) | 内置进度层恒从 0 画到播放头,无法裁剪进切片——切片循环下 [0, 切片起点] 恒被涂成朱砂且回卷不清除,与「只有选区内容高亮」直接冲突;裁剪需 renderFunction 自绘,成本不成比例;切片内明暗区分用第二实例已播段 region 补强落地(v2.5,§5.1)——第二实例事件总线与切片约束天然隔离,不碰循环判定 |
+| A16 | (v2.4 新增)多音频库:IndexedDB `audioFiles` 即库,文件选择器/拖放/音频库弹窗三条入口共用同一校验管线,多选逐个入库(活动音频取最后一个合法文件);切片持久化键按音频归属 `note-slice-audio-slice:<id>`,切换不落盘、切回即恢复,旧全局键启动迁移 | 用户需求「导入多个音频进行练习」;全局单键在多音频下会把 A 曲切片套在 B 曲上(时长可容纳即错恢复),按 id 归属一次性消除该类串扰并免除「替换音频先清切片」特例;活动音频取最后与库列表 uploadedAt 降序头部一致(§5.1) |
 
 **后续候选(不在 v2 范围,记录调研到的实现路径;官方行为参数对照源 = 官方规格 §3,坐标可对照验证)**:
 
@@ -302,6 +305,8 @@ UI 与播放共用此函数,保证「显示的切片」与「循环的切片」�
 - 离线导出(G13,官方规格 §3.12,方案可整段对照):时钟已可注入(A12)——`CaptureTimingSource`(纯虚拟时钟)+ 捕获式播放器只记录 `{when, channel, key, volume, duration}`,再手工逐参数复刻采样包络合成波形(10ms 线性 attack、sustain 0.9、指数 decay/release τ=ln1.1/ln100 与 ln1.3/ln100、0.3s 释放尾;增益链与实播一致 → 导出波形 = 实听);
 - 原曲页保调变速:WebAudio 后端 `setPlaybackRate` 是纯重采样会变调;保调需 mediaElement + `preservesPitch`(或 SoundTouchJS);
 - 原曲页真后台循环:AudioContext 时钟预排替代 setTimeout。
+
+(A15 的「切片内已播/未播明暗区分」候选已于 v2.5 落地,从清单移除——实现即原候选路径:第二 RegionsPlugin 实例 + 已播段 region,见 §5.1 进度高亮域。)
 
 (v1 的「播放区间以 tick/拍存储」候选已随 A12 落地——LoopRange 即乐谱时域,从清单移除。)
 
