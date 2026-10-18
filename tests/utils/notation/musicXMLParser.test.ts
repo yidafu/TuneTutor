@@ -290,6 +290,23 @@ describe('scoreToParsedScore 小节属性变更', () => {
     expect(measures[2]!.keySignature).toBe('G major')
   })
 
+  it('顶层拍号/调号/divisions 取首个声明，后续变更只进对应小节（docs/musicxml.md §2）', () => {
+    const m1 = measure('1', ATTRS_44 + QUARTER_C4)
+    const m2 = measure('2', '<attributes><time><beats>3</beats><beat-type>4</beat-type></time></attributes>' + QUARTER_C4)
+    const m3 = measure(
+      '3',
+      '<attributes><divisions>8</divisions><key><fifths>2</fifths></key><time><beats>2</beats><beat-type>2</beat-type></time></attributes>' +
+        '<note><pitch><step>E</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type></note>',
+    )
+    const parsed = scoreToParsedScore(parse(scoreXml(`${m1}${m2}${m3}`)))
+    expect(parsed.timeSignature).toBe('4/4')
+    expect(parsed.keySignature).toBe('C major')
+    expect(parsed.divisions).toBe(4)
+    expect(parsed.measures[2]!.timeSignature).toBe('2/2')
+    expect(parsed.measures[2]!.keySignature).toBe('D major')
+    expect(parsed.measures[2]!.divisions).toBe(8)
+  })
+
   it('小节 index 从 0 连续编号', () => {
     const measures = scoreToParsedScore(parse(scoreXml(`${measure('1', ATTRS_44 + QUARTER_C4)}${measure('2', QUARTER_C4)}`))).measures
     expect(measures.map((m) => m.index)).toEqual([0, 1])

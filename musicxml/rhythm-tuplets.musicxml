@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>Tuplet Rhythms Fixture</work-title></work>
+  <identification><creator type="composer">TuneTutor Fixtures</creator></identification>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>12</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+      <note><pitch><step>C</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="start" number="1"/></notations></note>
+      <note><pitch><step>D</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification></note>
+      <note><pitch><step>E</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="stop" number="1"/></notations></note>
+      <note><pitch><step>C</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="start" number="1"/></notations></note>
+      <note><pitch><step>D</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification></note>
+      <note><pitch><step>E</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="stop" number="1"/></notations></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>12</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>12</duration><voice>1</voice><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="start" number="1"/></notations></note>
+      <note><pitch><step>F</step><octave>5</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification></note>
+      <note><pitch><step>G</step><octave>5</octave></pitch><duration>8</duration><voice>1</voice><type>quarter</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="stop" number="1"/></notations></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>12</duration><voice>1</voice><type>quarter</type></note>
+      <note><pitch><step>D</step><octave>5</octave></pitch><duration>6</duration><voice>1</voice><type>eighth</type></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch><duration>6</duration><voice>1</voice><type>eighth</type></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>C</step><octave>6</octave></pitch><duration>2</duration><voice>1</voice><type>16th</type><time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification><notations><tuplet type="start" number="1"/></notations></note>
+      <note><pitch><step>D</step><octave>6</octave></pitch><duration>2</duration><voice>1</voice><type>16th</type><time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification></note>
+      <note><pitch><step>E</step><octave>6</octave></pitch><duration>2</duration><voice>1</voice><type>16th</type><time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification></note>
+      <note><pitch><step>D</step><octave>6</octave></pitch><duration>2</duration><voice>1</voice><type>16th</type><time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification></note>
+      <note><pitch><step>C</step><octave>6</octave></pitch><duration>2</duration><voice>1</voice><type>16th</type><time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification></note>
+      <note><pitch><step>B</step><octave>5</octave></pitch><duration>2</duration><voice>1</voice><type>16th</type><time-modification><actual-notes>6</actual-notes><normal-notes>4</normal-notes></time-modification><notations><tuplet type="stop" number="1"/></notations></note>
+      <note><pitch><step>C</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="start" number="1"/></notations></note>
+      <note><pitch><step>D</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification></note>
+      <note><pitch><step>E</step><octave>6</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><notations><tuplet type="stop" number="1"/></notations></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>24</duration><voice>1</voice><type>half</type></note>
+    </measure>
+  </part>
+</score-partwise>

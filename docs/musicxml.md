@@ -1,9 +1,9 @@
 # TuneTutor MusicXML 导入解析技术规格
 
-**版本**: 1.0
+**版本**: 1.1
 **日期**: 2026-10-18
 **状态**: Ready for Re-implementation
-**变更**: 自 [tech.md](./tech.md) v2.3 §2.2（数据流）/§3（数据契约）的导入解析域拆分扩写；成文前以 `musicxml-io` 0.2.11 对仓库三份样例谱逐标记实测（§7），给出五线谱**连线符（连结线 tie / 连线 slur）、停顿（休止系）、连音（tuplet）、装饰音（ornament）、倚音（grace note）等全部标记**的解析映射、契约承载与播放/渲染职责边界，含决策 M1–M10。本文生效后 tech.md 对应章节降为摘要。
+**变更**: 1.1——夹具谱实测补记（§7-I9/I10）、keySignature「首个」语义澄清（§2，同步修复解析器顶层取值）、测试策略补夹具集成层（§8）。初版自 [tech.md](./tech.md) v2.3 §2.2（数据流）/§3（数据契约）的导入解析域拆分扩写；成文前以 `musicxml-io` 0.2.11 对仓库三份样例谱逐标记实测（§7），给出五线谱**连线符（连结线 tie / 连线 slur）、停顿（休止系）、连音（tuplet）、装饰音（ornament）、倚音（grace note）等全部标记**的解析映射、契约承载与播放/渲染职责边界，含决策 M1–M10。本文生效后 tech.md 对应章节降为摘要。
 
 ---
 
@@ -81,7 +81,7 @@ interface ParsedScore {
   measures: Measure[];
   tempo: number;                  // 全曲首个 <sound tempo>；样例谱普遍缺失，兜底 60（spike §13-V5）
   timeSignature: string;          // "4/4"，首个 attributes.time（composite 受 io 0.2.11 限制退化为首数字，§4.9）
-  keySignature?: string;          // fifths → 调名（如 "G major" / "E minor"；UI 层再做 i18n 转写）
+  keySignature?: string;          // 首个 key.fifths → 调名（如 "G major" / "E minor"；后续变更见 Measure.keySignature；UI 层再做 i18n 转写）
   divisions: number;              // 首小节有效 divisions；逐小节有效值见 Measure.divisions（M4）
 }
 interface Measure {
@@ -247,6 +247,8 @@ interface Note {
 | I6 | 刻谱 divisions 序列 `[12, undefined]`（attributes 未变更的小节为 undefined）；voice `[1]`、staves 1、1 part、73 measures | §4.9 |
 | I7 | 错误形态：损坏 .mxl → `isCompressed` 仍为 true，解包报 `Could not find MusicXML file in compressed archive`；纯文本/错误根元素 → `Unsupported MusicXML format: only score-partwise is supported` | §6 |
 | I8 | API 形状：`getTupletGroups/getSlurSpans/getTiedNoteGroups` 等 query 函数收 **`Score`**（非 `Part`，传 Part 抛 `Cannot read properties of undefined`）；导出子路径 `musicxml-io/query`；`parseAuto/parseCompressed` 存在但 v2 不用（M1） | §1.2/§4.4 |
+| I9 | 装饰音全家族实测（v1.1 夹具谱 marks-*）：mordent/inverted-mordent（含 long="yes" 长波音）/turn/inverted-turn/delayed-turn/trill-mark/wavy-line 各产出**独立** OrnamentNotation；`long` 等修饰属性不透出，标签只留记号名；wavy-line 的 start/stop 方向不在标签文法（capture-only） | §4.6 |
+| I10 | slur `continue` 类型与嵌套编号（number=1/2 重叠弧线）原样透传，记号按 XML 出现顺序保留；tie 的「既止又起」以 note/tie 双元素（stop+start）表达，io 不产出 continue 类型 | §4.1/§4.2 |
 
 ---
 
@@ -257,6 +259,7 @@ interface Note {
 | 纯函数 | `musicXMLParser`（fixture XML 片段） | 逐标记最小片段：tie continue、嵌套 tuplet、无 slash 倚音、多小节休止、direction dynamics 挂载、composite 拍号；divisions 变更小节的 realValue 换算 |
 | 纯函数 | 错误分类 | timewise/非 XML → E2；损坏 zip → E1；GB2312 声明 → E4 |
 | 集成 | 三样例谱断言基准 | 刻谱：title=workTitle、73 小节、tie 组 32、tuplet 组 4（3:2）、倚音 4（duration 0）、slur 2、multipleRest 3、divisions 12；连音符谱：tie 组 2、tuplet 组 0；twinkle：无任何标记 |
+| 集成 | 夹具谱全量导入（v1.1，`musicxml/marks-*`、`rhythm-*`、`keys-*` + 连音符） | 每份走完整 `processFile` 管线（`tests/utils/notation/fixtures.test.ts`）：tie start/continue/stop 与跨小节链、slur 嵌套编号/continue、长短倚音、装饰音标签、附点/复附点/连音 realValue、拍号/调号逐段变更与 fifths ±7 边界 |
 | 回归 | 索引对齐 | §5-3 四类计数（387/43/32/4）+ selection.md §8 的 V-S 系列偏移归零 |
 | 手动 | 浏览器 | 三样例谱导入（含 .mxl 正向样本）、损坏 .mxl 报 E1、过 F1–F2 |
 

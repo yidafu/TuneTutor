@@ -58,9 +58,9 @@ export interface ParsedScore {
   measures: Measure[]
   /** 全曲首个 <sound tempo>；样例谱普遍缺失，兜底 60 */
   tempo: number
-  /** "4/4"；composite 拍受 io 0.2.11 限制退化为首数字（"3+2" → "3"，docs/musicxml.md §4.9） */
+  /** "4/4"；取首个 attributes.time，后续拍号变更见 Measure.timeSignature；composite 拍受 io 0.2.11 限制退化为首数字（"3+2" → "3"，docs/musicxml.md §4.9） */
   timeSignature: string
-  /** fifths → 调名（"G major" / "E minor"；UI 层再做 i18n 转写） */
+  /** 首个调号（fifths → 调名，"G major" / "E minor"；UI 层再做 i18n 转写）；后续变更见 Measure.keySignature */
   keySignature?: string
   /** 首小节有效 divisions；逐小节有效值见 Measure.divisions */
   divisions: number

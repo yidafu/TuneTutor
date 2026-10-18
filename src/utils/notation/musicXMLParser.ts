@@ -165,6 +165,8 @@ function convertMeasure(ioMeasure: IoMeasure, index: number, state: {
   time?: string
   key?: string
   tempo?: number
+  /** 顶层契约取首个声明（docs/musicxml.md §2：首个 attributes.time / 首小节有效 divisions / 首调号） */
+  firsts: { divisions?: number; time?: string; key?: string }
 }): Measure {
   const timeAtStart = state.time
   const keyAtStart = state.key
@@ -174,11 +176,19 @@ function convertMeasure(ioMeasure: IoMeasure, index: number, state: {
 
   function applyAttributes(attributes: MeasureAttributes): void {
     if (attributes.divisions !== undefined) {
+      state.firsts.divisions ??= attributes.divisions
       state.divisions = attributes.divisions
       declaredDivisions = attributes.divisions
     }
-    if (attributes.time !== undefined) state.time = `${attributes.time.beats}/${attributes.time.beatType}`
-    if (attributes.key !== undefined) state.key = fifthsToKeySignature(attributes.key.fifths, attributes.key.mode)
+    if (attributes.time !== undefined) {
+      state.firsts.time ??= `${attributes.time.beats}/${attributes.time.beatType}`
+      state.time = `${attributes.time.beats}/${attributes.time.beatType}`
+    }
+    if (attributes.key !== undefined) {
+      const key = fifthsToKeySignature(attributes.key.fifths, attributes.key.mode)
+      state.firsts.key ??= key
+      state.key = key
+    }
   }
 
   if (ioMeasure.attributes !== undefined) applyAttributes(ioMeasure.attributes)
@@ -219,7 +229,7 @@ function convertMeasure(ioMeasure: IoMeasure, index: number, state: {
 export function scoreToParsedScore(score: Score): ParsedScore {
   const metadata = score.metadata
   const part = score.parts[0]
-  const state: { divisions?: number; time?: string; key?: string; tempo?: number } = {}
+  const state: { divisions?: number; time?: string; key?: string; tempo?: number; firsts: { divisions?: number; time?: string; key?: string } } = { firsts: {} }
   const measures = part.measures.map((ioMeasure, index) => convertMeasure(ioMeasure, index, state))
   const tempo = state.tempo ?? FALLBACK_TEMPO
 
@@ -230,8 +240,10 @@ export function scoreToParsedScore(score: Score): ParsedScore {
       : {}),
     measures,
     tempo,
-    timeSignature: state.time ?? '4/4',
-    ...(state.key !== undefined ? { keySignature: state.key } : {}),
-    ...(state.divisions !== undefined ? { divisions: state.divisions } : { divisions: 1 }),
+    timeSignature: state.firsts.time ?? '4/4',
+    ...(state.firsts.key !== undefined ? { keySignature: state.firsts.key } : {}),
+    ...(state.firsts.divisions !== undefined
+      ? { divisions: state.firsts.divisions }
+      : { divisions: 1 }),
   }
 }
