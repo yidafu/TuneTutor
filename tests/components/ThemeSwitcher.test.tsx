@@ -95,7 +95,7 @@ describe('ThemeSwitcher（skin-switching v1.1 §④）', () => {
     renderWithProviders(<Header />)
     openThemePopup()
 
-    fireEvent.mouseDown(document.body)
+    fireEvent.pointerDown(document.body)
 
     expect(screen.queryByRole('listbox', { name: enUS.theme.label })).not.toBeInTheDocument()
   })

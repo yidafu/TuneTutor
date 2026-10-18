@@ -46,7 +46,7 @@ describe('Header', () => {
     fireEvent.click(screen.getByRole('button', { name: 'English' }))
     expect(screen.getByRole('listbox')).toBeInTheDocument()
 
-    fireEvent.mouseDown(document.body)
+    fireEvent.pointerDown(document.body)
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })

@@ -32,4 +32,18 @@ describe('FileHistoryList', () => {
     expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledWith('b')
   })
+
+  it('点击条目标题回调 onSelect(id)；未传 onSelect 时标题不触发', () => {
+    const onSelect = vi.fn()
+    const { rerender } = renderWithProviders(
+      <FileHistoryList items={ITEMS} onDelete={() => {}} onSelect={onSelect} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sonata.musicxml' }))
+    expect(onSelect).toHaveBeenCalledWith('b')
+
+    rerender(<FileHistoryList items={ITEMS} onDelete={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Sonata.musicxml' }))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
 })

@@ -17,7 +17,7 @@ describe('useClickOutside', () => {
     const onOutside = vi.fn()
     const { getByTestId } = render(<Fixture onOutside={onOutside} />)
 
-    fireEvent.mouseDown(getByTestId('outside'))
+    fireEvent.pointerDown(getByTestId('outside'))
 
     expect(onOutside).toHaveBeenCalledTimes(1)
   })
@@ -26,7 +26,7 @@ describe('useClickOutside', () => {
     const onOutside = vi.fn()
     const { getByTestId } = render(<Fixture onOutside={onOutside} />)
 
-    fireEvent.mouseDown(getByTestId('inside'))
+    fireEvent.pointerDown(getByTestId('inside'))
 
     expect(onOutside).not.toHaveBeenCalled()
   })
@@ -37,7 +37,7 @@ describe('useClickOutside', () => {
     const outside = getByTestId('outside')
     unmount()
 
-    fireEvent.mouseDown(outside)
+    fireEvent.pointerDown(outside)
 
     expect(onOutside).not.toHaveBeenCalled()
   })
@@ -48,7 +48,7 @@ describe('useClickOutside', () => {
     const { getByTestId, rerender } = render(<Fixture onOutside={first} />)
     rerender(<Fixture onOutside={second} />)
 
-    fireEvent.mouseDown(getByTestId('outside'))
+    fireEvent.pointerDown(getByTestId('outside'))
 
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledTimes(1)

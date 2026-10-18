@@ -94,7 +94,7 @@ describe('MetronomeToggle', () => {
     renderToggle()
     fireEvent.click(screen.getByRole('button', { name: enUS.metronomeSettings }))
 
-    fireEvent.mouseDown(document.body)
+    fireEvent.pointerDown(document.body)
 
     expect(screen.queryByRole('slider', { name: enUS.strongVolume })).not.toBeInTheDocument()
   })

@@ -1,8 +1,31 @@
-import { fireEvent, screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+
 import ScorePage from '@/pages/ScorePage'
 import { enUS } from '@/locales/en-US'
+import { createDemoScore } from '@/utils/createDemoScore'
+import { getStoredFile, listStoredFiles, saveStoredFile } from '@/utils/storage/indexedDB'
 import { renderWithProviders } from '../helpers/ui'
+
+// jsdom 无 SVG 布局能力，OSMD 以 mock 替身注入（渲染契约在 OsmdNotation.test 覆盖）
+vi.mock('@/utils/notation/OsmdRender', () => ({
+  OsmdRender: class {
+    load = vi.fn().mockResolvedValue(undefined)
+  },
+}))
+
+const SCORE_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+  <work><work-title>Import Score</work-title></work>
+  <identification><creator type="composer">F. Composer</creator></identification>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions><key><fifths>2</fifths></key><time><beats>3</beats><beat-type>4</beat-type></time></attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+    </measure>
+  </part>
+</score-partwise>`
 
 function renderScorePage() {
   const onTempoChange = vi.fn()
@@ -10,16 +33,22 @@ function renderScorePage() {
   return onTempoChange
 }
 
+async function openModalAndPick(file: File) {
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(enUS.loadScore) }))
+  const dialog = screen.getByRole('dialog')
+  const input = dialog.ownerDocument.querySelector('input[type="file"]')!
+  fireEvent.change(input, { target: { files: [file] } })
+}
+
 describe('ScorePage', () => {
-  it('渲染乐谱页骨架：标题、加载按钮、乐谱卡、控制条、状态栏', () => {
+  it('初始回落内置示范曲：ScoreInfo 来自解析结果、渲染区接管（非占位）', () => {
     renderScorePage()
 
-    expect(screen.getByText(enUS.libraryTitle)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: new RegExp(enUS.loadScore) })).toBeInTheDocument()
-    expect(screen.getByText(enUS.demoScoreTitle)).toBeInTheDocument()
-    expect(screen.getByText(enUS.notationPlaceholder)).toBeInTheDocument()
-    expect(screen.getByRole('slider', { name: enUS.tempoLabel })).toBeInTheDocument()
-    expect(screen.getByText(enUS.statusStopped)).toBeInTheDocument()
+    // twinkle 示范曲实测形状：movement-title 兜底、fifths 0 → C major、<sound tempo="120"/>
+    expect(screen.getByText('Twinkle Twinkle Little Star')).toBeInTheDocument()
+    expect(screen.getByText(/4\/4/)).toBeInTheDocument()
+    expect(screen.getByText(/♩ = 120/)).toBeInTheDocument()
+    expect(screen.queryByText(enUS.notationPlaceholder)).not.toBeInTheDocument()
   })
 
   it('加载按钮打开弹窗，Esc 关闭', () => {
@@ -30,6 +59,88 @@ describe('ScorePage', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('合法乐谱导入：解析 → 入库 → ScoreInfo 更新 → 弹窗关闭', async () => {
+    renderScorePage()
+
+    await openModalAndPick(new File([SCORE_XML], 'new-score.musicxml', { type: 'text/xml' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByText('Import Score')).toBeInTheDocument()
+    expect(screen.getByText(/3\/4/)).toBeInTheDocument()
+    expect(screen.getByText(/D major/)).toBeInTheDocument()
+
+    const records = await listStoredFiles()
+    expect(records).toHaveLength(1)
+    expect(records[0]!.title).toBe('Import Score')
+    const stored = await getStoredFile(records[0]!.id)
+    expect(stored?.rawContent).toBe(SCORE_XML)
+    expect(stored?.parsedScore.composer).toBe('F. Composer')
+  })
+
+  it('非法文件（纯文本冒充 .musicxml）：报 errorNotMusicXML、不入库、弹窗保留', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderScorePage()
+
+    await openModalAndPick(new File(['hello, world'], 'fake.musicxml', { type: 'text/plain' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(enUS.errorNotMusicXML)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(await listStoredFiles()).toHaveLength(0)
+    consoleError.mockRestore()
+  })
+
+  it('非法文件（损坏 .mxl）：报 errorCorruptArchive', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderScorePage()
+
+    await openModalAndPick(new File(['definitely not a zip'], 'broken.mxl', { type: 'application/octet-stream' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(enUS.errorCorruptArchive)
+    expect(await listStoredFiles()).toHaveLength(0)
+    consoleError.mockRestore()
+  })
+
+  it('弹窗历史：展示 IndexedDB 记录，点标题载入、删除移除', async () => {
+    const saved = await saveStoredFile({
+      fileName: 'old.musicxml',
+      title: 'Old Score',
+      fileSize: 100,
+      rawContent: SCORE_XML,
+      parsedScore: createDemoScore().parsedScore,
+    })
+    renderScorePage()
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(enUS.loadScore) }))
+    const dialog = screen.getByRole('dialog')
+    expect(await within(dialog).findByText('Old Score')).toBeInTheDocument()
+
+    // 点击历史条目 → 载入并关闭
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Old Score' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // 再开弹窗删除
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(enUS.loadScore) }))
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: `${enUS.delete} Old Score` }),
+    )
+    await waitFor(() => expect(screen.queryByText('Old Score')).not.toBeInTheDocument())
+    expect(await getStoredFile(saved.id)).toBeUndefined()
+  })
+
+  it('启动恢复：IndexedDB 最新一份替代示范曲', async () => {
+    const demo = createDemoScore()
+    await saveStoredFile({
+      fileName: 'restored.musicxml',
+      title: 'Restored Score',
+      fileSize: 200,
+      rawContent: SCORE_XML,
+      parsedScore: { ...demo.parsedScore, title: 'Restored Score' },
+    })
+    renderScorePage()
+
+    await waitFor(() => expect(screen.getByText('Restored Score')).toBeInTheDocument())
   })
 
   it('播放快捷键：Space 切换播放，Esc 停止', () => {
@@ -82,7 +193,6 @@ describe('ScorePage', () => {
     expect(window.localStorage.getItem('note-slice-preferred-instrument')).toBe(
       JSON.stringify('guitar'),
     )
-    // 乐器字形已 SVG 化（InstrumentGlyph）；触发按钮与状态栏都展示标签，按角色断言触发器
     expect(
       screen.getByRole('button', { name: new RegExp(enUS.instrumentGuitar) }),
     ).toBeInTheDocument()
