@@ -28,4 +28,4 @@ dist-ssr
 .bsb.lock
 spike/
 .agents/
-*.html
+coverage/
