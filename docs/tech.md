@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | UI 框架 | React + TypeScript（strict） | React 19、TS ~5.9 |
 | 构建 | Vite + `@vitejs/plugin-react-swc` | Vite 7 |
-| 样式 | Tailwind CSS（PostCSS 插件形态） | 4.x |
+| 样式 | StyleX（`@stylexjs/rollup-plugin` 编译期原子 CSS；`stylex.css` 构建期产出，dev 运行时注入。颜色一律引用 `index.css` 的 `--color-*` token，皮肤机制不变） | ^0.19 |
 | 乐谱渲染 | OpenSheetMusicDisplay（OSMD，SVG 后端） | ^1.9 |
 | 音频引擎 | Tone.js（Sampler 采样触发、Draw 动画对齐；调度不用 Transport，见 audio.md A1/A12） | ^15 |
 | 播放调度 | 自研 look-ahead 引擎（官方播放器 PlaybackManager 同构，audio.md §3.1） | — |

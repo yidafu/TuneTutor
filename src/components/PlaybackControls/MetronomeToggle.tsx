@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import * as stylex from '@stylexjs/stylex'
 import { ThemeIcon } from '../icons/ThemeIcon'
+import { ctlLabel } from './styles'
 import { useClickOutside } from '../../hooks/useClickOutside'
 import { useI18n } from '../../locales/useI18n'
 import { METRONOME_SOUND_TYPES, type MetronomeSoundType } from '../../types/audio'
@@ -15,6 +17,149 @@ interface MetronomeToggleProps {
   onWeakVolumeChange: (volume: number) => void
 }
 
+const styles = stylex.create({
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  anchor: {
+    position: 'relative',
+  },
+  controls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  toggleBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    borderRadius: 'var(--radius-btn)',
+    paddingInline: '14px',
+    paddingBlock: '8px',
+    fontSize: '13px',
+    fontWeight: 600,
+  },
+  toggleOn: {
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-verm-line-strong)',
+    backgroundColor: 'var(--color-verm-soft)',
+    color: 'var(--color-verm-deep)',
+  },
+  toggleOff: {
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line-strong)',
+    backgroundColor: 'var(--color-surface-2)',
+    color: 'var(--color-fg-2)',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-3)',
+    },
+  },
+  icon16: {
+    height: '16px',
+    width: '16px',
+  },
+  icon17: {
+    height: '17px',
+    width: '17px',
+  },
+  gearBtn: {
+    display: 'grid',
+    height: '34px',
+    width: '34px',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: '9px',
+    fontSize: '15px',
+  },
+  gearOn: {
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-verm-line-strong)',
+    backgroundColor: 'var(--color-verm-soft)',
+    color: 'var(--color-verm-deep)',
+  },
+  gearOff: {
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line-strong)',
+    color: 'var(--color-fg-2)',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-3)',
+      color: 'var(--color-fg)',
+    },
+  },
+  settingsPop: {
+    position: 'absolute',
+    bottom: 'calc(100% + 10px)',
+    right: 0,
+    zIndex: 30,
+    width: '248px',
+    borderRadius: 'var(--radius-card)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line-strong)',
+    backgroundColor: 'var(--color-surface-2)',
+    padding: '16px',
+    boxShadow: 'var(--shadow-pop)',
+  },
+  section: {
+    marginBottom: '12px',
+  },
+  sectionLabel: {
+    marginBottom: '7px',
+    fontSize: '11.5px',
+    fontWeight: 600,
+    letterSpacing: '0.4px',
+    color: 'var(--color-fg-3)',
+  },
+  soundRow: {
+    display: 'flex',
+    gap: '4px',
+  },
+  soundBtn: {
+    flex: 1,
+    borderRadius: '8px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    paddingInline: '4px',
+    paddingBlock: '6px',
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontWeight: 500,
+  },
+  soundOn: {
+    borderColor: 'var(--color-verm-line-strong)',
+    backgroundColor: 'var(--color-verm-soft)',
+    color: 'var(--color-verm-deep)',
+  },
+  soundOff: {
+    borderColor: 'var(--color-line)',
+    backgroundColor: 'transparent',
+    color: 'var(--color-fg-2)',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-3)',
+    },
+  },
+  volHead: {
+    marginBottom: '7px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    fontSize: '11.5px',
+    fontWeight: 600,
+    letterSpacing: '0.4px',
+    color: 'var(--color-fg-3)',
+  },
+  volValue: {
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--color-verm-deep)',
+  },
+})
+
 function VolumeSlider({
   label,
   value,
@@ -27,13 +172,13 @@ function VolumeSlider({
   const percent = Math.round(value * 100)
   return (
     <div>
-      <div className="mb-[7px] flex items-center justify-between text-[11.5px] font-semibold tracking-[0.4px] text-fg-3">
+      <div {...stylex.props(styles.volHead)}>
         <span>{label}</span>
-        <b className="tabular-nums text-verm-deep">{percent}%</b>
+        <b {...stylex.props(styles.volValue)}>{percent}%</b>
       </div>
       <input
         type="range"
-        className="tt-range w-full"
+        className="tt-range"
         data-tone="verm"
         min={0}
         max={100}
@@ -79,61 +224,47 @@ export default function MetronomeToggle({
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="ctl-label">{t.metronomeLabel}</span>
-      <div className="flex items-center gap-2">
+    <div {...stylex.props(styles.row)}>
+      <span {...stylex.props(ctlLabel.base)}>{t.metronomeLabel}</span>
+      <div {...stylex.props(styles.controls)}>
         <button
           type="button"
           onClick={onToggle}
           aria-pressed={on}
-          className={`inline-flex cursor-pointer items-center gap-2 rounded-btn px-[14px] py-2 text-[13px] font-semibold transition ${
-            on
-              ? 'border border-verm-line-strong bg-verm-soft text-verm-deep'
-              : 'border border-line-strong bg-surface-2 text-fg-2 hover:bg-surface-3'
-          }`}
+          {...stylex.props(styles.toggleBtn, on ? styles.toggleOn : styles.toggleOff)}
         >
-          <ThemeIcon name="metro" className="h-4 w-4" />
+          <ThemeIcon name="metro" style={styles.icon16} />
           {on ? t.metronomeOn : t.metronomeOff}
         </button>
-        <div className="relative" ref={settingsRef}>
+        <div {...stylex.props(styles.anchor)} ref={settingsRef}>
           <button
             type="button"
             onClick={() => setSettingsOpen((open) => !open)}
             aria-label={t.metronomeSettings}
             aria-expanded={settingsOpen}
-            className={`grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-[9px] border bg-surface-2 text-[15px] transition ${
-              on
-                ? 'border-verm-line-strong bg-verm-soft text-verm-deep'
-                : 'border-line-strong text-fg-2 hover:bg-surface-3 hover:text-fg'
-            }`}
+            {...stylex.props(styles.gearBtn, on ? styles.gearOn : styles.gearOff)}
           >
-            <ThemeIcon name="gear" className="h-[17px] w-[17px]" />
+            <ThemeIcon name="gear" style={styles.icon17} />
           </button>
           {settingsOpen && (
-            <div className="absolute bottom-[calc(100%+10px)] right-0 z-30 w-[248px] rounded-card border border-line-strong bg-surface-2 p-4 shadow-pop">
-              <div className="mb-3">
-                <div className="mb-[7px] text-[11.5px] font-semibold tracking-[0.4px] text-fg-3">
-                  {t.soundName}
-                </div>
-                <div className="flex gap-1">
+            <div data-settings-popover="" {...stylex.props(styles.settingsPop)}>
+              <div {...stylex.props(styles.section)}>
+                <div {...stylex.props(styles.sectionLabel)}>{t.soundName}</div>
+                <div {...stylex.props(styles.soundRow)}>
                   {METRONOME_SOUND_TYPES.map((soundType) => (
                     <button
                       key={soundType}
                       type="button"
                       onClick={() => onSoundChange(soundType)}
                       aria-pressed={sound === soundType}
-                      className={`flex-1 cursor-pointer rounded-[8px] border px-1 py-[6px] text-xs font-medium transition ${
-                        sound === soundType
-                          ? 'border-verm-line-strong bg-verm-soft text-verm-deep'
-                          : 'border-line bg-transparent text-fg-2 hover:bg-surface-3'
-                      }`}
+                      {...stylex.props(styles.soundBtn, sound === soundType ? styles.soundOn : styles.soundOff)}
                     >
                       {soundLabels[soundType]}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="mb-3">
+              <div {...stylex.props(styles.section)}>
                 <VolumeSlider label={t.strongVolume} value={strongVolume} onChange={onStrongVolumeChange} />
               </div>
               <VolumeSlider label={t.weakVolume} value={weakVolume} onChange={onWeakVolumeChange} />

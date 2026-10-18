@@ -1,4 +1,59 @@
+import * as stylex from '@stylexjs/stylex'
+import { ctlLabel } from './styles'
 import { useI18n } from '../../locales/useI18n'
+
+const styles = stylex.create({
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  group: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  beatGroup: {
+    display: 'flex',
+    gap: '3px',
+  },
+  beatBtn: {
+    display: 'grid',
+    height: '27px',
+    width: '27px',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: '8px',
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontWeight: 600,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  beatOn: {
+    backgroundColor: 'var(--color-verm)',
+    color: 'var(--color-cream)',
+    boxShadow: 'var(--shadow-btn-beat)',
+  },
+  beatOff: {
+    backgroundColor: 'transparent',
+    color: 'var(--color-fg-2)',
+    boxShadow: 'inset 0 0 0 1px var(--color-line-strong)',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-3)',
+      color: 'var(--color-fg)',
+    },
+  },
+  info: {
+    minWidth: '52px',
+    fontSize: '12px',
+    lineHeight: '16px',
+    color: 'var(--color-fg-3)',
+  },
+  infoValue: {
+    fontWeight: 600,
+    color: 'var(--color-verm-deep)',
+  },
+})
 
 const SKIP_BEAT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const
 
@@ -13,10 +68,10 @@ export default function LoopSkipSelector({ value, onChange }: LoopSkipSelectorPr
   const { t } = useI18n()
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="ctl-label">{t.skipLabel}</span>
-      <div className="flex items-center gap-2.5">
-        <div className="flex gap-[3px]" role="group" aria-label={t.skipLabel}>
+    <div {...stylex.props(styles.row)}>
+      <span {...stylex.props(ctlLabel.base)}>{t.skipLabel}</span>
+      <div {...stylex.props(styles.group)}>
+        <div {...stylex.props(styles.beatGroup)} role="group" aria-label={t.skipLabel}>
           {SKIP_BEAT_OPTIONS.map((beats) => (
             <button
               key={beats}
@@ -24,19 +79,15 @@ export default function LoopSkipSelector({ value, onChange }: LoopSkipSelectorPr
               onClick={() => onChange(value === beats ? 0 : beats)}
               aria-pressed={value === beats}
               title={String(beats)}
-              className={`grid h-[27px] w-[27px] cursor-pointer place-items-center rounded-[8px] border-0 text-xs font-semibold tabular-nums transition ${
-                value === beats
-                  ? 'bg-verm text-cream shadow-btn-beat'
-                  : 'bg-transparent text-fg-2 shadow-[inset_0_0_0_1px_var(--color-line-strong)] hover:bg-surface-3 hover:text-fg'
-              }`}
+              {...stylex.props(styles.beatBtn, value === beats ? styles.beatOn : styles.beatOff)}
             >
               {beats}
             </button>
           ))}
         </div>
-        <span className="min-w-[52px] text-xs text-fg-3">
+        <span {...stylex.props(styles.info)}>
           {value > 0 ? (
-            <b className="font-semibold text-verm-deep">{t.skipPerLoop(value)}</b>
+            <b {...stylex.props(styles.infoValue)}>{t.skipPerLoop(value)}</b>
           ) : (
             t.skipOff
           )}

@@ -24,7 +24,7 @@ A web-based music notation practice player. Load MusicXML scores, select measure
 
 ## Tech Stack
 
-- **UI**: React 19 + TypeScript (strict) + Tailwind CSS 4
+- **UI**: React 19 + TypeScript (strict) + StyleX
 - **Build**: Vite 7 + vite-plugin-pwa
 - **Notation**: OpenSheetMusicDisplay
 - **Audio**: Tone.js + tonejs-instrument-* samples + wavesurfer.js v7

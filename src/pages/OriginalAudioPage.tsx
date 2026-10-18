@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import * as stylex from '@stylexjs/stylex'
 import { ThemeIcon } from '../components/icons/ThemeIcon'
 import LoopSkipSelector from '../components/PlaybackControls/LoopSkipSelector'
 import TempoSlider from '../components/PlaybackControls/TempoSlider'
@@ -6,6 +7,309 @@ import TransportButtons from '../components/PlaybackControls/TransportButtons'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useI18n } from '../locales/useI18n'
+
+const styles = stylex.create({
+  page: {
+    minHeight: 0,
+    flex: 1,
+    overflowY: 'auto',
+    paddingInline: '16px',
+    paddingBlock: '24px',
+    '@media (min-width: 640px)': {
+      paddingInline: '22px',
+    },
+  },
+  card: {
+    width: '100%',
+    borderRadius: 'var(--radius-card)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line)',
+    backgroundColor: 'var(--color-surface-2)',
+    padding: '24px',
+    boxShadow: 'var(--shadow-soft)',
+  },
+  cardCompact: {
+    padding: '18px',
+  },
+  emptyBtn: {
+    display: 'block',
+    marginInline: 'auto',
+    width: '100%',
+    maxWidth: '520px',
+    borderRadius: 'var(--radius-card)',
+    borderWidth: '1.5px',
+    borderStyle: 'dashed',
+    borderColor: 'var(--color-verm-line-strong)',
+    backgroundColor: 'color-mix(in srgb, var(--color-verm) 4%, transparent)',
+    paddingInline: '16px',
+    paddingBottom: '30px',
+    paddingTop: '36px',
+    textAlign: 'center',
+    ':hover': {
+      backgroundColor: 'var(--color-verm-soft)',
+    },
+  },
+  icon32: {
+    display: 'block',
+    marginInline: 'auto',
+    height: '32px',
+    width: '32px',
+  },
+  icon18: {
+    height: '18px',
+    width: '18px',
+  },
+  dropMain: {
+    marginTop: '8px',
+    display: 'block',
+    fontSize: '13.5px',
+    fontWeight: 600,
+    color: 'var(--color-fg)',
+  },
+  browseEm: {
+    fontStyle: 'normal',
+    color: 'var(--color-verm-deep)',
+  },
+  dropHint: {
+    marginTop: '3px',
+    display: 'block',
+    fontSize: '12px',
+    lineHeight: '16px',
+    color: 'var(--color-fg-3)',
+  },
+  stubHint: {
+    marginTop: '8px',
+    display: 'block',
+    fontSize: '11px',
+    color: 'var(--color-fg-3)',
+  },
+  inner: {
+    marginInline: 'auto',
+    width: '100%',
+    maxWidth: '1120px',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  headRow: {
+    marginBottom: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+  },
+  metaRow: {
+    display: 'flex',
+    minWidth: 0,
+    alignItems: 'center',
+    gap: '11px',
+  },
+  iconBox: {
+    display: 'grid',
+    height: '38px',
+    width: '38px',
+    flex: 'none',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: '10px',
+    backgroundColor: 'var(--color-wash)',
+    boxShadow: 'inset 0 0 0 1px var(--color-line)',
+  },
+  metaText: {
+    minWidth: 0,
+  },
+  audioName: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: '14px',
+    lineHeight: '20px',
+    fontWeight: 600,
+  },
+  audioMeta: {
+    marginTop: '1px',
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--color-fg-3)',
+  },
+  removeBtn: {
+    flex: 'none',
+    borderRadius: '9px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line-strong)',
+    paddingInline: '14px',
+    paddingBlock: '7px',
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontWeight: 500,
+    color: 'var(--color-fg-2)',
+    ':hover': {
+      borderColor: 'var(--color-clay-line)',
+      backgroundColor: 'var(--color-clay-soft)',
+      color: 'var(--color-clay)',
+    },
+  },
+  stage: {
+    position: 'relative',
+    height: '150px',
+    cursor: 'crosshair',
+    touchAction: 'none',
+    userSelect: 'none',
+    overflow: 'hidden',
+    borderRadius: '10px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line)',
+    backgroundColor: 'var(--color-wave-bg)',
+  },
+  barsRow: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '3px',
+    paddingInline: '10px',
+  },
+  bar: {
+    minWidth: '2px',
+    flex: 1,
+    borderRadius: '2px',
+    backgroundImage: 'linear-gradient(to bottom, var(--color-wave-bar-a), var(--color-wave-bar-b))',
+  },
+  mask: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'color-mix(in srgb, var(--color-wave-bg) 72%, transparent)',
+  },
+  sliceBox: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+  },
+  sliceInner: {
+    position: 'absolute',
+    inset: 0,
+    borderLeftWidth: '2.5px',
+    borderRightWidth: '2.5px',
+    borderLeftColor: 'var(--color-verm)',
+    borderRightColor: 'var(--color-verm)',
+    backgroundColor: 'color-mix(in srgb, var(--color-verm) 10%, transparent)',
+    boxShadow: 'inset 0 0 20px color-mix(in srgb, var(--color-verm) 14%, transparent)',
+  },
+  sliceTag: {
+    position: 'absolute',
+    left: '50%',
+    top: '8px',
+    transform: 'translateX(-50%)',
+    whiteSpace: 'nowrap',
+    borderRadius: 9999,
+    backgroundColor: 'var(--color-verm)',
+    paddingInline: '10px',
+    paddingBlock: '3px',
+    fontSize: '11px',
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--color-cream)',
+    boxShadow: '0 2px 8px -2px color-mix(in srgb, var(--color-verm) 50%, transparent)',
+  },
+  handle: {
+    position: 'absolute',
+    top: '50%',
+    display: 'grid',
+    height: '30px',
+    width: '14px',
+    transform: 'translateY(-50%)',
+    cursor: 'ew-resize',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: '6px',
+    backgroundColor: 'var(--color-verm)',
+    boxShadow: '0 2px 8px color-mix(in srgb, var(--color-verm) 45%, transparent)',
+  },
+  handleLeft: {
+    left: '-8px',
+  },
+  handleRight: {
+    right: '-8px',
+  },
+  handleGrip: {
+    height: '12px',
+    width: '2px',
+    borderRadius: '2px',
+    backgroundColor: 'color-mix(in srgb, var(--color-cream) 90%, transparent)',
+    boxShadow: '-4px 0 0 var(--color-cream), 4px 0 0 var(--color-cream)',
+  },
+  playhead: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '38%',
+    width: '2px',
+    backgroundColor: 'var(--color-gold-bright)',
+    boxShadow: '0 0 8px color-mix(in srgb, var(--color-gold-bright) 70%, transparent)',
+  },
+  playheadArrow: {
+    position: 'absolute',
+    left: '-5px',
+    top: 0,
+    height: 0,
+    width: 0,
+    borderLeftWidth: '5px',
+    borderRightWidth: '5px',
+    borderTopWidth: '7px',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'var(--color-gold-bright)',
+  },
+  sliceInfoRow: {
+    marginTop: '12px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '9px',
+    fontSize: '13px',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--color-fg-2)',
+  },
+  loopChip: {
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-verm-line)',
+    backgroundColor: 'var(--color-verm-soft)',
+    paddingInline: '11px',
+    paddingBlock: '4px',
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontWeight: 600,
+    color: 'var(--color-verm-deep)',
+  },
+  waveHint: {
+    marginLeft: 'auto',
+    display: 'none',
+    fontSize: '11.5px',
+    color: 'var(--color-fg-3)',
+    '@media (min-width: 1280px)': {
+      display: 'inline',
+    },
+  },
+  controlsRow: {
+    marginTop: '16px',
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: '24px',
+    rowGap: '12px',
+  },
+  tempoCell: {
+    marginLeft: 'auto',
+    width: '300px',
+    minWidth: '220px',
+  },
+})
 
 /** 切片区间（0–1 时长占比）；音频解码接入后换算为秒（docs/tech.md §3 AudioSlice） */
 interface SliceRange {
@@ -121,20 +425,20 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
 
   if (!hasAudio) {
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-[22px]">
-        <div className="w-full rounded-card border border-line bg-surface-2 p-6 shadow-soft">
-        <button
-          type="button"
-          onClick={loadDemoAudio}
-          className="mx-auto block w-full max-w-[520px] cursor-pointer rounded-card border-[1.5px] border-dashed border-verm-line-strong bg-verm/[0.04] px-4 pb-[30px] pt-[36px] text-center transition hover:bg-verm-soft"
-        >
-          <ThemeIcon name="phones" className="mx-auto block h-8 w-8" />
-          <span className="mt-2 block text-[13.5px] font-semibold text-fg">
-            {t.audioDropMain} <em className="not-italic text-verm-deep">{t.dropBrowse}</em>
-          </span>
-          <span className="mt-[3px] block text-xs text-fg-3">{t.audioDropHint}</span>
-          <span className="mt-2 block text-[11px] text-fg-3">{t.audioStubHint}</span>
-        </button>
+      <div {...stylex.props(styles.page)}>
+        <div {...stylex.props(styles.card)}>
+          <button
+            type="button"
+            onClick={loadDemoAudio}
+            {...stylex.props(styles.emptyBtn)}
+          >
+            <ThemeIcon name="phones" style={styles.icon32} />
+            <span {...stylex.props(styles.dropMain)}>
+              {t.audioDropMain} <em {...stylex.props(styles.browseEm)}>{t.dropBrowse}</em>
+            </span>
+            <span {...stylex.props(styles.dropHint)}>{t.audioDropHint}</span>
+            <span {...stylex.props(styles.stubHint)}>{t.audioStubHint}</span>
+          </button>
         </div>
       </div>
     )
@@ -143,130 +447,120 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
   const gapSeconds = ((60 / tempo) * gapBeats).toFixed(1)
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-[22px]">
-      <div className="w-full rounded-card border border-line bg-surface-2 p-[18px] shadow-soft">
-        <div className="mx-auto flex w-full max-w-[1120px] flex-col">
-          <div className="mb-3.5 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-[11px]">
-          <span
-            aria-hidden
-            className="grid h-[38px] w-[38px] flex-none place-items-center rounded-[10px] bg-wash shadow-[inset_0_0_0_1px_var(--color-line)]"
-          >
-            <ThemeIcon name="phones" className="h-[18px] w-[18px]" />
-          </span>
-          <span className="min-w-0">
-            <div className="truncate text-sm font-semibold">{t.demoAudioName}</div>
-            <div className="mt-px text-xs tabular-nums text-fg-3">
-              {DEMO_AUDIO.sizeLabel} · {formatTime(DEMO_AUDIO.durationSec)} · {DEMO_AUDIO.sampleRateLabel}
-            </div>
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={removeAudio}
-          className="flex-none cursor-pointer rounded-[9px] border border-line-strong bg-transparent px-3.5 py-[7px] text-xs font-medium text-fg-2 transition hover:border-clay-line hover:bg-clay-soft hover:text-clay"
-        >
-          {t.removeAudio}
-        </button>
-      </div>
-
-      {/* 波形 + 切片（拖拽新建 / 边界微调 / 双击移除） */}
-      <div
-        ref={stageRef}
-        aria-label={t.waveHint}
-        onPointerDown={handleStagePointerDown}
-        onPointerMove={handleStagePointerMove}
-        onPointerUp={handleStagePointerUp}
-        className="relative h-[150px] cursor-crosshair touch-none select-none overflow-hidden rounded-[10px] border border-line bg-wave-bg"
-      >
-        <div aria-hidden className="absolute inset-0 flex items-center gap-[3px] px-2.5">
-          {waveBars.map((height, index) => (
-            <div
-              key={index}
-              className="min-w-[2px] flex-1 rounded-[2px] bg-gradient-to-b from-wave-bar-a to-wave-bar-b"
-              style={{ height: `${Math.min(height, 130)}px` }}
-            />
-          ))}
-        </div>
-        {slice !== null && (
-          <>
-            <div
-              aria-hidden
-              className="absolute inset-y-0 left-0 bg-[color-mix(in_srgb,var(--color-wave-bg)_72%,transparent)]"
-              style={{ width: `${slice.start * 100}%` }}
-            />
-            <div
-              aria-hidden
-              className="absolute inset-y-0 right-0 bg-[color-mix(in_srgb,var(--color-wave-bg)_72%,transparent)]"
-              style={{ left: `${slice.end * 100}%` }}
-            />
-            <div
-              className="absolute inset-y-0"
-              style={{ left: `${slice.start * 100}%`, width: `${(slice.end - slice.start) * 100}%` }}
-              onDoubleClick={() => setSlice(null)}
-            >
-              <div
+    <div {...stylex.props(styles.page)}>
+      <div {...stylex.props(styles.card, styles.cardCompact)}>
+        <div {...stylex.props(styles.inner)}>
+          <div {...stylex.props(styles.headRow)}>
+            <div {...stylex.props(styles.metaRow)}>
+              <span
                 aria-hidden
-                className="absolute inset-0 border-l-[2.5px] border-r-[2.5px] border-verm bg-verm/[0.1] shadow-[inset_0_0_20px_color-mix(in_srgb,var(--color-verm)_14%,transparent)]"
-              />
-              <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-verm px-2.5 py-[3px] text-[11px] font-bold tabular-nums text-cream shadow-[0_2px_8px_-2px_color-mix(in_srgb,var(--color-verm)_50%,transparent)]">
-                {t.sliceTag(
+                {...stylex.props(styles.iconBox)}
+              >
+                <ThemeIcon name="phones" style={styles.icon18} />
+              </span>
+              <span {...stylex.props(styles.metaText)}>
+                <div {...stylex.props(styles.audioName)}>{t.demoAudioName}</div>
+                <div {...stylex.props(styles.audioMeta)}>
+                  {DEMO_AUDIO.sizeLabel} · {formatTime(DEMO_AUDIO.durationSec)} · {DEMO_AUDIO.sampleRateLabel}
+                </div>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={removeAudio}
+              {...stylex.props(styles.removeBtn)}
+            >
+              {t.removeAudio}
+            </button>
+          </div>
+
+          {/* 波形 + 切片（拖拽新建 / 边界微调 / 双击移除） */}
+          <div
+            ref={stageRef}
+            aria-label={t.waveHint}
+            onPointerDown={handleStagePointerDown}
+            onPointerMove={handleStagePointerMove}
+            onPointerUp={handleStagePointerUp}
+            {...stylex.props(styles.stage)}
+          >
+            <div aria-hidden {...stylex.props(styles.barsRow)}>
+              {waveBars.map((height, index) => (
+                <div
+                  key={index}
+                  {...stylex.props(styles.bar)}
+                  style={{ height: `${Math.min(height, 130)}px` }}
+                />
+              ))}
+            </div>
+            {slice !== null && (
+              <>
+                <div
+                  aria-hidden
+                  {...stylex.props(styles.mask)}
+                  style={{ left: 0, width: `${slice.start * 100}%` }}
+                />
+                <div
+                  aria-hidden
+                  {...stylex.props(styles.mask)}
+                  style={{ right: 0, left: `${slice.end * 100}%` }}
+                />
+                <div
+                  data-slice-box=""
+                  {...stylex.props(styles.sliceBox)}
+                  style={{ left: `${slice.start * 100}%`, width: `${(slice.end - slice.start) * 100}%` }}
+                  onDoubleClick={() => setSlice(null)}
+                >
+                  <div aria-hidden {...stylex.props(styles.sliceInner)} />
+                  <span {...stylex.props(styles.sliceTag)}>
+                    {t.sliceTag(
+                      formatTime(slice.start * DEMO_AUDIO.durationSec),
+                      formatTime(slice.end * DEMO_AUDIO.durationSec),
+                    )}
+                  </span>
+                  {(['l', 'r'] as const).map((edge) => (
+                    <span
+                      key={edge}
+                      onPointerDown={(event) => handleEdgePointerDown(event, edge)}
+                      {...stylex.props(styles.handle, edge === 'l' ? styles.handleLeft : styles.handleRight)}
+                    >
+                      <span aria-hidden {...stylex.props(styles.handleGrip)} />
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+            {playing && (
+              <div aria-hidden {...stylex.props(styles.playhead)}>
+                <span {...stylex.props(styles.playheadArrow)} />
+              </div>
+            )}
+          </div>
+
+          {slice !== null && (
+            <div {...stylex.props(styles.sliceInfoRow)}>
+              <span {...stylex.props(styles.loopChip)}>
+                {t.loopChipLabel(Math.round((slice.end - slice.start) * DEMO_AUDIO.durationSec))}
+              </span>
+              <span>
+                {t.loopRange(
                   formatTime(slice.start * DEMO_AUDIO.durationSec),
                   formatTime(slice.end * DEMO_AUDIO.durationSec),
                 )}
+                {gapBeats > 0 && ` · ${t.gapInfo(gapBeats, `${gapSeconds}s`)}`}
               </span>
-              {(['l', 'r'] as const).map((edge) => (
-                <span
-                  key={edge}
-                  onPointerDown={(event) => handleEdgePointerDown(event, edge)}
-                  className={`absolute top-1/2 grid h-[30px] w-[14px] -translate-y-1/2 cursor-ew-resize place-items-center rounded-[6px] bg-verm shadow-[0_2px_8px_color-mix(in_srgb,var(--color-verm)_45%,transparent)] ${
-                    edge === 'l' ? 'left-[-8px]' : 'right-[-8px]'
-                  }`}
-                >
-                  <span
-                    aria-hidden
-                    className="h-3 w-0.5 rounded bg-cream/90 shadow-[-4px_0_0_var(--color-cream),4px_0_0_var(--color-cream)]"
-                  />
-                </span>
-              ))}
+              <span {...stylex.props(styles.waveHint)}>{t.waveHint}</span>
             </div>
-          </>
-        )}
-        {playing && (
-          <div
-            aria-hidden
-            className="absolute inset-y-0 left-[38%] w-0.5 bg-gold-bright shadow-[0_0_8px_color-mix(in_srgb,var(--color-gold-bright)_70%,transparent)]"
-          >
-            <span className="absolute -left-[5px] top-0 h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-gold-bright" />
+          )}
+
+          <div {...stylex.props(styles.controlsRow)}>
+            <TransportButtons playing={playing} onPlayToggle={handlePlayToggle} onStop={handleStop} />
+            <LoopSkipSelector value={gapBeats} onChange={setGapBeats} />
+            <div {...stylex.props(styles.tempoCell)}>
+              {/* 原曲页速度只读，与乐谱页共享（docs/tech.md §2.3） */}
+              <TempoSlider value={tempo} onChange={() => {}} disabled />
+            </div>
           </div>
-        )}
-      </div>
-
-      {slice !== null && (
-        <div className="mt-3 flex flex-wrap items-center gap-[9px] text-[13px] tabular-nums text-fg-2">
-          <span className="rounded-full border border-verm-line bg-verm-soft px-[11px] py-1 text-xs font-semibold text-verm-deep">
-            {t.loopChipLabel(Math.round((slice.end - slice.start) * DEMO_AUDIO.durationSec))}
-          </span>
-          <span>
-            {t.loopRange(
-              formatTime(slice.start * DEMO_AUDIO.durationSec),
-              formatTime(slice.end * DEMO_AUDIO.durationSec),
-            )}
-            {gapBeats > 0 && ` · ${t.gapInfo(gapBeats, `${gapSeconds}s`)}`}
-          </span>
-          <span className="ml-auto hidden text-[11.5px] text-fg-3 xl:inline">{t.waveHint}</span>
         </div>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <TransportButtons playing={playing} onPlayToggle={handlePlayToggle} onStop={handleStop} />
-        <LoopSkipSelector value={gapBeats} onChange={setGapBeats} />
-        <div className="ml-auto w-[300px] min-w-[220px]">
-          {/* 原曲页速度只读，与乐谱页共享（docs/tech.md §2.3） */}
-          <TempoSlider value={tempo} onChange={() => {}} disabled />
-        </div>
-        </div>
-      </div>
       </div>
     </div>
   )

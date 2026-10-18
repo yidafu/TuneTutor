@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import * as stylex from '@stylexjs/stylex'
 import FileLoaderModal from '../components/FileLoaderModal'
 import InstrumentSelect from '../components/InstrumentSelect'
 import OsmdNotation from '../components/OsmdNotation'
@@ -10,6 +11,91 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useI18n } from '../locales/useI18n'
 import type { InstrumentType, MetronomeSoundType } from '../types/audio'
+
+const styles = stylex.create({
+  page: {
+    display: 'flex',
+    minHeight: 0,
+    flex: 1,
+    flexDirection: 'column',
+  },
+  scrollArea: {
+    display: 'flex',
+    minHeight: 0,
+    flex: 1,
+    flexDirection: 'column',
+    overflowY: 'auto',
+    paddingInline: '16px',
+    paddingBottom: '16px',
+    '@media (min-width: 640px)': {
+      paddingInline: '22px',
+    },
+  },
+  toolRow: {
+    marginBottom: '14px',
+    display: 'flex',
+    flexShrink: 0,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+  },
+  libraryTitle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '9px',
+    fontSize: '15px',
+    fontWeight: 700,
+    letterSpacing: '1.5px',
+    color: 'var(--color-fg)',
+    '::before': {
+      display: 'block',
+      height: '15px',
+      width: '3px',
+      borderRadius: '2px',
+      backgroundColor: 'var(--color-verm)',
+      content: '""',
+    },
+  },
+  toolActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  loadBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '9px 16px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'transparent',
+    borderRadius: 'var(--radius-btn)',
+    fontSize: '13px',
+    fontWeight: 600,
+    color: 'var(--color-cream)',
+    backgroundColor: 'var(--color-ink)',
+    boxShadow: 'var(--shadow-btn-ink)',
+    ':hover': {
+      backgroundColor: 'var(--color-ink-hover)',
+    },
+  },
+  scoreCard: {
+    display: 'flex',
+    flex: 1,
+    flexDirection: 'column',
+    borderRadius: 'var(--radius-card)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line)',
+    backgroundColor: 'var(--color-paper)',
+    paddingInline: '28px',
+    paddingBottom: '16px',
+    paddingTop: '28px',
+    color: 'var(--color-ink)',
+    boxShadow: 'var(--shadow-paper)',
+  },
+})
 
 interface ScorePageProps {
   /** 两页共享的播放速度（App 持有，docs/tech.md §2.3） */
@@ -40,16 +126,14 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   })
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div {...stylex.props(styles.page)}>
       {/* 内容区：可滚动；乐谱纸面卡撑满剩余高度 */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 sm:px-[22px]">
-        <div className="mb-3.5 flex shrink-0 flex-wrap items-center justify-between gap-3">
-          <h2 className="m-0 inline-flex items-center gap-[9px] text-[15px] font-bold tracking-[1.5px] text-fg before:block before:h-[15px] before:w-[3px] before:rounded-[2px] before:bg-verm before:content-['']">
-            {t.libraryTitle}
-          </h2>
-          <div className="flex items-center gap-2.5">
+      <div {...stylex.props(styles.scrollArea)}>
+        <div {...stylex.props(styles.toolRow)}>
+          <h2 {...stylex.props(styles.libraryTitle)}>{t.libraryTitle}</h2>
+          <div {...stylex.props(styles.toolActions)}>
             <InstrumentSelect value={instrument} onChange={setInstrument} />
-            <button type="button" className="btn btn-primary" onClick={() => setModalOpen(true)}>
+            <button type="button" {...stylex.props(styles.loadBtn)} onClick={() => setModalOpen(true)}>
               <span aria-hidden>＋</span>
               {t.loadScore}
             </button>
@@ -57,7 +141,7 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
         </div>
 
         {/* 纸面乐谱卡：ScoreInfo 标题 + OSMD 渲染区（占位，flex-1 撑满）+ 缩放页脚 */}
-        <div className="flex flex-1 flex-col rounded-card border border-line bg-paper px-7 pb-4 pt-7 text-ink shadow-paper">
+        <div {...stylex.props(styles.scoreCard)}>
           <ScoreInfo
             title={t.demoScoreTitle}
             composer={t.demoScoreComposer}

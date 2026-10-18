@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react-swc'
+import stylex from '@stylexjs/rollup-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
 
 /**
@@ -29,11 +30,45 @@ function brandFavicon(): Plugin {
   }
 }
 
+/**
+ * StyleX 的产物 CSS（stylex.css）由 rollup-plugin 在构建期以资产形式产出，
+ * 但不会自动挂到页面上；dev 走 babel dev 模式的运行时注入，无需此文件。
+ * 这里只在构建时向 index.html 补一条样式表 link。
+ */
+function stylexHtmlLink(): Plugin {
+  let base = '/'
+  return {
+    name: 'tunetutor-stylex-html-link',
+    configResolved(resolved) {
+      base = resolved.base
+    },
+    transformIndexHtml(html, ctx) {
+      if (ctx.server) return html
+      // 不用 %BASE_URL% 占位符：只对构建期原始 HTML 生效，hook 注入的内容不会被替换
+      return html.replace(
+        '</head>',
+        `    <link rel="stylesheet" href="${base}stylex.css" />\n  </head>`,
+      )
+    },
+  }
+}
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     brandFavicon(),
     react(),
+    // 必须排在 react() 之后：先由 SWC 剥离 TS/JSX，StyleX 再做编译。
+    // dev：runtimeInjection 让 babel 以 stylex.inject 运行时注入样式（无 CSS 文件）；
+    // build：收集规则由 generateBundle 产出 stylex.css（配合 stylexHtmlLink 挂载）。
+    // importSources 收窄到精确包名：默认值含裸词 'stylex'，会把注释里
+    // 提到 stylex 的 CSS/文档模块也拖进 Babel 处理而炸掉构建
+    stylex({
+      dev: command === 'serve',
+      runtimeInjection: command === 'serve',
+      importSources: ['@stylexjs/stylex'],
+    }),
+    stylexHtmlLink(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['fonts/*.woff2'],
@@ -81,7 +116,7 @@ export default defineConfig({
   },
   optimizeDeps: {
   },
-})
+}))
 
 function resolve(_dir: string, file: string) {
   return new URL(file, import.meta.url).href

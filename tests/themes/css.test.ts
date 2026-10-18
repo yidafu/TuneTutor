@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_THEME, THEMES } from '@/themes'
 
@@ -52,7 +52,17 @@ function overrideBlock(id: string): string | null {
 }
 
 function themeBlock(): string {
-  return css.match(/@theme \{[\s\S]*?\n\}/)![0]
+  return css.match(/:root \{[\s\S]*?\n\}/)![0]
+}
+
+/** 递归收集 src 下源码文件（排除目录） */
+function collectSrcFiles(dir: string, base = ''): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry)
+    const rel = base ? `${base}/${entry}` : entry
+    if (statSync(full).isDirectory()) return collectSrcFiles(full, rel)
+    return rel.endsWith('.ts') || rel.endsWith('.tsx') ? [rel] : []
+  })
 }
 
 describe('皮肤 token 覆盖块（skin-switching §③ 全表契约）', () => {
@@ -74,14 +84,14 @@ describe('皮肤 token 覆盖块（skin-switching §③ 全表契约）', () => 
     }
   })
 
-  it('@theme 默认值域（= paper）含全部颜色 token', () => {
+  it(':root 默认值域（= paper）含全部颜色 token', () => {
     const block = themeBlock()
     for (const token of COLOR_TOKENS) {
-      expect(block.includes(`${token}:`), `@theme 缺 ${token}`).toBe(true)
+      expect(block.includes(`${token}:`), `:root 缺 ${token}`).toBe(true)
     }
   })
 
-  it('@theme 含 7 个皮肤化新增 ★ token', () => {
+  it(':root 含 7 个皮肤化新增 ★ token', () => {
     const block = themeBlock()
     for (const token of [
       '--color-header',
@@ -105,9 +115,27 @@ describe('皮肤 token 覆盖块（skin-switching §③ 全表契约）', () => 
     )
     // 播放键旧渐变亮端已 token 化
     expect(css).not.toContain('#d9a021')
-    // 波形三色只允许出现在 @theme 默认值域（paper）一处，组件不得再写死
+    // 波形三色只允许出现在 :root 默认值域（paper）一处，组件不得再写死
     for (const value of ['#f3efe2', '#b9ae8d', '#948a60']) {
       expect(css.split(value), value).toHaveLength(2)
     }
+  })
+})
+
+describe('StyleX 组件样式皮肤契约（T1：颜色一律 var(--color-*)）', () => {
+  // 图标几何（SVG path）与皮肤注册表（三色圆点预览）允许携带色值
+  const EXEMPT = ['components/icons', 'themes.ts', 'vite-browser-shims']
+
+  const srcDir = resolve(process.cwd(), 'src')
+  const offenders: string[] = []
+
+  for (const rel of collectSrcFiles(srcDir)) {
+    if (EXEMPT.some((prefix) => rel.startsWith(prefix))) continue
+    const code = readFileSync(join(srcDir, rel), 'utf-8')
+    if (/#[0-9a-fA-F]{3,8}\b/.test(code)) offenders.push(rel)
+  }
+
+  it('组件 / 页面 / hooks 源码不出现写死的 hex 色值', () => {
+    expect(offenders, `以下文件写死了色值：${offenders.join(', ')}`).toEqual([])
   })
 })

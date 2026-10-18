@@ -70,18 +70,22 @@ describe('FileLoaderModal', () => {
     clickSpy.mockRestore()
   })
 
-  it('拖拽悬停切换高亮态（dragActive class）', () => {
+  it('拖拽悬停切换高亮态（dragActive 样式态切换）', () => {
     renderModal(true)
     const dropzone = screen.getByText(enUS.dropMain).closest('[role="button"]')!
-    const idleClass = 'border-verm-line-strong'
+    // StyleX 原子类名不透明：记录空态类串，断言悬停时换态、离开后还原
+    const idleClassName = dropzone.className
 
-    expect(dropzone.className).toContain(idleClass)
+    expect(dropzone).not.toHaveAttribute('data-drag-active')
+    expect(idleClassName).not.toBe('')
+
     fireEvent.dragOver(dropzone)
-    expect(dropzone.className).not.toContain(idleClass)
-    expect(dropzone.className).toContain('border-verm ')
+    expect(dropzone).toHaveAttribute('data-drag-active', 'true')
+    expect(dropzone.className).not.toBe(idleClassName)
 
     fireEvent.dragLeave(dropzone)
-    expect(dropzone.className).toContain(idleClass)
+    expect(dropzone).not.toHaveAttribute('data-drag-active')
+    expect(dropzone.className).toBe(idleClassName)
   })
 
   it('删除最近文件条目并更新计数', () => {

@@ -44,7 +44,7 @@ describe('MetronomeToggle', () => {
     fireEvent.click(screen.getByRole('button', { name: enUS.metronomeSettings }))
 
     const panel = screen.getByRole('button', { name: enUS.metronomeSettings })
-      .parentElement!.querySelector<HTMLElement>('div.absolute')!
+      .parentElement!.querySelector<HTMLElement>('[data-settings-popover]')!
     expect(panel).not.toBeNull()
     expect(within(panel).getByText(enUS.soundName)).toBeInTheDocument()
     // 音色四选一全部列出
@@ -65,7 +65,7 @@ describe('MetronomeToggle', () => {
     fireEvent.click(screen.getByRole('button', { name: enUS.metronomeSettings }))
 
     const panel = screen.getByRole('button', { name: enUS.metronomeSettings })
-      .parentElement!.querySelector<HTMLElement>('div.absolute')!
+      .parentElement!.querySelector<HTMLElement>('[data-settings-popover]')!
     fireEvent.click(within(panel).getByRole('button', { name: enUS.metroSoundKick }))
 
     expect(props.onSoundChange).toHaveBeenCalledWith('kick')

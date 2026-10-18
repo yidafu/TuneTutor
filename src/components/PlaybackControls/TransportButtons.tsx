@@ -1,5 +1,65 @@
-import { useI18n } from '../../locales/useI18n'
+import * as stylex from '@stylexjs/stylex'
 import { ThemeIcon } from '../icons/ThemeIcon'
+import { useI18n } from '../../locales/useI18n'
+
+const styles = stylex.create({
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  playBtn: {
+    position: 'relative',
+    display: 'grid',
+    height: '46px',
+    width: '46px',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: 9999,
+    backgroundImage: 'linear-gradient(to bottom right, var(--color-gold-bright), var(--color-gold))',
+    fontSize: '15px',
+    color: 'var(--color-cream)',
+    boxShadow: 'var(--shadow-btn-gold)',
+    ':hover': {
+      filter: 'brightness(1.05)',
+    },
+  },
+  pulseRing: {
+    pointerEvents: 'none',
+    position: 'absolute',
+    inset: 0,
+    borderRadius: 9999,
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-gold-bright)',
+    animationName: 'pulse-ring',
+    animationDuration: '1.8s',
+    animationTimingFunction: 'ease-out',
+    animationIterationCount: 'infinite',
+  },
+  playIconWrap: {
+    position: 'relative',
+  },
+  icon20: {
+    height: '20px',
+    width: '20px',
+  },
+  stopBtn: {
+    display: 'grid',
+    height: '46px',
+    width: '46px',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: 9999,
+    backgroundColor: 'var(--color-surface-2)',
+    color: 'var(--color-fg-2)',
+    boxShadow: 'inset 0 0 0 1px var(--color-line-strong)',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-3)',
+      color: 'var(--color-fg)',
+    },
+  },
+})
 
 interface TransportButtonsProps {
   playing: boolean
@@ -15,23 +75,20 @@ export default function TransportButtons({ playing, onPlayToggle, onStop }: Tran
   const { t } = useI18n()
 
   return (
-    <div className="flex items-center gap-2.5">
+    <div {...stylex.props(styles.row)}>
       <button
         type="button"
         onClick={onPlayToggle}
         title={playing ? t.stop : t.play}
         aria-label={playing ? t.stop : t.play}
         aria-pressed={playing}
-        className="relative grid h-[46px] w-[46px] cursor-pointer place-items-center rounded-full border-0 bg-gradient-to-br from-gold-bright to-gold text-[15px] text-cream shadow-btn-gold transition hover:brightness-105"
+        {...stylex.props(styles.playBtn)}
       >
         {playing && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 animate-pulse-ring rounded-full border-2 border-gold-bright"
-          />
+          <span aria-hidden {...stylex.props(styles.pulseRing)} />
         )}
-        <span aria-hidden className="relative">
-          <ThemeIcon name={playing ? 'stop' : 'play'} className="h-5 w-5" />
+        <span aria-hidden {...stylex.props(styles.playIconWrap)}>
+          <ThemeIcon name={playing ? 'stop' : 'play'} style={styles.icon20} />
         </span>
       </button>
       <button
@@ -39,9 +96,9 @@ export default function TransportButtons({ playing, onPlayToggle, onStop }: Tran
         onClick={onStop}
         title={t.stop}
         aria-label={t.stop}
-        className="grid h-[46px] w-[46px] cursor-pointer place-items-center rounded-full border-0 bg-surface-2 text-fg-2 shadow-[inset_0_0_0_1px_var(--color-line-strong)] transition hover:bg-surface-3 hover:text-fg"
+        {...stylex.props(styles.stopBtn)}
       >
-        <ThemeIcon name="stop" className="h-5 w-5" />
+        <ThemeIcon name="stop" style={styles.icon20} />
       </button>
     </div>
   )

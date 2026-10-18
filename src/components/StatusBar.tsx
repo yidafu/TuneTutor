@@ -1,7 +1,83 @@
+import * as stylex from '@stylexjs/stylex'
 import { useI18n } from '../locales/useI18n'
 import type { InstrumentType } from '../types/audio'
 import { instrumentLabel } from './instrumentMeta'
 import { InstrumentGlyph, ThemeIcon } from './icons/ThemeIcon'
+
+const styles = stylex.create({
+  root: {
+    display: 'flex',
+    flexShrink: 0,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: '10px',
+    rowGap: '8px',
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: 'var(--color-line)',
+    backgroundColor: 'var(--color-surface-3)',
+    paddingInline: '16px',
+    paddingBlock: '9px',
+    fontSize: '12.5px',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--color-fg-2)',
+    '@media (min-width: 640px)': {
+      paddingInline: '22px',
+    },
+  },
+  group: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: '18px',
+    rowGap: '8px',
+  },
+  cell: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '7px',
+  },
+  muted: {
+    color: 'var(--color-fg-3)',
+  },
+  strong: {
+    fontWeight: 600,
+    color: 'var(--color-fg)',
+  },
+  glyph15: {
+    marginRight: '4px',
+    display: 'inline-flex',
+    height: '15px',
+    width: '15px',
+    verticalAlign: '-2px',
+  },
+  loopIcon: {
+    height: '13px',
+    width: '13px',
+  },
+  playing: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontWeight: 600,
+    color: 'var(--color-moss)',
+  },
+  blinkDot: {
+    height: '7px',
+    width: '7px',
+    borderRadius: 9999,
+    backgroundColor: 'var(--color-moss)',
+    boxShadow: '0 0 6px color-mix(in srgb, var(--color-moss) 60%, transparent)',
+    animationName: 'blink',
+    animationDuration: '1.4s',
+    animationTimingFunction: 'ease-in-out',
+    animationIterationCount: 'infinite',
+  },
+  noteGlyph: {
+    color: 'var(--color-fg-3)',
+  },
+})
 
 interface StatusBarProps {
   playing: boolean
@@ -15,44 +91,41 @@ export default function StatusBar({ playing, skipBeats, instrument, tempo }: Sta
   const { t } = useI18n()
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-2.5 gap-y-2 border-t border-line bg-surface-3 px-4 py-[9px] text-[12.5px] tabular-nums text-fg-2 sm:px-[22px]">
-      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2">
-        <span className="inline-flex items-center gap-[7px]">
-          <span className="text-fg-3">{t.statusSelection}</span>
-          <b className="font-semibold text-fg">{t.selectionNone}</b>
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.group)}>
+        <span {...stylex.props(styles.cell)}>
+          <span {...stylex.props(styles.muted)}>{t.statusSelection}</span>
+          <b {...stylex.props(styles.strong)}>{t.selectionNone}</b>
         </span>
-        <span className="inline-flex items-center gap-[7px]">
-          <span className="inline-flex items-center gap-[5px] text-fg-3">
-            <ThemeIcon name="loop" className="h-[13px] w-[13px]" />
+        <span {...stylex.props(styles.cell)}>
+          <span {...stylex.props(styles.cell, styles.muted)}>
+            <ThemeIcon name="loop" style={styles.loopIcon} />
             {t.statusSkip}
           </span>
-          <b className="font-semibold text-fg">
+          <b {...stylex.props(styles.strong)}>
             {skipBeats > 0 ? t.skipBeatsShort(skipBeats) : t.skipOff}
           </b>
         </span>
-        <span className="inline-flex items-center gap-[7px]">
-          <span className="text-fg-3">{t.statusInstrument}</span>
-          <b className="font-semibold text-fg">
-            <InstrumentGlyph instrument={instrument} className="mr-1 inline-flex h-[15px] w-[15px] align-[-2px]" />
+        <span {...stylex.props(styles.cell)}>
+          <span {...stylex.props(styles.muted)}>{t.statusInstrument}</span>
+          <b {...stylex.props(styles.strong)}>
+            <InstrumentGlyph instrument={instrument} style={styles.glyph15} />
             {instrumentLabel(t, instrument)}
           </b>
         </span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2">
+      <div {...stylex.props(styles.group)}>
         {playing ? (
-          <span className="inline-flex items-center gap-1.5 font-semibold text-moss">
-            <span
-              aria-hidden
-              className="h-[7px] w-[7px] animate-blink rounded-full bg-moss shadow-[0_0_6px_color-mix(in_srgb,var(--color-moss)_60%,transparent)]"
-            />
+          <span {...stylex.props(styles.playing)}>
+            <span aria-hidden {...stylex.props(styles.blinkDot)} />
             {t.statusPlaying}
           </span>
         ) : (
-          <span className="text-fg-3">{t.statusStopped}</span>
+          <span {...stylex.props(styles.muted)}>{t.statusStopped}</span>
         )}
-        <span className="inline-flex items-center gap-[7px]">
-          <span aria-hidden className="text-fg-3">♩</span>
-          <b className="font-semibold text-fg">{tempo} {t.bpmUnit}</b>
+        <span {...stylex.props(styles.cell)}>
+          <span aria-hidden {...stylex.props(styles.noteGlyph)}>♩</span>
+          <b {...stylex.props(styles.strong)}>{tempo} {t.bpmUnit}</b>
         </span>
       </div>
     </div>

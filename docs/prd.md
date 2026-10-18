@@ -166,7 +166,7 @@ App（Header 导航 + 共享速度值 tempo）
 
 ### 7.3 技术
 
-React 19 + TypeScript（strict，`verbatimModuleSyntax` / `erasableSyntaxOnly`）+ Vite 7 + Tailwind CSS 4；OSMD ^1.9 渲染乐谱；`musicxml-io` 解析（`fs/promises` 浏览器垫片）+ `jszip`（`.mxl` 解包）；Tone.js ^15 Sampler 采样触发；播放引擎 look-ahead 窗口调度（官方播放器同构；播放数据唯一来源 = OSMD 光标，乐谱时域，BPM 变更即时重锚定）；wavesurfer.js ^7.12（Regions 插件）波形切片；`react-router-dom` HashRouter 路由；vitest 单测（换算 / 播放数据 / 时钟 / 切片纯函数、存储、i18n 完整性）。构建与部署硬约束见 `AGENTS.md` 与 [tech.md](./tech.md) §9。
+React 19 + TypeScript（strict，`verbatimModuleSyntax` / `erasableSyntaxOnly`）+ Vite 7 + StyleX；OSMD ^1.9 渲染乐谱；`musicxml-io` 解析（`fs/promises` 浏览器垫片）+ `jszip`（`.mxl` 解包）；Tone.js ^15 Sampler 采样触发；播放引擎 look-ahead 窗口调度（官方播放器同构；播放数据唯一来源 = OSMD 光标，乐谱时域，BPM 变更即时重锚定）；wavesurfer.js ^7.12（Regions 插件）波形切片；`react-router-dom` HashRouter 路由；vitest 单测（换算 / 播放数据 / 时钟 / 切片纯函数、存储、i18n 完整性）。构建与部署硬约束见 `AGENTS.md` 与 [tech.md](./tech.md) §9。
 
 ### 7.4 假设与已知限制
 

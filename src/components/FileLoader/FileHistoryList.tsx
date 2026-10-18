@@ -1,6 +1,79 @@
 import type { Language } from '../../locales/languages'
+import * as stylex from '@stylexjs/stylex'
 import { useI18n } from '../../locales/useI18n'
 import { ThemeIcon } from '../icons/ThemeIcon'
+
+const styles = stylex.create({
+  list: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '11px',
+    borderRadius: 'var(--radius-btn)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'transparent',
+    paddingInline: '11px',
+    paddingBlock: '9px',
+    ':hover': {
+      borderColor: 'var(--color-line)',
+      backgroundColor: 'var(--color-surface-3)',
+    },
+  },
+  iconBox: {
+    display: 'grid',
+    height: '34px',
+    width: '34px',
+    flex: 'none',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: '9px',
+    backgroundColor: 'var(--color-surface-3)',
+    boxShadow: 'inset 0 0 0 1px var(--color-line)',
+  },
+  icon15: {
+    height: '15px',
+    width: '15px',
+  },
+  textCol: {
+    minWidth: 0,
+    flex: 1,
+  },
+  title: {
+    display: 'block',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: '13px',
+    fontWeight: 600,
+    color: 'var(--color-fg)',
+  },
+  meta: {
+    marginTop: '1px',
+    display: 'block',
+    fontSize: '11.5px',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--color-fg-3)',
+  },
+  deleteBtn: {
+    display: 'grid',
+    height: '28px',
+    width: '28px',
+    flex: 'none',
+    alignItems: 'center',
+    justifyItems: 'center',
+    borderRadius: '8px',
+    color: 'var(--color-fg-3)',
+    ':hover': {
+      backgroundColor: 'var(--color-clay-soft)',
+      color: 'var(--color-clay)',
+    },
+  },
+})
 
 /** 最近文件条目（stub：接入 IndexedDB 后由 utils/storage 返回同形数据） */
 export interface FileHistoryItem {
@@ -36,21 +109,15 @@ export default function FileHistoryList({ items, onDelete }: FileHistoryListProp
   const { t, language } = useI18n()
 
   return (
-    <div className="flex flex-col gap-1">
+    <div {...stylex.props(styles.list)}>
       {items.map((item) => (
-        <div
-          key={item.id}
-          className="flex cursor-pointer items-center gap-[11px] rounded-btn border border-transparent px-[11px] py-[9px] transition hover:border-line hover:bg-surface-3"
-        >
-          <span
-            aria-hidden
-            className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-surface-3 shadow-[inset_0_0_0_1px_var(--color-line)]"
-          >
-            <ThemeIcon name="note" className="h-[15px] w-[15px]" />
+        <div key={item.id} {...stylex.props(styles.row)}>
+          <span aria-hidden {...stylex.props(styles.iconBox)}>
+            <ThemeIcon name="note" style={styles.icon15} />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold text-fg">{item.title}</span>
-            <span className="mt-px block text-[11.5px] tabular-nums text-fg-3">
+          <span {...stylex.props(styles.textCol)}>
+            <span {...stylex.props(styles.title)}>{item.title}</span>
+            <span {...stylex.props(styles.meta)}>
               {formatFileSize(item.fileSize)} · {formatRelativeTime(item.uploadedAt, language)}
             </span>
           </span>
@@ -59,9 +126,10 @@ export default function FileHistoryList({ items, onDelete }: FileHistoryListProp
             onClick={() => onDelete(item.id)}
             title={t.delete}
             aria-label={`${t.delete} ${item.title}`}
-            className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-[8px] border-0 bg-transparent text-fg-3 transition hover:bg-clay-soft hover:text-clay"
+            {...stylex.props(styles.deleteBtn)}
           >
-            <ThemeIcon name="trash" className="h-[15px] w-[15px]" />          </button>
+            <ThemeIcon name="trash" style={styles.icon15} />
+          </button>
         </div>
       ))}
     </div>

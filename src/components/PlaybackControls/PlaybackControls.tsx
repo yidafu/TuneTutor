@@ -1,8 +1,34 @@
+import * as stylex from '@stylexjs/stylex'
 import LoopSkipSelector from './LoopSkipSelector'
 import MetronomeToggle from './MetronomeToggle'
 import TempoSlider from './TempoSlider'
 import TransportButtons from './TransportButtons'
 import type { MetronomeSoundType } from '../../types/audio'
+
+const styles = stylex.create({
+  root: {
+    display: 'flex',
+    flexShrink: 0,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: '22px',
+    rowGap: '12px',
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: 'var(--color-line)',
+    backgroundColor: 'var(--color-surface-2)',
+    paddingInline: '16px',
+    paddingBlock: '12px',
+    '@media (min-width: 640px)': {
+      paddingInline: '22px',
+    },
+  },
+  sliderCell: {
+    minWidth: 0,
+    flex: 1,
+    flexBasis: '300px',
+  },
+})
 
 interface PlaybackControlsProps {
   tempo: number
@@ -25,8 +51,8 @@ interface PlaybackControlsProps {
 /** 播放控制条：速度 │ 走带 │ 节拍器 │ 空拍。吸底通栏（ui-design.html「控制条吸底」） */
 export default function PlaybackControls(props: PlaybackControlsProps) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-[22px] gap-y-3 border-t border-line bg-surface-2 px-4 py-3 sm:px-[22px]">
-      <div className="min-w-0 flex-1 basis-[300px]">
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.sliderCell)}>
         <TempoSlider value={props.tempo} onChange={props.onTempoChange} />
       </div>
       <TransportButtons

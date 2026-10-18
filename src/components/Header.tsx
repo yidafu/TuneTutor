@@ -1,11 +1,185 @@
 import { Fragment, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import * as stylex from '@stylexjs/stylex'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useTheme } from '../hooks/useTheme'
 import { LANGUAGES, LANGUAGE_NAMES } from '../locales/languages'
 import { useI18n } from '../locales/useI18n'
 import { THEME_EN_NAMES, THEME_GROUPS, THEME_SWATCHES } from '../themes'
-import { ThemeIcon } from './icons/ThemeIcon'
+import { menuPop, menuItem, menuTrigger } from './menu.styles'
+import { ThemeGlyph, ThemeIcon } from './icons/ThemeIcon'
+
+const styles = stylex.create({
+  anchor: {
+    position: 'relative',
+  },
+  chevron: {
+    fontSize: '10px',
+    color: 'var(--color-fg-3)',
+  },
+  icon16: {
+    height: '16px',
+    width: '16px',
+  },
+  glyph17: {
+    height: '17px',
+    width: '17px',
+    flex: 'none',
+  },
+  langName: {
+    flex: 1,
+  },
+  langCheck: {
+    color: 'var(--color-verm-deep)',
+  },
+  themePop: {
+    top: 'calc(100% + 8px)',
+    width: '272px',
+    paddingBlock: '6px',
+    paddingInline: '6px',
+    borderRadius: 'var(--radius-card)',
+  },
+  themePopHead: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingInline: '10px',
+    paddingBottom: '4px',
+    paddingTop: '8px',
+  },
+  popTitle: {
+    fontSize: '13px',
+  },
+  popHint: {
+    fontSize: '11px',
+    color: 'var(--color-fg-3)',
+  },
+  groupRow: {
+    paddingInline: '10px',
+    paddingBottom: '2px',
+    paddingTop: '6px',
+    fontSize: '10.5px',
+    fontWeight: 700,
+    letterSpacing: '1.2px',
+    color: 'var(--color-fg-3)',
+  },
+  themeOption: {
+    gap: '10px',
+    borderRadius: '8px',
+    paddingInline: '10px',
+  },
+  optionSelected: {
+    backgroundColor: 'var(--color-surface-3)',
+    fontWeight: 600,
+    color: 'var(--color-fg)',
+  },
+  optionIdle: {
+    color: 'var(--color-fg-2)',
+  },
+  swatchRow: {
+    display: 'inline-flex',
+    flex: 'none',
+    gap: '3px',
+  },
+  swatchDot: {
+    height: '11px',
+    width: '11px',
+    borderRadius: 9999,
+    boxShadow: 'inset 0 0 0 1px rgb(0 0 0 / 0.12)',
+  },
+  nameWrap: {
+    minWidth: 0,
+    flex: 1,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  enName: {
+    marginLeft: '6px',
+    fontSize: '11px',
+    fontWeight: 400,
+    fontStyle: 'normal',
+    color: 'var(--color-fg-3)',
+  },
+  checkMark: {
+    flex: 'none',
+    fontWeight: 700,
+    color: 'var(--color-verm-deep)',
+  },
+  header: {
+    display: 'flex',
+    minHeight: '64px',
+    flexShrink: 0,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: '16px',
+    rowGap: '4px',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: 'var(--color-line)',
+    backgroundColor: 'var(--color-header)',
+    paddingInline: '22px',
+  },
+  brandRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  brandBox: {
+    display: 'grid',
+    height: '36px',
+    width: '36px',
+    alignItems: 'center',
+    justifyItems: 'center',
+    overflow: 'hidden',
+    borderRadius: '10px',
+    backgroundColor: 'var(--color-ink)',
+    color: 'var(--color-cream)',
+    boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.14), 0 2px 6px rgb(72 60 36 / 0.3)',
+  },
+  brandSvg: {
+    display: 'block',
+    height: '100%',
+    width: '100%',
+  },
+  brandName: {
+    fontFamily: 'var(--font-serif)',
+    fontSize: '17px',
+    fontWeight: 700,
+    letterSpacing: '0.4px',
+  },
+  subtitle: {
+    marginTop: '1px',
+    fontSize: '11px',
+    color: 'var(--color-fg-3)',
+  },
+  nav: {
+    display: 'flex',
+    gap: '22px',
+  },
+  navLink: {
+    paddingInline: '2px',
+    paddingBlock: '6px',
+    fontSize: '13.5px',
+    fontWeight: 600,
+  },
+  navLinkActive: {
+    color: 'var(--color-fg)',
+    boxShadow: 'inset 0 -2px 0 var(--color-verm)',
+  },
+  navLinkIdle: {
+    color: 'var(--color-fg-2)',
+    ':hover': {
+      color: 'var(--color-fg)',
+    },
+  },
+  switcherRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+})
 
 function LangSwitcher() {
   const { language, setLanguage } = useI18n()
@@ -13,22 +187,22 @@ function LangSwitcher() {
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
 
   return (
-    <div className="relative" ref={ref}>
+    <div {...stylex.props(styles.anchor)} ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex cursor-pointer items-center gap-[7px] rounded-btn border border-line-strong bg-transparent px-[13px] py-[7px] text-[13px] font-medium text-fg-2 transition hover:bg-surface-3 hover:text-fg"
+        {...stylex.props(menuTrigger.base)}
       >
         {LANGUAGE_NAMES[language]}
-        <span aria-hidden className="text-[10px] text-fg-3">▼</span>
+        <span aria-hidden {...stylex.props(styles.chevron)}>▼</span>
       </button>
       {open && (
         <ul
           role="listbox"
           aria-label={LANGUAGE_NAMES[language]}
-          className="absolute right-0 top-[calc(100%+6px)] z-40 w-44 overflow-hidden rounded-btn border border-line-strong bg-surface-2 py-1 shadow-pop"
+          {...stylex.props(menuPop.base)}
         >
           {LANGUAGES.map((lang) => (
             <li key={lang}>
@@ -40,13 +214,14 @@ function LangSwitcher() {
                   setLanguage(lang)
                   setOpen(false)
                 }}
-                className={`flex w-full cursor-pointer items-center px-3 py-2 text-left text-[13px] transition hover:bg-surface-3 ${
-                  lang === language ? 'font-semibold text-fg' : 'text-fg-2'
-                }`}
+                {...stylex.props(
+                  menuItem.base,
+                  lang === language ? styles.optionSelected : styles.optionIdle,
+                )}
               >
-                <span className="flex-1">{LANGUAGE_NAMES[lang]}</span>
+                <span {...stylex.props(styles.langName)}>{LANGUAGE_NAMES[lang]}</span>
                 {lang === language && (
-                  <span aria-hidden className="text-verm-deep">✓</span>
+                  <span aria-hidden {...stylex.props(styles.langCheck)}>✓</span>
                 )}
               </button>
             </li>
@@ -58,8 +233,9 @@ function LangSwitcher() {
 }
 
 /**
- * 皮肤切换器（skin-switching.html v1.1 §④-01）：页头「🎨 当前皮肤名 ▼」，
- * 弹层 272px 分「经典 / 古风」两组共 9 款，点选即时换肤并持久化（T4），
+ * 皮肤切换器（skin-switching.html v1.3 §④-01）：页头「🎨 当前皮肤名 ▼」，
+ * 弹层 272px 分「经典 / 古风」两组共 9 款，行 = 主题 identity 字形（ThemeGlyph，
+ * 以该肤笔触渲染）+ 名称 + 英文副标 + 三色圆点预览；点选即时换肤并持久化（T4），
  * 关闭范式与 LangSwitcher 共用 useClickOutside，另支持 Esc。
  */
 function ThemeSwitcher() {
@@ -78,31 +254,28 @@ function ThemeSwitcher() {
   }, [open])
 
   return (
-    <div className="relative" ref={ref}>
+    <div {...stylex.props(styles.anchor)} ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex cursor-pointer items-center gap-[7px] rounded-btn border border-line-strong bg-transparent px-[13px] py-[7px] text-[13px] font-medium text-fg-2 transition hover:bg-surface-3 hover:text-fg"
+        {...stylex.props(menuTrigger.base)}
       >
-        <ThemeIcon name="palette" className="h-4 w-4" />
+        <ThemeIcon name="palette" style={styles.icon16} />
         {t.theme[theme]}
-        <span aria-hidden className="text-[10px] text-fg-3">▼</span>
+        <span aria-hidden {...stylex.props(styles.chevron)}>▼</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[272px] rounded-card border border-line-strong bg-surface-2 p-1.5 shadow-pop">
-          <div className="flex items-baseline justify-between px-2.5 pb-1 pt-2">
-            <b className="text-[13px]">{t.theme.label}</b>
-            <span className="text-[11px] text-fg-3">{t.theme.appliedHint}</span>
+        <div {...stylex.props(menuPop.base, styles.themePop)}>
+          <div {...stylex.props(styles.themePopHead)}>
+            <b {...stylex.props(styles.popTitle)}>{t.theme.label}</b>
+            <span {...stylex.props(styles.popHint)}>{t.theme.appliedHint}</span>
           </div>
           <ul role="listbox" aria-label={t.theme.label}>
             {THEME_GROUPS.map((group) => (
               <Fragment key={group.id}>
-                <li
-                  role="presentation"
-                  className="px-2.5 pb-0.5 pt-1.5 text-[10.5px] font-bold tracking-[1.2px] text-fg-3"
-                >
+                <li role="presentation" {...stylex.props(styles.groupRow)}>
                   {t.theme.group[group.id]}
                 </li>
                 {group.themes.map((id) => {
@@ -117,27 +290,28 @@ function ThemeSwitcher() {
                           setTheme(id)
                           setOpen(false)
                         }}
-                        className={`flex w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left text-[13px] transition hover:bg-surface-3 ${
-                          selected ? 'bg-surface-3 font-semibold text-fg' : 'text-fg-2'
-                        }`}
+                        {...stylex.props(
+                          menuItem.base,
+                          styles.themeOption,
+                          selected ? styles.optionSelected : styles.optionIdle,
+                        )}
                       >
-                        <span aria-hidden className="inline-flex flex-none gap-[3px]">
+                        <ThemeGlyph themeId={id} style={styles.glyph17} />
+                        <span {...stylex.props(styles.nameWrap)}>
+                          {t.theme[id]}
+                          <em {...stylex.props(styles.enName)}>{THEME_EN_NAMES[id]}</em>
+                        </span>
+                        <span aria-hidden {...stylex.props(styles.swatchRow)}>
                           {THEME_SWATCHES[id].map((color) => (
                             <i
                               key={color}
-                              className="h-[11px] w-[11px] rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/0.12)]"
+                              {...stylex.props(styles.swatchDot)}
                               style={{ background: color }}
                             />
                           ))}
                         </span>
-                        <span className="min-w-0 flex-1 truncate">
-                          {t.theme[id]}
-                          <em className="ml-1.5 text-[11px] font-normal not-italic text-fg-3">
-                            {THEME_EN_NAMES[id]}
-                          </em>
-                        </span>
                         {selected && (
-                          <span aria-hidden className="flex-none font-bold text-verm-deep">✓</span>
+                          <span aria-hidden {...stylex.props(styles.checkMark)}>✓</span>
                         )}
                       </button>
                     </li>
@@ -152,24 +326,16 @@ function ThemeSwitcher() {
   )
 }
 
-/** 应用壳页头：品牌 + 双页导航 + 皮肤/语言切换（ui-design.html v3 + skin-switching v1.1） */
+/** 应用壳页头：品牌 + 双页导航 + 皮肤/语言切换（ui-design.html v3 + skin-switching v1.3） */
 export default function Header() {
   const { t } = useI18n()
 
-  const segLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `rounded-none px-[2px] py-1.5 text-[13.5px] font-semibold transition-colors ${
-      isActive ? 'text-fg shadow-[inset_0_-2px_0_var(--color-verm)]' : 'text-fg-2 hover:text-fg'
-    }`
-
   return (
-    <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line bg-header px-[22px]">
-      <div className="flex items-center gap-3">
-        <div
-          aria-hidden
-          className="grid h-9 w-9 place-items-center overflow-hidden rounded-[10px] bg-ink text-cream shadow-[inset_0_0_0_1px_rgb(255_255_255/0.14),0_2px_6px_rgb(72_60_36/0.3)]"
-        >
+    <header {...stylex.props(styles.header)}>
+      <div {...stylex.props(styles.brandRow)}>
+        <div aria-hidden {...stylex.props(styles.brandBox)}>
           {/* 品牌标志「反复记号」：几何须与 docs/brand/tunetutor-app-icon.svg 保持一致 */}
-          <svg className="block h-full w-full" viewBox="0 0 64 64">
+          <svg {...stylex.props(styles.brandSvg)} viewBox="0 0 64 64">
             <g transform="translate(8.32,8.32) scale(0.74)" fill="currentColor">
               <rect x="14.1" y="8" width="8" height="48" />
               <rect x="29.7" y="8" width="2.6" height="48" />
@@ -179,19 +345,32 @@ export default function Header() {
           </svg>
         </div>
         <div>
-          <div className="font-serif text-[17px] font-bold tracking-[0.4px]">TuneTutor</div>
-          <div className="mt-px text-[11px] text-fg-3">{t.appSubtitle}</div>
+          <div {...stylex.props(styles.brandName)}>TuneTutor</div>
+          <div {...stylex.props(styles.subtitle)}>{t.appSubtitle}</div>
         </div>
       </div>
-      <nav className="flex gap-[22px]" aria-label={t.appSubtitle}>
-        <NavLink to="/" end className={segLinkClass}>
+      <nav {...stylex.props(styles.nav)} aria-label={t.appSubtitle}>
+        <NavLink
+          to="/"
+          end
+          className={({ isActive }) =>
+            stylex.props(styles.navLink, isActive ? styles.navLinkActive : styles.navLinkIdle)
+              .className ?? ''
+          }
+        >
           {t.navScore}
         </NavLink>
-        <NavLink to="/audio" className={segLinkClass}>
+        <NavLink
+          to="/audio"
+          className={({ isActive }) =>
+            stylex.props(styles.navLink, isActive ? styles.navLinkActive : styles.navLinkIdle)
+              .className ?? ''
+          }
+        >
           {t.navAudio}
         </NavLink>
       </nav>
-      <div className="flex items-center gap-2.5">
+      <div {...stylex.props(styles.switcherRow)}>
         <ThemeSwitcher />
         <LangSwitcher />
       </div>

@@ -85,7 +85,7 @@ describe('OriginalAudioPage', () => {
     expect(screen.getByText(/LOOP/)).toBeInTheDocument()
 
     const sliceBox = screen.getByText(enUS.sliceTag('0:51', '1:42')).closest(
-      'div.absolute.inset-y-0',
+      '[data-slice-box]',
     )!
     fireEvent.doubleClick(sliceBox)
 

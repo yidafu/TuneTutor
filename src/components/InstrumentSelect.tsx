@@ -1,9 +1,59 @@
 import { useState } from 'react'
+import * as stylex from '@stylexjs/stylex'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useI18n } from '../locales/useI18n'
 import { INSTRUMENT_TYPES, type InstrumentType } from '../types/audio'
 import { instrumentLabel } from './instrumentMeta'
+import { menuItem, menuPop } from './menu.styles'
 import { InstrumentGlyph } from './icons/ThemeIcon'
+
+const styles = stylex.create({
+  anchor: {
+    position: 'relative',
+  },
+  trigger: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    paddingInline: '13px',
+    paddingBlock: '8px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line-strong)',
+    borderRadius: 'var(--radius-btn)',
+    backgroundColor: 'var(--color-surface-2)',
+    fontSize: '13px',
+    fontWeight: 500,
+    color: 'var(--color-fg)',
+    ':hover': {
+      backgroundColor: 'var(--color-surface-3)',
+    },
+  },
+  glyph15: {
+    height: '15px',
+    width: '15px',
+  },
+  chevron: {
+    fontSize: '10px',
+    color: 'var(--color-fg-3)',
+  },
+  option: {
+    gap: '8px',
+  },
+  optionSelected: {
+    fontWeight: 600,
+    color: 'var(--color-fg)',
+  },
+  optionIdle: {
+    color: 'var(--color-fg-2)',
+  },
+  optionName: {
+    flex: 1,
+  },
+  checkMark: {
+    color: 'var(--color-verm-deep)',
+  },
+})
 
 interface InstrumentSelectProps {
   value: InstrumentType
@@ -17,22 +67,22 @@ export default function InstrumentSelect({ value, onChange }: InstrumentSelectPr
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
 
   return (
-    <div className="relative" ref={ref}>
+    <div {...stylex.props(styles.anchor)} ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex cursor-pointer items-center gap-2 rounded-btn border border-line-strong bg-surface-2 px-[13px] py-2 text-[13px] font-medium text-fg transition hover:bg-surface-3"
+        {...stylex.props(styles.trigger)}
       >
-        <InstrumentGlyph instrument={value} className="h-[15px] w-[15px]" />
+        <InstrumentGlyph instrument={value} style={styles.glyph15} />
         {instrumentLabel(t, value)}
-        <span aria-hidden className="text-[10px] text-fg-3">▼</span>
+        <span aria-hidden {...stylex.props(styles.chevron)}>▼</span>
       </button>
       {open && (
         <ul
           role="listbox"
-          className="absolute right-0 top-[calc(100%+6px)] z-40 w-44 overflow-hidden rounded-btn border border-line-strong bg-surface-2 py-1 shadow-pop"
+          {...stylex.props(menuPop.base)}
         >
           {INSTRUMENT_TYPES.map((instrument) => (
             <li key={instrument}>
@@ -44,14 +94,16 @@ export default function InstrumentSelect({ value, onChange }: InstrumentSelectPr
                   onChange(instrument)
                   setOpen(false)
                 }}
-                className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-[13px] transition hover:bg-surface-3 ${
-                  instrument === value ? 'font-semibold text-fg' : 'text-fg-2'
-                }`}
+                {...stylex.props(
+                  menuItem.base,
+                  styles.option,
+                  instrument === value ? styles.optionSelected : styles.optionIdle,
+                )}
               >
-                <InstrumentGlyph instrument={instrument} className="h-[15px] w-[15px]" />
-                <span className="flex-1">{instrumentLabel(t, instrument)}</span>
+                <InstrumentGlyph instrument={instrument} style={styles.glyph15} />
+                <span {...stylex.props(styles.optionName)}>{instrumentLabel(t, instrument)}</span>
                 {instrument === value && (
-                  <span aria-hidden className="text-verm-deep">✓</span>
+                  <span aria-hidden {...stylex.props(styles.checkMark)}>✓</span>
                 )}
               </button>
             </li>

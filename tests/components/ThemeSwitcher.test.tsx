@@ -25,7 +25,7 @@ describe('ThemeSwitcher（skin-switching v1.1 §④）', () => {
     expect(screen.queryByRole('listbox', { name: enUS.theme.label })).not.toBeInTheDocument()
   })
 
-  it('弹层分经典/古风两组共 9 款，行含三色预览与英文副标，选中项 ✓', () => {
+  it('弹层分经典/古风两组共 9 款，行含主题字形、三色预览与英文副标，选中项 ✓', () => {
     renderWithProviders(<Header />)
     const listbox = openThemePopup()
 
@@ -42,8 +42,18 @@ describe('ThemeSwitcher（skin-switching v1.1 §④）', () => {
     )
     // 英文副标不随语言翻译（对齐设计稿弹层 <em>Paper Ink</em>）
     expect(listbox.getByText('Black Lacquer', { selector: 'em' })).toBeInTheDocument()
-    // 三色圆点预览（画布/语义/墨）
-    expect(listbox.getAllByRole('option')[0].querySelectorAll('i')).toHaveLength(3)
+    for (const option of options) {
+      // 行首主题 identity 字形（ThemeGlyph）
+      expect(option.querySelector('svg')).not.toBeNull()
+      // 三色圆点预览（画布/语义/墨）
+      expect(option.querySelectorAll('i')).toHaveLength(3)
+    }
+    // 行序：字形图标 → 名称 → 配色圆点（配色移到名称后）
+    const first = options[0]
+    expect(
+      first.querySelector('svg')!.compareDocumentPosition(first.querySelector('i')!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it('点选即时换肤：写 dataset.theme + 持久化，弹层收起且入口名更新', () => {

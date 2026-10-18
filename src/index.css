@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 /* ═══════════════════════════════════════════════════════════════
    TuneTutor 设计系统 v3.1 —「纸墨排练室」+ 皮肤系统
    （docs/ui-design.html v3 与 docs/features/skin-switching.html v1.1 为基准）
@@ -8,9 +6,10 @@
    皮肤契约（T1/T2）：全部颜色由 --color-* token 承载，语义角色跨皮肤
    不变、色相允许重定。默认值 :root = paper；其余八款皮肤在文件末尾的
    :root[data-theme=<id>] 覆盖块重定义同名 token，组件零改动、不写死色值。
+   组件样式由 StyleX 编译（stylex.create 内一律 var(--color-*) 引用本文件），
    光晕 / 遮罩 / 半透明叠加一律 color-mix(in srgb, token n%, transparent) 派生。
    ═══════════════════════════════════════════════════════════════ */
-@theme {
+:root {
   /* 画布与表面 */
   --color-canvas: #f0ebdd;
   --color-surface: #faf7ee;
@@ -70,9 +69,6 @@
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-serif: Palatino, Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
-
-  --animate-pulse-ring: pulse-ring 1.8s ease-out infinite;
-  --animate-blink: blink 1.4s ease-in-out infinite;
 }
 
 @keyframes pulse-ring {
@@ -83,156 +79,144 @@
   50% { opacity: 0.35; }
 }
 
-@layer base {
-  body {
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
-    /* 页面装饰渐变由 token 派生（skin-switching §③-03 审计项）：
-       白玉高光 + 朱砂晕 + 画布底，换肤自动重映射 */
-    background:
-      radial-gradient(1200px 800px at 18% -8%, color-mix(in srgb, var(--color-surface-2) 85%, transparent), transparent 55%),
-      radial-gradient(1000px 700px at 90% 112%, color-mix(in srgb, var(--color-verm) 4.5%, transparent), transparent 60%),
-      var(--color-canvas);
-    color: var(--color-fg);
-    font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+/* ── 最小 reset：原 Tailwind preflight 中本应用实际依赖的子集 ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border: 0 solid;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+h1, h2, h3, h4, h5, h6, p {
+  margin: 0;
+}
+ul, ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+}
+button {
+  cursor: pointer;
+}
 
-  :focus-visible {
-    outline: 2px solid var(--color-gold);
-    outline-offset: 2px;
-  }
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  /* 页面装饰渐变由 token 派生（skin-switching §③-03 审计项）：
+     白玉高光 + 朱砂晕 + 画布底，换肤自动重映射 */
+  background:
+    radial-gradient(1200px 800px at 18% -8%, color-mix(in srgb, var(--color-surface-2) 85%, transparent), transparent 55%),
+    radial-gradient(1000px 700px at 90% 112%, color-mix(in srgb, var(--color-verm) 4.5%, transparent), transparent 60%),
+    var(--color-canvas);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  /* 换肤过渡（T7）：160ms ease；prefers-reduced-motion 由下方全局规则置为瞬时。
-     已自带 transition 声明的组件类 / 工具类按层叠规则覆盖本条 */
-  body,
-  body *,
-  body *::before,
-  body *::after {
-    transition:
-      background-color 0.16s ease,
-      border-color 0.16s ease,
-      color 0.16s ease,
-      fill 0.16s ease,
-      stroke 0.16s ease,
-      box-shadow 0.16s ease;
-  }
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
 
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
+/* 换肤过渡（T7）：160ms ease；prefers-reduced-motion 由下方全局规则置为瞬时。
+   类选择器特异度高于 body *，组件样式里显式声明的 transition 仍可覆盖本条 */
+body,
+body *,
+body *::before,
+body *::after {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    fill 0.16s ease,
+    stroke 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-@layer components {
-  .ctl-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-fg-3);
-    letter-spacing: 1.2px;
-    white-space: nowrap;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 16px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-cream);
-    transition: all 0.16s ease;
-  }
-  .btn-primary {
-    background: var(--color-ink);
-    box-shadow: var(--shadow-btn-ink);
-  }
-  .btn-primary:hover {
-    background: var(--color-ink-hover);
-  }
-  .btn-ghost {
-    color: var(--color-fg-2);
-    background: transparent;
-    border-color: var(--color-line-strong);
-    font-weight: 500;
-  }
-  .btn-ghost:hover {
-    color: var(--color-fg);
-    background: var(--color-surface-3);
-  }
-
-  /* 滑杆：--fill 由内联样式按当前值百分比写入；--range-color 选墨/朱砂 */
-  .tt-range {
-    -webkit-appearance: none;
-    appearance: none;
-    height: 20px;
-    background: transparent;
-    cursor: pointer;
-    --range-color: var(--color-ink);
-  }
-  .tt-range[data-tone="verm"] {
-    --range-color: var(--color-verm);
-  }
-  .tt-range::-webkit-slider-runnable-track {
-    height: 3px;
-    border-radius: 999px;
-    background: linear-gradient(
-      to right,
-      var(--range-color) var(--fill, 50%),
-      var(--color-track) var(--fill, 50%)
-    );
-  }
-  .tt-range::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    margin-top: -6px;
-    height: 15px;
-    width: 15px;
-    border-radius: 999px;
-    background: var(--color-paper);
-    border: 2px solid var(--range-color);
-    box-shadow: 0 1px 4px rgb(72 60 36 / 0.35);
-  }
-  .tt-range::-moz-range-track {
-    height: 3px;
-    border-radius: 999px;
-    background: var(--color-track);
-  }
-  .tt-range::-moz-range-progress {
-    height: 3px;
-    border-radius: 999px;
-    background: var(--range-color);
-  }
-  .tt-range::-moz-range-thumb {
-    height: 13px;
-    width: 13px;
-    border-radius: 999px;
-    background: var(--color-paper);
-    border: 2px solid var(--range-color);
-    box-shadow: 0 1px 4px rgb(72 60 36 / 0.35);
-  }
-  .tt-range:disabled {
-    cursor: default;
-    opacity: 0.75;
-  }
+/* ── 滑杆：--fill 由内联样式按当前值百分比写入；--range-color 选墨/朱砂 ──
+   依赖 -webkit-slider-* / -moz-range-* 厂商伪元素，StyleX 不支持，留在原生 CSS */
+.tt-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+  --range-color: var(--color-ink);
+}
+.tt-range[data-tone="verm"] {
+  --range-color: var(--color-verm);
+}
+.tt-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--range-color) var(--fill, 50%),
+    var(--color-track) var(--fill, 50%)
+  );
+}
+.tt-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  height: 15px;
+  width: 15px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  border: 2px solid var(--range-color);
+  box-shadow: 0 1px 4px rgb(72 60 36 / 0.35);
+}
+.tt-range::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-track);
+}
+.tt-range::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--range-color);
+}
+.tt-range::-moz-range-thumb {
+  height: 13px;
+  width: 13px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  border: 2px solid var(--range-color);
+  box-shadow: 0 1px 4px rgb(72 60 36 / 0.35);
+}
+.tt-range:disabled {
+  cursor: default;
+  opacity: 0.75;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    皮肤覆盖块（T1）：值域 = 设计稿 v1.1 §③ Token 全表，逐 skin 重定义
-   与 @theme 同名的 34 个颜色 token + 三组阴影。paper 即 :root 默认值，
+   与 :root 同名的 34 个颜色 token + 三组阴影。paper 即 :root 默认值，
    无独立覆盖块。深色 / 深纸面皮肤按各自基调换阴影（T8 附表）。
    ═══════════════════════════════════════════════════════════════ */
 
