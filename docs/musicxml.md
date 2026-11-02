@@ -1,9 +1,9 @@
 # TuneTutor MusicXML 导入解析技术规格
 
-**版本**: 1.1
-**日期**: 2026-10-18
+**版本**: 1.2
+**日期**: 2026-10-28
 **状态**: Ready for Re-implementation
-**变更**: 1.1——夹具谱实测补记（§7-I9/I10）、keySignature「首个」语义澄清（§2，同步修复解析器顶层取值）、测试策略补夹具集成层（§8）。初版自 [tech.md](./tech.md) v2.3 §2.2（数据流）/§3（数据契约）的导入解析域拆分扩写；成文前以 `musicxml-io` 0.2.11 对仓库三份样例谱逐标记实测（§7），给出五线谱**连线符（连结线 tie / 连线 slur）、停顿（休止系）、连音（tuplet）、装饰音（ornament）、倚音（grace note）等全部标记**的解析映射、契约承载与播放/渲染职责边界，含决策 M1–M10。本文生效后 tech.md 对应章节降为摘要。
+**变更**: 1.2——装饰音/倚音实测补全（§2 文法枚举改 io 0.2.11 可产出 13 种、§3 行 10、§4.5 倚音和弦与 steal-time 丢弃、§4.6 播放消费对齐 audio.md A17、§7-I1/I9 补记），解析/播放域单测补全覆盖同步落地。1.1——夹具谱实测补记（§7-I9/I10）、keySignature「首个」语义澄清（§2，同步修复解析器顶层取值）、测试策略补夹具集成层（§8）。初版自 [tech.md](./tech.md) v2.3 §2.2（数据流）/§3（数据契约）的导入解析域拆分扩写；成文前以 `musicxml-io` 0.2.11 对仓库三份样例谱逐标记实测（§7），给出五线谱**连线符（连结线 tie / 连线 slur）、停顿（休止系）、连音（tuplet）、装饰音（ornament）、倚音（grace note）等全部标记**的解析映射、契约承载与播放/渲染职责边界，含决策 M1–M10。本文生效后 tech.md 对应章节降为摘要。
 
 ---
 
@@ -110,7 +110,7 @@ interface Note {
 ```
 
 - `realValue` 是时值的**唯一权威**：`duration` 标签只服务展示。附点、连音、复附点都超出 `"w|h|q|8|16"` 的标签枚举，但 `realValue` 恒可表达（实测锚点：附点四分 = 0.375，spike §13-V7；三连八分 = 1/12）。它与 `PlaybackEntry.startRv/durationRv` 同域（乐谱时域 RealValue，audio.md §2）——播放数据构建直接消费本字段，无需再换算。
-- `markings` 标签文法：`"<kind>"` 或 `"<kind>:<value>"`，带编号时后缀 `#n`。封闭枚举：`ornament:*`（trill-mark/mordent/inverted-mordent/turn/inverted-turn/delayed-turn/delayed-inverted-turn/vertical-turn/shake/wavy-line/schleifer/tremolo/haydn/other-ornament）、`articulation:*`（accent/strong-accent/staccato/staccatissimo/tenuto/detached-legato/marcato/spiccato/scoop/plop/doit/falloff/breath-mark/caesura/stress/unstress/soft-accent）、`technical:*`（up-bow/down-bow/fingering/harmonic/…原样透传）、`dynamics:*`（p/pp/ppp/pppp/f/ff/fff/ffff/mp/mf/sf/sfp/sfpp/fp/rf/rfz/sfz/sfzp/sffz/fz/n/pf/other）、`fermata`、`arpeggiate`、`glissando:<start|stop>#n`、`slide:<start|stop>#n`、`slur:<start|stop|continue>#n`、`unpitched`、未知记号兜底 `notation:<name>`。
+- `markings` 标签文法：`"<kind>"` 或 `"<kind>:<value>"`，带编号时后缀 `#n`。封闭枚举：`ornament:*`（io 0.2.11 实测**可产出 13 种**：trill-mark/mordent/inverted-mordent/turn/inverted-turn/delayed-turn/delayed-inverted-turn/vertical-turn/shake/wavy-line/schleifer/tremolo/haydn；类型声明的 other-ornament/inverted-vertical-turn 被解析丢弃，§7-I9）、`articulation:*`（accent/strong-accent/staccato/staccatissimo/tenuto/detached-legato/marcato/spiccato/scoop/plop/doit/falloff/breath-mark/caesura/stress/unstress/soft-accent）、`technical:*`（up-bow/down-bow/fingering/harmonic/…原样透传）、`dynamics:*`（p/pp/ppp/pppp/f/ff/fff/ffff/mp/mf/sf/sfp/sfpp/fp/rf/rfz/sfz/sfzp/sffz/fz/n/pf/other）、`fermata`、`arpeggiate`、`glissando:<start|stop>#n`、`slide:<start|stop>#n`、`slur:<start|stop|continue>#n`、`unpitched`、未知记号兜底 `notation:<name>`。
 
 ---
 
@@ -129,7 +129,7 @@ interface Note {
 | 7 | 连音 tuplet | `time-modification` + `notations/tuplet` | `timeModification`；`TupletNotation`；`getTupletGroups` | `Note.tuplet` | 无需换算（duration 已缩放，M5） | OSMD 括号/数字 |
 | 8 | 倚音 grace | `note/grace`(+`slash`) | `grace{slash,stealTime*}`，`duration=0` | `isGrace`+`graceSlash` | 时间轴跳过（audio.md §2.2-2） | OSMD 小音符/斜线 |
 | 9 | cue 音 | `note/cue` | `NoteEntry.cue` | `isCue` | 占时值，按普通音符 | OSMD 小音符 |
-| 10 | 装饰音记号 | `notations/ornaments` | `OrnamentNotation`（14 种） | `markings` capture-only | 不做音型合成 | OSMD 记号 |
+| 10 | 装饰音记号 | `notations/ornaments` | `OrnamentNotation`（io 0.2.11 可产出 13 种，§7-I9） | `markings` capture-only | 音型合成在播放域（audio.md §2.2-9，A17） | OSMD 记号 |
 | 11 | 演奏记号 | `notations/articulations` | `ArticulationNotation`（17 种） | `markings` capture-only | 不实现 | OSMD |
 | 12 | 技法 | `notations/technical` | `TechnicalNotation` | `markings` capture-only | 不实现 | OSMD |
 | 13 | 力度记号/渐变 | `direction/dynamics` + `wedge` | `DirectionType(kind dynamics/wedge)`；`getDynamics/getWedges` | dynamics 瞬时值 `markings`；wedge 不入 | 不实现（后续候选力度链数据源） | OSMD |
@@ -177,14 +177,14 @@ interface Note {
 
 ### 4.5 倚音（grace）与 cue 音
 
-- 实测形状（刻谱 4 处）：`grace:{slash:true}`、**`duration=0`**、`noteType:"eighth"`（名义时值保留）、有 pitch。`slash=true` = 短倚音（acciaccatura，带斜线）；无 slash = 长倚音（appoggiatura）；`stealTimePrevious/Following` 百分比可选项不入契约（占用策略由播放域决定，v2 固定「跳过」）。
-- 索引规则（selection.md §2 实测对齐）：倚音**占 graphicIndex**（DOM 序、命中测试）但**不占 noteIndex**（播放数据跳过，audio.md §2.2-2）。这是双索引偏移的主要来源之一，`isGrace` 是回归测试锚点。装饰音偷时值（前装饰音挤占主音头）为 audio.md §8 后续候选，v2 整体跳过。
+- 实测形状（刻谱 4 处，v1.2 补和弦/变化音形态）：`grace:{slash:true}`、**`duration=0`**、`noteType:"eighth"`（名义时值保留）、有 pitch；`alter` 照常映射 `accidentals`。`slash=true` = 短倚音（acciaccatura，带斜线）；无 slash = 长倚音（appoggiatura）；`stealTimePrevious/Following` 百分比可选项 io 解析丢弃、契约无承载（占用策略由播放域决定，audio.md §2.2-8 挤压式安放）。倚音和弦（`grace`+`chord`）：每个和弦音均 `grace`（+`chord:true`）、`duration=0`。
+- 索引规则（selection.md §2 实测对齐）：倚音**占 graphicIndex**（DOM 序、命中测试）但**不占 noteIndex**（发声但不占位，与主音共享 noteIndex，audio.md §2.2-8）。这是双索引偏移的主要来源之一，`isGrace` 是回归测试锚点。官方偷时值规则（前装饰音按比例切前一同音高音符尾）仍为 audio.md §8 后续候选，v2 统一挤压式。
 - cue 音（`cue:true`，总谱提示用小音符）：**占时值、按普通音符播放**（M-decision），仅标记 `isCue` 供展示；与 grace 互斥（MusicXML 语义）。
 
 ### 4.6 装饰音记号 / 演奏记号 / 技法 / 琶音 / 滑音（capture-only）
 
 - 音符级 `notations`（ornament/articulation/technical/arpeggiate/glissando/slide）直挂到所在音符：`markings` 追加对应标签（文法见 §2），全量透传、不解释。
-- v2 播放零消费：velocity 固定 0.7（audio.md §3.1），装饰音**不做音型合成**（trill 不生成交替音、tremolo 不生成重复音），OSMD 渲染不受影响（它直接读 `rawContent`）。
+- 导入域 capture-only 不解释；播放消费自 audio.md v2.7 起（§2.2-9，决策 A17）：trill/turn/mordent 族按 OSMD 切片语义展开发音，tremolo/wavy-line 等无展开语义的记号仍原样播放。本表其余记号（articulation/technical/琶音/滑音）v2 播放零消费：velocity 固定 0.7（audio.md §3.1），OSMD 渲染不受影响（它直接读 `rawContent`）。
 - 设计动机（M8）：capture 成本 ≈ 0（musicxml-io 已解析完），留作后续候选的数据源——力度链（audio.md §8）与表情功能落地时**无需重解析已入库的乐谱**。
 
 ### 4.7 力度与表情（direction 层，capture-only）
@@ -239,7 +239,7 @@ interface Note {
 
 | # | 实测 | 对应规则 |
 | --- | --- | --- |
-| I1 | 倚音：`grace:{slash:true}`、`duration:0`、`noteType:"eighth"`、pitch 正常 | §4.5 |
+| I1 | 倚音：`grace:{slash:true}`、`duration:0`、`noteType:"eighth"`、pitch 正常；倚音和弦（`grace`+`chord`）每音均 `grace:{}`；`steal-time_*` 属性解析丢弃 | §4.5 |
 | I2 | 三连音：`duration:4`@`divisions:12`、`timeModification:{3,2}`、tuplet notation `bracket:false` | §4.4 |
 | I3 | tie 组：刻谱 32 组（各 2 音）、连音符谱 2 组（1+2）；`getTiedNoteGroups().totalDuration` = 各音 duration 之和 | §4.1 |
 | I4 | slur：刻谱 2 组、`number:1`、各含 2 音 | §4.2 |
@@ -247,7 +247,7 @@ interface Note {
 | I6 | 刻谱 divisions 序列 `[12, undefined]`（attributes 未变更的小节为 undefined）；voice `[1]`、staves 1、1 part、73 measures | §4.9 |
 | I7 | 错误形态：损坏 .mxl → `isCompressed` 仍为 true，解包报 `Could not find MusicXML file in compressed archive`；纯文本/错误根元素 → `Unsupported MusicXML format: only score-partwise is supported` | §6 |
 | I8 | API 形状：`getTupletGroups/getSlurSpans/getTiedNoteGroups` 等 query 函数收 **`Score`**（非 `Part`，传 Part 抛 `Cannot read properties of undefined`）；导出子路径 `musicxml-io/query`；`parseAuto/parseCompressed` 存在但 v2 不用（M1） | §1.2/§4.4 |
-| I9 | 装饰音全家族实测（v1.1 夹具谱 marks-*）：mordent/inverted-mordent（含 long="yes" 长波音）/turn/inverted-turn/delayed-turn/trill-mark/wavy-line 各产出**独立** OrnamentNotation；`long` 等修饰属性不透出，标签只留记号名；wavy-line 的 start/stop 方向不在标签文法（capture-only） | §4.6 |
+| I9 | 装饰音全家族实测（v1.1 夹具谱 marks-*，v1.2 逐枚举补测）：mordent/inverted-mordent（含 long="yes" 长波音）/turn/inverted-turn/delayed-turn/trill-mark/wavy-line 各产出**独立** OrnamentNotation；`long`/`accelerate`/`beath` 等修饰属性不透出，标签只留记号名；wavy-line 的 start/stop 方向不在标签文法（capture-only）。io 0.2.11 类型声明 15 种 OrnamentType，实测**可产出 13 种**——`<other-ornament>`（含带文本）与 `<inverted-vertical-turn>` 被解析整体丢弃（notations 不产出），升级 io 时需重测 | §4.6 |
 | I10 | slur `continue` 类型与嵌套编号（number=1/2 重叠弧线）原样透传，记号按 XML 出现顺序保留；tie 的「既止又起」以 note/tie 双元素（stop+start）表达，io 不产出 continue 类型 | §4.1/§4.2 |
 
 ---

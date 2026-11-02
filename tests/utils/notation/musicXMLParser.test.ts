@@ -181,6 +181,24 @@ describe('scoreToParsedScore 音符映射', () => {
     expect(notes[2]!.isGrace).toBeUndefined()
   })
 
+  it('倚音变化音 + 倚音和弦：pitch/accidentals 照常映射，和弦音同样 isGrace + isChord（§4.5）', () => {
+    // steal-time_* 百分比属性 io 0.2.11 丢弃、契约无承载（占用策略由播放域决定，v2 整体跳过）
+    const body =
+      ATTRS_44 +
+      '<note><grace steal-time_previous="20"/><pitch><step>F</step><alter>1</alter><octave>5</octave></pitch><voice>1</voice><type>eighth</type></note>' +
+      '<note><grace/><chord/><pitch><step>A</step><octave>5</octave></pitch><voice>1</voice><type>eighth</type></note>' +
+      QUARTER_C4
+    const notes = scoreToParsedScore(parse(scoreXml(measure('1', body)))).measures[0]!.notes
+    expect(notes[0]).toMatchObject({
+      pitch: 'F5', accidentals: '#', isGrace: true, graceSlash: false, realValue: 0, duration: '8',
+    })
+    expect(notes[1]).toMatchObject({
+      pitch: 'A5', isGrace: true, isChord: true, graceSlash: false, realValue: 0,
+    })
+    expect(notes[2]).toMatchObject({ pitch: 'C4', realValue: 0.25 })
+    expect(notes[2]!.isGrace).toBeUndefined()
+  })
+
   it('cue 音：isCue 标记、占时值', () => {
     const body =
       ATTRS_44 +
@@ -225,6 +243,49 @@ describe('scoreToParsedScore 标记域（capture-only，决策 M8）', () => {
     expect(note.markings).toEqual(
       expect.arrayContaining(['articulation:accent', 'ornament:trill-mark', 'technical:up-bow', 'fermata', 'arpeggiate']),
     )
+  })
+
+  it('装饰音全家族 → ornament:<name> 原样透传（§4.6，io 0.2.11 实测可产出的 13 种）', () => {
+    // io 0.2.11 类型声明 15 种，实测 <other-ornament> 与 <inverted-vertical-turn> 被解析丢弃（§7-I9）
+    const ornaments = [
+      'trill-mark', 'mordent', 'inverted-mordent', 'turn', 'inverted-turn',
+      'delayed-turn', 'delayed-inverted-turn', 'vertical-turn',
+      'shake', 'wavy-line', 'schleifer', 'tremolo', 'haydn',
+    ] as const
+    const notes = ornaments
+      .map((o) =>
+        `<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>` +
+        `<notations><ornaments><${o}/></ornaments></notations></note>`,
+      )
+      .join('')
+    const attrs =
+      `<attributes><divisions>4</divisions><time><beats>${ornaments.length}</beats><beat-type>4</beat-type></time></attributes>`
+    const out = scoreToParsedScore(parse(scoreXml(measure('1', attrs + notes)))).measures[0]!.notes
+    expect(out.map((note) => note.markings)).toEqual(ornaments.map((o) => [`ornament:${o}`]))
+  })
+
+  it('other-ornament / inverted-vertical-turn：io 0.2.11 不产出（notations 整体丢弃，§7-I9）', () => {
+    const body =
+      ATTRS_44 +
+      '<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>' +
+      '<notations><ornaments><other-ornament>sweep</other-ornament></ornaments></notations></note>' +
+      '<note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>' +
+      '<notations><ornaments><inverted-vertical-turn/></ornaments></notations></note>'
+    const notes = scoreToParsedScore(parse(scoreXml(measure('1', body)))).measures[0]!.notes
+    expect(notes[0]!.markings).toBeUndefined()
+    expect(notes[1]!.markings).toBeUndefined()
+  })
+
+  it('装饰音修饰属性不透出：mordent long="yes"、trill-mark accelerate/beath 只留记号名（§7-I9）', () => {
+    const body =
+      ATTRS_44 +
+      '<note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>' +
+      '<notations><ornaments><mordent long="yes"/></ornaments></notations></note>' +
+      '<note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type>' +
+      '<notations><ornaments><trill-mark accelerate="yes" beath="3"/></ornaments></notations></note>'
+    const notes = scoreToParsedScore(parse(scoreXml(measure('1', body)))).measures[0]!.notes
+    expect(notes[0]!.markings).toEqual(['ornament:mordent'])
+    expect(notes[1]!.markings).toEqual(['ornament:trill-mark'])
   })
 
   it('连线 slur → slur:<type>#<number>；仅 tied（无 note/tie）不设 Note.tie（§4.1 以 note/tie 为准）', () => {

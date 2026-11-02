@@ -285,6 +285,88 @@ describe('buildPlaybackData（OSMD 光标 → 乐谱时域条目，docs/audio.md
     expect(entries.map((entry) => entry.noteName)).toEqual(['F#4', 'E4', 'F#4'])
   })
 
+  it('宿主是休止符：倚音悬起、休止照常占位，挂到下一发音条目（§2.2-8）', () => {
+    const cursor = buildMockCursor([
+      {
+        graceNotes: [{ halfTone: 64, lengthRv: 0, grace: true }],
+        notes: [{ halfTone: undefined, lengthRv: 0.25 }],
+      },
+      { notes: [{ halfTone: 52, lengthRv: 0.25 }] },
+    ])
+    const entries = buildPlaybackData(cursor)
+    // 前无发音条目（prevEnd 0）：空闲 0.25 够放，倚音整块前移贴主音起点
+    expect(entries.map((entry) => [entry.noteName, entry.startRv, entry.durationRv, entry.noteIndex]))
+      .toEqual([
+        ['E5', 0.1875, 0.0625, 1],
+        ['E4', 0.25, 0.25, 1],
+      ])
+  })
+
+  it('宿主是延续音：倚音悬起、延续音不占位，挂到 tie 起始音后的下一发音条目（§2.2-8）', () => {
+    const cursor = buildMockCursor([
+      { notes: [{ halfTone: 48, lengthRv: 0.25, tie: 'start', tieDurationRv: 0.25 }] },
+      {
+        graceNotes: [{ halfTone: 64, lengthRv: 0, grace: true }],
+        notes: [{ halfTone: 48, lengthRv: 0.25, tie: 'continue' }],
+      },
+      { notes: [{ halfTone: 50, lengthRv: 0.25 }] },
+    ])
+    const entries = buildPlaybackData(cursor)
+    // 倚音共享「宿主」D4 的 noteIndex 1（非 tie 起始音的 0）；空闲充足整块前移
+    expect(entries.map((entry) => [entry.noteName, entry.startRv, entry.durationRv, entry.noteIndex]))
+      .toEqual([
+        ['C4', 0, 0.25, 0],
+        ['E5', 0.4375, 0.0625, 1],
+        ['D4', 0.5, 0.25, 1],
+      ])
+  })
+
+  it('倚音 + 装饰音同主音：倚音先落，装饰音切片在挤压后的主音窗口内展开（§2.2-8/9）', () => {
+    const cursor = buildMockCursor([
+      {
+        graceNotes: [{ halfTone: 64, lengthRv: 0, grace: true }],
+        ornament: 5, // Mordent
+        notes: [{ halfTone: 48, lengthRv: 0.25, pitch: { fundamental: 0, octave: 4 } }],
+      },
+    ])
+    const entries = buildPlaybackData(cursor)
+    // 曲首无空闲：E5 挤占主音头部（主音顺延 0.0625、时长扣到 0.1875），波音在剩余窗口内切 3 片
+    expect(entries.map((entry) => [entry.noteName, entry.startRv, entry.durationRv])).toEqual([
+      ['E5', 0, 0.0625],
+      ['C4', 0.0625, 0.046875],
+      ['B3', 0.109375, 0.046875],
+      ['C4', 0.15625, 0.09375],
+    ])
+    for (const entry of entries) expect(entry.noteIndex).toBe(0)
+    expect(entries.slice(1).reduce((acc, entry) => acc + entry.durationRv, 0)).toBeCloseTo(0.1875, 12)
+  })
+
+  it('装饰音邻音 B↔C 八度进位：B5 trill 上邻 C6（§2.2-9）', () => {
+    const cursor = buildMockCursor([
+      {
+        ornament: 0, // Trill
+        notes: [{ halfTone: 71, lengthRv: 0.25, pitch: { fundamental: 11, octave: 5 } }],
+      },
+    ])
+    expect(buildPlaybackData(cursor).map((entry) => entry.noteName)).toEqual([
+      'B5', 'C6', 'B5', 'C6', 'B5', 'C6', 'B5', 'C6',
+    ])
+  })
+
+  it('装饰音邻音取调号变化音：D 大调（fifths 2）mordent 下邻 F 带 #（§2.2-9）', () => {
+    const cursor = buildMockCursor([
+      {
+        ornament: 5, // Mordent（下邻音）
+        notes: [{ halfTone: 67, lengthRv: 0.25, pitch: { fundamental: 7, octave: 5 } }],
+      },
+    ])
+    ;(cursor as unknown as { iterator: { CurrentMeasure?: unknown } }).iterator.CurrentMeasure = {
+      getKeyInstruction: () => ({ Key: 2, AlteratedNotes: [5, 0] }), // D 大调：F、C
+    }
+    // G5 的下邻音 = F#5（调号升 F）；对照 G 大调负例（下邻音自然）见上测
+    expect(buildPlaybackData(cursor).map((entry) => entry.noteName)).toEqual(['G5', 'F#5', 'G5'])
+  })
+
   it('多声部：步长取该步所有声部最大有效 RealValue（§2.2-3）', () => {
     const cursor = buildMockCursor([
       {
@@ -392,6 +474,32 @@ describe('buildPlaybackData × 真实 OSMD 光标（marks-tie 漂移回归，jsd
       ['F5', 1, 0.0625, 3],
       ['E5', 1.0625, 0.0625, 3],
       ['F5', 1.125, 0.125, 3],
+      ['G5', 1.25, 0.75, 4],
+    ])
+  })
+
+  it('marks-turn：turn 上起/inverted-turn 下起回音 4 等分、delayed-turn 前半主音（§2.2-9 回归）', async () => {
+    const entries = buildPlaybackData(await loadRealCursor('marks-turn.musicxml'))
+    expect(
+      entries.map((entry) => [entry.noteName, entry.startRv, entry.durationRv, entry.noteIndex]),
+    ).toEqual([
+      // C5 turn：上起 D5-C5-B4-C5，4×1/16
+      ['D5', 0, 0.0625, 0],
+      ['C5', 0.0625, 0.0625, 0],
+      ['B4', 0.125, 0.0625, 0],
+      ['C5', 0.1875, 0.0625, 0],
+      // D5 inverted-turn：下起 C5-D5-E5-D5
+      ['C5', 0.25, 0.0625, 1],
+      ['D5', 0.3125, 0.0625, 1],
+      ['E5', 0.375, 0.0625, 1],
+      ['D5', 0.4375, 0.0625, 1],
+      ['E5', 0.5, 0.5, 2],
+      // F5 delayed-turn：主音占前半 1/8，后半 G5-F5-E5-F5 4×1/32
+      ['F5', 1, 0.125, 3],
+      ['G5', 1.125, 0.03125, 3],
+      ['F5', 1.15625, 0.03125, 3],
+      ['E5', 1.1875, 0.03125, 3],
+      ['F5', 1.21875, 0.03125, 3],
       ['G5', 1.25, 0.75, 4],
     ])
   })
