@@ -169,7 +169,7 @@ interface StoredAudioFile { id; fileName; fileSize; uploadedAt; data: ArrayBuffe
 
 ### 6.1 渲染（`OsmdRender`）
 
-- OSMD 选项基线：`autoResize: false`（重渲染由组件 ResizeObserver 防抖驱动、与音符缓存失效同路，selection.md §3.2）、`backend: 'svg'`、`disableCursor: false`、`drawTitle/Composer/PartNames`、`coloringEnabled`；EngravingRules 颜色读皮肤 token（谱线/音符/文字，§7.2，换肤触发重渲染 T6）。
+- OSMD 选项基线：`autoResize: false`（重渲染由组件 ResizeObserver 防抖驱动、与音符缓存失效同路，selection.md §3.2）、`backend: 'svg'`、`disableCursor: false`、`drawTitle/Composer/PartNames`、`coloringEnabled`；EngravingRules 颜色读皮肤 token（谱线/音符/文字，§7.2，换肤触发重渲染 T6）。`EngravingRules.PageBottomMargin = 0`（构造器内设置）：endless 模式默认 5（50px）叠加末系统底部预留 ≈100px 死空白，谱面在卡内视觉偏上（2026-10-18 实测 svg 上空 46.5 / 下空 99.8）；归零后上下空白对称（≈46.5/49.8，与谱面无关），垂直居中交给 stage 网格（OsmdNotation `alignItems: center`）。`EngravingRules.AutoGenerateMultipleRestMeasuresFromRestMeasures = false`（2026-10-19）：自动 multirest 折叠把连续全休止小节并成 1 个图形音符、被吞小节从 MeasureList 消失，图形遍历数不到其占位休止，noteIndex 与 buildPlaybackData 错位、选择端点映射到错误音符（「世界赠予我的」m2–m6 实测）；显式 `<multiple-rest>` 标记不受影响，源谱逐小节印刷也更贴近原貌。
 - 渲染后 `waitForSvgContent`（rAF 轮询等待 SVG 有子节点，超时放行），再构建音符映射。
 - 实例单例（每容器一个）；重渲染/清除/缩放时必须失效音符缓存（缩放页脚 －/＋ 乘性步进 0.5–2.0）。
 
