@@ -246,7 +246,17 @@ describe('调号夹具（fifths → 调名，§4.9）', () => {
 })
 
 describe('全量夹具导入回归（musicxml/ 下所有 .musicxml）', () => {
-  const fixtures = readdirSync(FIXTURES_DIR).filter((name) => name.endsWith('.musicxml')).sort()
+  // 真实样例谱不走合成夹具契约（tempo==60 兜底等断言不适用）：
+  // 「世界赠予我的」自带 <sound tempo="62">，专属断言见 shijie-beams.test.ts
+  // 「刻在我心底的名字」自带 <sound tempo="65">，专属断言见 kezai-import.test.ts
+  const REAL_SAMPLES = new Set([
+    '世界赠予我的.musicxml',
+    '乌兰巴托的夜.musicxml',
+    '刻在我心底的名字.musicxml',
+  ])
+  const fixtures = readdirSync(FIXTURES_DIR)
+    .filter((name) => name.endsWith('.musicxml') && !REAL_SAMPLES.has(name))
+    .sort()
 
   it('夹具清单在位（防误删）', () => {
     expect(fixtures).toEqual([
