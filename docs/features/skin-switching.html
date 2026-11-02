@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TuneTutor 皮肤系统 UI 设计稿 v1.5</title>
+<title>TuneTutor 皮肤系统 UI 设计稿 v1.6</title>
 <style>
 /* ═══════════════════════════════════════════════════════════════
    设计稿页面自身使用 v3「纸墨排练室」chrome（--bg 系列变量）。
@@ -515,7 +515,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
 <div class="wrap">
 
   <header class="spec-head">
-    <h1>TuneTutor 皮肤系统 UI 设计稿<span class="ver">v1.5 · 2026-10-18</span></h1>
+    <h1>TuneTutor 皮肤系统 UI 设计稿<span class="ver">v1.6 · 2026-10-18</span></h1>
     <p>在 v3「纸墨排练室」token 体系上扩展皮肤切换：<b>9 款默认皮肤</b>（经典 5 款 + 中式古风 4 款），全部颜色由 <code>--color-*</code> token 承载，皮肤 = 在 <code>:root[data-theme=&lt;id&gt;]</code> 重定义 token 值。语义角色跨皮肤不变——朱砂系=练习循环、金铜系=播放中、墨系=交互主色；古风皮肤允许角色<b>色相</b>重定（如宫墙转石绿、红木转靛蓝），但同一皮肤内全站一致。图标双层主题化：功能图标颜色随 token 自动，且 <b>v1.4 起每主题专形专绘一整套</b>（见 ①-02 修订）；品牌标几何恒定、色随 token 自动（①-02）。本稿为皮肤功能的视觉与交互基准，实现后回填 tech.md。</p>
   </header>
 
@@ -551,15 +551,15 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
                 <div class="thpop-head"><b>皮肤</b><span>即时生效 · 记忆在本机</span></div>
                 <div class="thpop-group">经 典</div>
                 <button class="thpop-item on" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.2 3.2H8A1.8 1.8 0 0 0 6.2 5v14A1.8 1.8 0 0 0 8 20.8h8a1.8 1.8 0 0 0 1.8-1.8V8.8Z"/><path d="M14.2 3.2v5.6h3.6"/><path d="M9 12.4h6M9 15.4h6"/></svg><span class="nm">纸墨<em>Paper Ink</em></span><span class="ri"><i style="background:#f0ebdd"></i><i style="background:#c2431f"></i><i style="background:#241f15"></i></span><span class="ck">✓</span></button>
-                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.4 3.6a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M18.6 2.6l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8Z"/></svg><span class="nm">夜曲<em>Nocturne</em></span><span class="ri"><i style="background:#12151d"></i><i style="background:#e2693c"></i><i style="background:#ece7d8"></i></span></button>
+                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.4 3.6a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M18.6 2.6l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8Z"/></svg><span class="nm">夜曲<em>Nocturne</em></span><span class="ri"><i style="background:#0e1322"></i><i style="background:#e2693c"></i><i style="background:#ece7d8"></i></span></button>
                 <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.6 8.6c2.6-1.4 5.2-1.4 7.8 0 1.9 1 3.9 1.1 6.2.4"/><path d="M3.6 13c1.8-.6 3.6-.5 5.3.1"/><path d="M14.4 11.8c1.7-.7 3.5-.7 6 .1"/><path d="M3.6 17c2.4 1.2 4.8 1.2 7.2.1 1.9-.8 3.9-.8 6 .1"/><g fill="currentColor" stroke="none"><circle cx="11.6" cy="12.4" r="1.2"/></g></svg><span class="nm">暖木<em>Walnut</em></span><span class="ri"><i style="background:#e8dcc6"></i><i style="background:#b8501f"></i><i style="background:#33261a"></i></span></button>
                 <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.2 4.2h3.6"/><path d="M10.8 4.2c.1 1.8-.55 2.8-1.85 4.1C7.3 9.9 6.2 12 6.2 14.4c0 3.3 2.6 5.4 5.8 5.4s5.8-2.1 5.8-5.4c0-2.4-1.1-4.5-2.75-6.1-1.3-1.3-1.95-2.3-1.85-4.1"/><path d="M9.6 21.3h4.8"/></svg><span class="nm">青瓷<em>Celadon</em></span><span class="ri"><i style="background:#dce3da"></i><i style="background:#b3472e"></i><i style="background:#1f2d24"></i></span></button>
                 <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2a2.9 2.9 0 0 0-2.9 2.9v4.2a2.9 2.9 0 0 0 5.8 0V6.1A2.9 2.9 0 0 0 12 3.2Z"/><path d="M5.9 10.3v1.6a6.1 6.1 0 0 0 12.2 0v-1.6"/><path d="M12 18.1V21M8.6 21h6.8"/></svg><span class="nm">演奏会<em>Stage</em></span><span class="ri"><i style="background:#0b0b0c"></i><i style="background:#ff5c2e"></i><i style="background:#f6f2e6"></i></span></button>
                 <div class="thpop-group">古 风</div>
                 <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.3 9.3h15.4"/><path d="M4.3 9.3c0 4.7 3.3 7.6 7.7 7.6s7.7-2.9 7.7-7.6"/><path d="M10.6 16.9 10 18.5M13.4 16.9l.6 1.6M9 18.5h6"/><path d="M7.2 12.4c1.6-1.05 3.2-1.05 4.8 0s3.2 1.05 4.8 0"/></svg><span class="nm">青花<em>Blue &amp; White</em></span><span class="ri"><i style="background:#dae0ec"></i><i style="background:#ac3a28"></i><i style="background:#234a8c"></i></span></button>
-                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M9.4 5.6C11.4 7.9 14.6 9.4 20.6 10.4 17 12.9 14.6 13.4 12 13.4s-5-0.5-8.6-3C9.4 9.4 12.6 7.9 14.6 5.6Z"/><path d="M9.4 5.6h5.2"/><path d="M6 16.4v4.6M18 16.4v4.6M4.4 21h15.2"/><g fill="currentColor" stroke="none"><rect x="10.3" y="16.8" width="3.4" height="4.2"/></g></svg><span class="nm">宫墙<em>Palace Red</em></span><span class="ri"><i style="background:#7c2f1f"></i><i style="background:#4f8a68"></i><i style="background:#f7ecd9"></i></span></button>
-                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.3 13.9V7.9"/><path d="M6.3 7.9c2.6-1.4 5.7-1 7.3 1 .9 1.1 1.2 2.5 1 4.1"/><path d="M4.9 13.9h10.2"/><path d="M6.3 13.9v7M13.6 13.9v7"/><path d="M7.4 17.9h5.1"/><g fill="currentColor" stroke="none"><circle cx="14.6" cy="13" r="0.95"/></g></svg><span class="nm">红木<em>Rosewood</em></span><span class="ri"><i style="background:#54301f"></i><i style="background:#3e63a2"></i><i style="background:#2a1810"></i></span></button>
-                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.7 12.7c0-3.7 2.8-6.6 6.3-6.6s6.3 2.9 6.3 6.6"/><path d="M4.9 12.7h14.2"/><path d="M6.4 12.7v5.2M17.6 12.7v5.2"/><path d="M6.4 17.9h11.2"/><path d="M9.1 20.8h5.8"/><g fill="currentColor" stroke="none"><circle cx="12" cy="4.6" r="1.1"/><circle cx="12" cy="15.3" r="0.85"/></g></svg><span class="nm">玄漆<em>Black Lacquer</em></span><span class="ri"><i style="background:#14100c"></i><i style="background:#d95a30"></i><i style="background:#e8dcc2"></i></span></button>
+                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M9.4 5.6C11.4 7.9 14.6 9.4 20.6 10.4 17 12.9 14.6 13.4 12 13.4s-5-0.5-8.6-3C9.4 9.4 12.6 7.9 14.6 5.6Z"/><path d="M9.4 5.6h5.2"/><path d="M6 16.4v4.6M18 16.4v4.6M4.4 21h15.2"/><g fill="currentColor" stroke="none"><rect x="10.3" y="16.8" width="3.4" height="4.2"/></g></svg><span class="nm">宫墙<em>Palace Red</em></span><span class="ri"><i style="background:#8e2f1a"></i><i style="background:#4f8a68"></i><i style="background:#f7ecd9"></i></span></button>
+                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.3 13.9V7.9"/><path d="M6.3 7.9c2.6-1.4 5.7-1 7.3 1 .9 1.1 1.2 2.5 1 4.1"/><path d="M4.9 13.9h10.2"/><path d="M6.3 13.9v7M13.6 13.9v7"/><path d="M7.4 17.9h5.1"/><g fill="currentColor" stroke="none"><circle cx="14.6" cy="13" r="0.95"/></g></svg><span class="nm">红木<em>Rosewood</em></span><span class="ri"><i style="background:#4e2620"></i><i style="background:#3e63a2"></i><i style="background:#2a1810"></i></span></button>
+                <button class="thpop-item" type="button"><svg class="gi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.7 12.7c0-3.7 2.8-6.6 6.3-6.6s6.3 2.9 6.3 6.6"/><path d="M4.9 12.7h14.2"/><path d="M6.4 12.7v5.2M17.6 12.7v5.2"/><path d="M6.4 17.9h11.2"/><path d="M9.1 20.8h5.8"/><g fill="currentColor" stroke="none"><circle cx="12" cy="4.6" r="1.1"/><circle cx="12" cy="15.3" r="0.85"/></g></svg><span class="nm">玄漆<em>Black Lacquer</em></span><span class="ri"><i style="background:#19110a"></i><i style="background:#d95a30"></i><i style="background:#e8dcc2"></i></span></button>
               </div>
             </div>
             <button class="hbtn" type="button">简体中文 <span class="caret">▼</span></button>
@@ -583,6 +583,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
       <p style="margin-top:14px"><b>v1.4 修订（2026-10-18 用户决策）</b>：功能图标在「同几何 × 各肤笔触」（v1.3 实现态）之上再升级为<b>每主题专形专绘一整套</b>——九套 × 17 枚，以纸墨版画线描为构图基准，按各主题工艺语言重绘：夜曲细笔减线 + 四角星子、暖木圆木浑厚 + 大实心点缀、青瓷釉线长弧 + 圈足/瓷环、演奏会聚光高对比减笔、青花料点/水波纹/双钩釉线、宫墙方折回纹 + 实心方点缀（square 端头 + miter 接合）、红木铜钉缀结构节点、玄漆如意云头 + 描金双钩。笔触参数（线宽/端头/点缀填充）仍按各肤 THEME_ICON_STYLES 叠加；品牌标几何恒定铁律不变；字号梯、网格与 currentColor 纪律沿用本节规格。实现位于 <code>src/components/icons/sets/</code>（每主题一文件，类型层面强制 17 枚全量定义）。</p>
       <p style="margin-top:10px"><b>v1.4 乐器二次精修（2026-10-18 用户反馈）</b>：萨克斯 / 吉他 / 贝斯特征强化——吉他定形<b>葫芦双腰</b>（上短下长双鼓身 + 收腰 + 圆音孔 + 琴桥），贝斯以<b>超长琴颈</b>分化（身颈比 ≈ 1:1、圆角矩形机身、双拾音器、无音孔），萨克斯重构为<b>斜身 + 底部 U 弯 + 上翻喇叭口</b>（吹嘴弯颈一线贯通、管侧离管双珠键；喇叭口自管顶分叉外张成<b>空心杯口</b> + 宽口圈横线收口——喇叭口必须空心留腔，实心杯块会读作「没有喇叭口」；宽口圈是「鱼钩」与「号」的分界：钩尖而号口阔）。此三枚的器形由九套共用，主题差异落在笔触与点缀语言。</p>
       <p style="margin-top:10px"><b>v1.5 萨克斯三度重构（2026-10-18，弃斜身改直立锥体）</b>：斜身一线构图在描边体系里反复塌读（细 J 弯 = 鱼钩、立式双臂 = 号架、椭圆口 = 绳圈、外翻碗口 = 高脚杯）。定稿改<b>直立大锥喇叭</b>：锥体独占左上（口沿宽 ≈ 6.7/24、微倾带唇牙、锥腔整片留白），肥管轮廓带（宽 ≈ 3/24）经宽浅弓连<b>吹嘴横杆</b>，键珠离管成列于身侧。九套共用骨架、坐标各异（互异测试锁死），主题差异落在笔触与点缀：夜曲星子缀唇牙上方、暖木大实心点、青瓷瓷环、演奏会减笔粗点、青花料点 + 弓下水波、宫墙全方折 + 方点、红木铜钉缀节点、玄漆吹嘴云头珠。</p>
+      <p style="margin-top:10px"><b>v1.6 暗色组值域拉开（2026-10-18 用户反馈）</b>：五款暗色主题（夜曲 / 演奏会 / 玄漆 / 红木 / 宫墙）在原曲页的大色块（画布、卡面、波形底、波形条）亮度与饱和度几乎重合，换肤前后肉眼难辨。v1.6 只调值域、不动 token 结构与语义角色，各肤往自身性格推：<b>夜曲</b>面层与波形整体推向可见的月光蓝（waveBar #4d5a76 → #5e78c0），暖白谱不变；<b>玄漆</b>面层推暖棕、波形条提亮成铜金（#5c4d38 → #8a6d35），坐实「描金」；<b>红木</b>底色推深紫红、波形条转红铜（#a8845a → #b57a58），与宫墙分家；<b>宫墙</b>底色提饱和成亮朱红、波形条转金瓦（#cf9a70 → #eebd6a），fg-2/3 随底同步提亮保对比；<b>演奏会</b>保持纯中性黑不动——其余四款推开后，无彩色即其识别特征。浅色五款与 paper 默认值不变。九肤 THEME_SWATCHES 画布位与弹层 mock 圆点已同步。</p>
       <div class="icon-grid" id="iconGrid"></div>
 
       <table class="spec-table" style="margin-top:16px">
@@ -1037,7 +1038,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
     </div>
   </section>
 
-  <footer class="spec-foot">TuneTutor 皮肤系统 UI 设计稿 v1.4 · 2026-10-18 · 配套：docs/ui-design.html（v3 基准）· docs/brand.html（品牌基准）· docs/prd.md · docs/tech.md · 本稿为皮肤功能的视觉与交互基准</footer>
+  <footer class="spec-foot">TuneTutor 皮肤系统 UI 设计稿 v1.6 · 2026-10-18 · 配套：docs/ui-design.html（v3 基准）· docs/brand.html（品牌基准）· docs/prd.md · docs/tech.md · 本稿为皮肤功能的视觉与交互基准</footer>
 </div>
 
 <script>
@@ -1069,17 +1070,17 @@ var SKINS = {
     name: '夜曲', en: 'Nocturne', group: 'classic',
     mood: '深夜练习室 · 蓝黑底暖白谱，夜间练琴不刺眼',
     vals: {
-      canvas: '#12151d', surface: '#1a1f2a', surface2: '#212734', surface3: '#2b3242',
+      canvas: '#0e1322', surface: '#151c30', surface2: '#1c2540', surface3: '#27324f',
       line: 'rgb(196 206 232 / 0.1)', lineStrong: 'rgb(196 206 232 / 0.24)',
       header: 'rgb(26 31 42 / 0.6)', backdrop: 'rgb(4 7 13 / 0.62)',
       fg: '#e9e6dc', fg2: '#aab1c2', fg3: '#767e92',
-      ink: '#ece7d8', inkHover: '#ffffff', ink2: '#9099ad', cream: '#1b202b',
+      ink: '#ece7d8', inkHover: '#ffffff', ink2: '#9099ad', cream: '#182036',
       verm: '#e2693c', vermDeep: '#ef9166', vermSoft: 'rgb(226 105 60 / 0.14)', vermLine: 'rgb(226 105 60 / 0.38)', vermLineStrong: 'rgb(226 105 60 / 0.55)',
       gold: '#d9a13c', goldBright: '#f2bb54',
       moss: '#85b393', clay: '#e08377', claySoft: 'rgb(224 131 119 / 0.14)', clayLine: 'rgb(224 131 119 / 0.5)',
-      paper: '#1e2430', staff: '#454f63', barline: '#5d6a83',
+      paper: '#1a2338', staff: '#4a5878', barline: '#6272a0',
       track: 'rgb(233 230 220 / 0.18)', wash: 'rgb(233 230 220 / 0.05)',
-      waveBg: '#161b25', waveBarA: '#4d5a76', waveBarB: '#36425a'
+      waveBg: '#10172b', waveBarA: '#5e78c0', waveBarB: '#41538f'
     },
     shadows: {
       soft: '0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(0 0 0 / 0.25)',
@@ -1179,17 +1180,17 @@ var SKINS = {
     name: '宫墙', en: 'Palace Red', group: 'antique',
     mood: '宫墙红配金瓦 · 漆黑交互、练习转石绿（青绿对朱砂）',
     vals: {
-      canvas: '#7c2f1f', surface: '#8a3927', surface2: '#954430', surface3: '#a1503b',
+      canvas: '#8e2f1a', surface: '#9a3722', surface2: '#a53f26', surface3: '#b24c30',
       line: 'rgb(255 226 196 / 0.14)', lineStrong: 'rgb(255 226 196 / 0.3)',
       header: 'rgb(138 56 38 / 0.6)', backdrop: 'rgb(28 6 3 / 0.55)',
-      fg: '#f7ecd9', fg2: '#e0c4a2', fg3: '#c99f80',
+      fg: '#f7ecd9', fg2: '#eccfa8', fg3: '#d8b28a',
       ink: '#241511', inkHover: '#3a241b', ink2: '#a1845c', cream: '#f7ecd9',
       verm: '#4f8a68', vermDeep: '#b2d8bf', vermSoft: 'rgb(79 138 104 / 0.18)', vermLine: 'rgb(79 138 104 / 0.42)', vermLineStrong: 'rgb(79 138 104 / 0.6)',
       gold: '#b07f1a', goldBright: '#c9921c',
       moss: '#e2b862', clay: '#ffb09c', claySoft: 'rgb(255 176 156 / 0.16)', clayLine: 'rgb(255 176 156 / 0.5)',
       paper: '#f9efdb', staff: '#dbc69e', barline: '#b39a6d',
       track: 'rgb(247 236 217 / 0.18)', wash: 'rgb(247 236 217 / 0.06)',
-      waveBg: '#742c1d', waveBarA: '#cf9a70', waveBarB: '#9e6444'
+      waveBg: '#862b16', waveBarA: '#eebd6a', waveBarB: '#c08b3e'
     },
     shadows: {
       soft: '0 1px 2px rgb(30 8 4 / 0.4), 0 0 0 1px rgb(255 226 196 / 0.08)',
@@ -1201,17 +1202,17 @@ var SKINS = {
     name: '红木', en: 'Rosewood', group: 'antique',
     mood: '酸枝红木 × 黄铜件 · 深棕红底绢黄谱，练习转靛蓝（蓝染对植木）',
     vals: {
-      canvas: '#54301f', surface: '#5e3823', surface2: '#663f28', surface3: '#71482e',
+      canvas: '#4e2620', surface: '#57302a', surface2: '#5f3730', surface3: '#6a4038',
       line: 'rgb(244 222 192 / 0.13)', lineStrong: 'rgb(244 222 192 / 0.28)',
       header: 'rgb(102 63 40 / 0.6)', backdrop: 'rgb(20 8 3 / 0.5)',
-      fg: '#f3e4cf', fg2: '#d3b795', fg3: '#ac8f6d',
+      fg: '#f3e4cf', fg2: '#d3b795', fg3: '#bb9d78',
       ink: '#2a1810', inkHover: '#3d2417', ink2: '#a98e6c', cream: '#f3e4cf',
       verm: '#3e63a2', vermDeep: '#7d9fd0', vermSoft: 'rgb(62 99 162 / 0.16)', vermLine: 'rgb(62 99 162 / 0.4)', vermLineStrong: 'rgb(62 99 162 / 0.58)',
       gold: '#b28a2e', goldBright: '#c9a13c',
       moss: '#7fa87b', clay: '#d98a76', claySoft: 'rgb(217 138 118 / 0.14)', clayLine: 'rgb(217 138 118 / 0.5)',
       paper: '#f0e3c8', staff: '#c2a87e', barline: '#96774e',
       track: 'rgb(243 228 207 / 0.16)', wash: 'rgb(243 228 207 / 0.05)',
-      waveBg: '#4d2c1b', waveBarA: '#a8845a', waveBarB: '#7c5c3a'
+      waveBg: '#462322', waveBarA: '#b57a58', waveBarB: '#87523a'
     },
     shadows: {
       soft: '0 1px 2px rgb(22 8 2 / 0.45), 0 0 0 1px rgb(244 222 192 / 0.07)',
@@ -1223,17 +1224,17 @@ var SKINS = {
     name: '玄漆', en: 'Black Lacquer', group: 'antique',
     mood: '黑漆描金 · 暖黑底、描金示播放、朱砂印练习',
     vals: {
-      canvas: '#14100c', surface: '#1c1712', surface2: '#241d16', surface3: '#2f261d',
+      canvas: '#19110a', surface: '#241a0e', surface2: '#2a1e10', surface3: '#362816',
       line: 'rgb(233 214 182 / 0.1)', lineStrong: 'rgb(233 214 182 / 0.24)',
       header: 'rgb(28 23 18 / 0.6)', backdrop: 'rgb(5 3 2 / 0.62)',
       fg: '#ede4d3', fg2: '#bdae94', fg3: '#8a7d66',
-      ink: '#e8dcc2', inkHover: '#f7efdd', ink2: '#93876e', cream: '#241d16',
+      ink: '#e8dcc2', inkHover: '#f7efdd', ink2: '#93876e', cream: '#2a1e10',
       verm: '#d95a30', vermDeep: '#e8845c', vermSoft: 'rgb(217 90 48 / 0.15)', vermLine: 'rgb(217 90 48 / 0.4)', vermLineStrong: 'rgb(217 90 48 / 0.58)',
       gold: '#c9a13f', goldBright: '#e3bb56',
       moss: '#90b695', clay: '#e08a78', claySoft: 'rgb(224 138 120 / 0.14)', clayLine: 'rgb(224 138 120 / 0.5)',
-      paper: '#211a13', staff: '#4a3f30', barline: '#645540',
+      paper: '#271c0f', staff: '#55462a', barline: '#6f5c36',
       track: 'rgb(237 228 211 / 0.18)', wash: 'rgb(237 228 211 / 0.05)',
-      waveBg: '#1a1510', waveBarA: '#5c4d38', waveBarB: '#42372a'
+      waveBg: '#1e160b', waveBarA: '#8a6d35', waveBarB: '#5e4a20'
     },
     shadows: {
       soft: '0 1px 2px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(233 214 182 / 0.06)',

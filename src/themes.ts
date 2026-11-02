@@ -34,14 +34,14 @@ export const THEME_GROUPS: readonly { id: ThemeGroupId; themes: readonly ThemeId
 /** 弹层行三色圆点预览（画布 / 语义 / 墨），取值与设计稿 ① 弹层一致；预览数据不随皮肤级联 */
 export const THEME_SWATCHES: Record<ThemeId, readonly [string, string, string]> = {
   paper: ['#f0ebdd', '#c2431f', '#241f15'],
-  nocturne: ['#12151d', '#e2693c', '#ece7d8'],
+  nocturne: ['#0e1322', '#e2693c', '#ece7d8'],
   walnut: ['#e8dcc6', '#b8501f', '#33261a'],
   celadon: ['#dce3da', '#b3472e', '#1f2d24'],
   stage: ['#0b0b0c', '#ff5c2e', '#f6f2e6'],
   cobalt: ['#dae0ec', '#ac3a28', '#234a8c'],
-  palace: ['#7c2f1f', '#4f8a68', '#f7ecd9'],
-  rosewood: ['#54301f', '#3e63a2', '#2a1810'],
-  lacquer: ['#14100c', '#d95a30', '#e8dcc2'],
+  palace: ['#8e2f1a', '#4f8a68', '#f7ecd9'],
+  rosewood: ['#4e2620', '#3e63a2', '#2a1810'],
+  lacquer: ['#19110a', '#d95a30', '#e8dcc2'],
 }
 
 /** 英文副标（弹层 <em>，不随语言翻译，范式同 locales/LANGUAGE_NAMES） */

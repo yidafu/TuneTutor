@@ -220,12 +220,12 @@ body *::after {
    无独立覆盖块。深色 / 深纸面皮肤按各自基调换阴影（T8 附表）。
    ═══════════════════════════════════════════════════════════════ */
 
-/* 夜曲 Nocturne — 深夜练习室 · 蓝黑底暖白谱 */
+/* 夜曲 Nocturne — 深夜练习室 · 蓝黑底暖白谱（月光蓝：面层/波形整体推向可见的蓝，与中性黑场拉开） */
 :root[data-theme='nocturne'] {
-  --color-canvas: #12151d;
-  --color-surface: #1a1f2a;
-  --color-surface-2: #212734;
-  --color-surface-3: #2b3242;
+  --color-canvas: #0e1322;
+  --color-surface: #151c30;
+  --color-surface-2: #1c2540;
+  --color-surface-3: #27324f;
   --color-line: rgb(196 206 232 / 0.1);
   --color-line-strong: rgb(196 206 232 / 0.24);
   --color-header: rgb(26 31 42 / 0.6);
@@ -236,7 +236,7 @@ body *::after {
   --color-ink: #ece7d8;
   --color-ink-hover: #ffffff;
   --color-ink-2: #9099ad;
-  --color-cream: #1b202b;
+  --color-cream: #182036;
   --color-verm: #e2693c;
   --color-verm-deep: #ef9166;
   --color-verm-soft: rgb(226 105 60 / 0.14);
@@ -248,14 +248,14 @@ body *::after {
   --color-clay: #e08377;
   --color-clay-soft: rgb(224 131 119 / 0.14);
   --color-clay-line: rgb(224 131 119 / 0.5);
-  --color-paper: #1e2430;
-  --color-staff: #454f63;
-  --color-barline: #5d6a83;
+  --color-paper: #1a2338;
+  --color-staff: #4a5878;
+  --color-barline: #6272a0;
   --color-track: rgb(233 230 220 / 0.18);
   --color-wash: rgb(233 230 220 / 0.05);
-  --color-wave-bg: #161b25;
-  --color-wave-bar-a: #4d5a76;
-  --color-wave-bar-b: #36425a;
+  --color-wave-bg: #10172b;
+  --color-wave-bar-a: #5e78c0;
+  --color-wave-bar-b: #41538f;
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(0 0 0 / 0.25);
   --shadow-pop: 0 24px 56px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(0 0 0 / 0.4);
   --shadow-paper: 0 14px 36px -14px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.05);
@@ -425,19 +425,19 @@ body *::after {
   --shadow-paper: 0 14px 36px -14px rgb(30 52 88 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.85);
 }
 
-/* 宫墙 Palace — 宫墙红配金瓦 · 漆黑交互、练习转石绿（青绿对朱砂，T9） */
+/* 宫墙 Palace — 宫墙红配金瓦 · 漆黑交互、练习转石绿（青绿对朱砂，T9；底色提饱和成亮朱红、波形条转金瓦） */
 :root[data-theme='palace'] {
-  --color-canvas: #7c2f1f;
-  --color-surface: #8a3927;
-  --color-surface-2: #954430;
-  --color-surface-3: #a1503b;
+  --color-canvas: #8e2f1a;
+  --color-surface: #9a3722;
+  --color-surface-2: #a53f26;
+  --color-surface-3: #b24c30;
   --color-line: rgb(255 226 196 / 0.14);
   --color-line-strong: rgb(255 226 196 / 0.3);
   --color-header: rgb(138 56 38 / 0.6);
   --color-backdrop: rgb(28 6 3 / 0.55);
   --color-fg: #f7ecd9;
-  --color-fg-2: #e0c4a2;
-  --color-fg-3: #c99f80;
+  --color-fg-2: #eccfa8;
+  --color-fg-3: #d8b28a;
   --color-ink: #241511;
   --color-ink-hover: #3a241b;
   --color-ink-2: #a1845c;
@@ -458,27 +458,27 @@ body *::after {
   --color-barline: #b39a6d;
   --color-track: rgb(247 236 217 / 0.18);
   --color-wash: rgb(247 236 217 / 0.06);
-  --color-wave-bg: #742c1d;
-  --color-wave-bar-a: #cf9a70;
-  --color-wave-bar-b: #9e6444;
+  --color-wave-bg: #862b16;
+  --color-wave-bar-a: #eebd6a;
+  --color-wave-bar-b: #c08b3e;
   --shadow-soft: 0 1px 2px rgb(30 8 4 / 0.4), 0 0 0 1px rgb(255 226 196 / 0.08);
   --shadow-pop: 0 24px 56px -16px rgb(30 8 4 / 0.6), 0 0 0 1px rgb(255 226 196 / 0.1);
   --shadow-paper: 0 14px 36px -14px rgb(30 8 4 / 0.55), inset 0 1px 0 rgb(255 244 224 / 0.25);
 }
 
-/* 红木 Rosewood — 酸枝红木 × 黄铜件 · 练习转靛蓝（蓝染对植木，T9） */
+/* 红木 Rosewood — 酸枝红木 × 黄铜件 · 练习转靛蓝（蓝染对植木，T9；底色推深紫红、波形条转红铜与宫墙金瓦分家） */
 :root[data-theme='rosewood'] {
-  --color-canvas: #54301f;
-  --color-surface: #5e3823;
-  --color-surface-2: #663f28;
-  --color-surface-3: #71482e;
+  --color-canvas: #4e2620;
+  --color-surface: #57302a;
+  --color-surface-2: #5f3730;
+  --color-surface-3: #6a4038;
   --color-line: rgb(244 222 192 / 0.13);
   --color-line-strong: rgb(244 222 192 / 0.28);
   --color-header: rgb(102 63 40 / 0.6);
   --color-backdrop: rgb(20 8 3 / 0.5);
   --color-fg: #f3e4cf;
   --color-fg-2: #d3b795;
-  --color-fg-3: #ac8f6d;
+  --color-fg-3: #bb9d78;
   --color-ink: #2a1810;
   --color-ink-hover: #3d2417;
   --color-ink-2: #a98e6c;
@@ -499,20 +499,20 @@ body *::after {
   --color-barline: #96774e;
   --color-track: rgb(243 228 207 / 0.16);
   --color-wash: rgb(243 228 207 / 0.05);
-  --color-wave-bg: #4d2c1b;
-  --color-wave-bar-a: #a8845a;
-  --color-wave-bar-b: #7c5c3a;
+  --color-wave-bg: #462322;
+  --color-wave-bar-a: #b57a58;
+  --color-wave-bar-b: #87523a;
   --shadow-soft: 0 1px 2px rgb(22 8 2 / 0.45), 0 0 0 1px rgb(244 222 192 / 0.07);
   --shadow-pop: 0 24px 56px -16px rgb(22 8 2 / 0.65), 0 0 0 1px rgb(244 222 192 / 0.09);
   --shadow-paper: 0 14px 36px -14px rgb(22 8 2 / 0.6), inset 0 1px 0 rgb(255 236 200 / 0.12);
 }
 
-/* 玄漆 Lacquer — 黑漆描金 · 暖黑底、描金示播放、朱砂印练习（T9） */
+/* 玄漆 Lacquer — 黑漆描金 · 暖黑底、描金示播放、朱砂印练习（T9；面层推暖棕、波形条提亮成铜金） */
 :root[data-theme='lacquer'] {
-  --color-canvas: #14100c;
-  --color-surface: #1c1712;
-  --color-surface-2: #241d16;
-  --color-surface-3: #2f261d;
+  --color-canvas: #19110a;
+  --color-surface: #241a0e;
+  --color-surface-2: #2a1e10;
+  --color-surface-3: #362816;
   --color-line: rgb(233 214 182 / 0.1);
   --color-line-strong: rgb(233 214 182 / 0.24);
   --color-header: rgb(28 23 18 / 0.6);
@@ -523,7 +523,7 @@ body *::after {
   --color-ink: #e8dcc2;
   --color-ink-hover: #f7efdd;
   --color-ink-2: #93876e;
-  --color-cream: #241d16;
+  --color-cream: #2a1e10;
   --color-verm: #d95a30;
   --color-verm-deep: #e8845c;
   --color-verm-soft: rgb(217 90 48 / 0.15);
@@ -535,14 +535,14 @@ body *::after {
   --color-clay: #e08a78;
   --color-clay-soft: rgb(224 138 120 / 0.14);
   --color-clay-line: rgb(224 138 120 / 0.5);
-  --color-paper: #211a13;
-  --color-staff: #4a3f30;
-  --color-barline: #645540;
+  --color-paper: #271c0f;
+  --color-staff: #55462a;
+  --color-barline: #6f5c36;
   --color-track: rgb(237 228 211 / 0.18);
   --color-wash: rgb(237 228 211 / 0.05);
-  --color-wave-bg: #1a1510;
-  --color-wave-bar-a: #5c4d38;
-  --color-wave-bar-b: #42372a;
+  --color-wave-bg: #1e160b;
+  --color-wave-bar-a: #8a6d35;
+  --color-wave-bar-b: #5e4a20;
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(233 214 182 / 0.06);
   --shadow-pop: 0 24px 56px -16px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(233 214 182 / 0.08);
   --shadow-paper: 0 14px 36px -14px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 240 210 / 0.06);
