@@ -232,6 +232,48 @@ describe('OriginalAudioPage 切片与循环', () => {
     expect(ws.options.autoScroll).toBe(false)
   })
 
+  it('拖选新建切片（region-created）即生效并持久化，播放键从切片起点播', async () => {
+    // 真实插件拖选松手只发 region-created（7.12.11 saveRegion），新建 region 没有初始
+    // update-end——切片状态必须在创建时同步，否则首次拖选后播放从 0 开始
+    renderAudioPage()
+    await importViaInput(importAudioFile())
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
+    const { ws, regions } = latestPage()
+    ws.emitReady(204)
+    await screen.findByText(/3:24/)
+    const audioId = (await listAudioFiles())[0]!.id
+
+    act(() => regions.addRegion({ start: 30, end: 60 }))
+
+    expect(screen.getByText(enUS.loopChipLabel(30))).toBeInTheDocument()
+    expect(screen.getByText(enUS.loopRange('0:30', '1:00'))).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(sliceKey(audioId))!)).toEqual({ startTime: 30, endTime: 60 })
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${enUS.play}$`) }))
+    expect(ws.getCurrentTime()).toBe(30)
+    expect(ws.isPlaying()).toBe(true)
+  })
+
+  it('二次拖选替换旧切片：单切片约束，状态与持久化以新 region 为准', async () => {
+    renderAudioPage()
+    await importViaInput(importAudioFile())
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
+    const { ws, regions } = latestPage()
+    ws.emitReady(204)
+    await screen.findByText(/3:24/)
+    const audioId = (await listAudioFiles())[0]!.id
+
+    act(() => {
+      regions.addRegion({ start: 30, end: 60 })
+      regions.addRegion({ start: 5, end: 20 })
+    })
+
+    expect(regions.getRegions()).toHaveLength(1)
+    expect(regions.getRegions()[0]!.start).toBe(5)
+    expect(JSON.parse(localStorage.getItem(sliceKey(audioId))!)).toEqual({ startTime: 5, endTime: 20 })
+    expect(screen.getByText(enUS.loopChipLabel(15))).toBeInTheDocument()
+  })
+
   it('播放头跟随（A14）：存在切片关闭 autoScroll，移除切片恢复官方默认', async () => {
     const { ws, regions } = await loadWithSlice()
     // 恢复的切片已同步关闭自动跟随

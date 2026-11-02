@@ -577,6 +577,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
           stored.endTime <= readyDuration &&
           buildAudioLoopPlan(stored.startTime, stored.endTime, 0, readyDuration).loop
         ) {
+          // 恢复的切片 UI 状态由 region-created 订阅统一同步，此处只建 region
           regions.addRegion({
             start: stored.startTime,
             end: stored.endTime,
@@ -585,8 +586,6 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
             resize: true,
             minLength: MIN_SLICE_SECONDS,
           })
-          // 恢复的切片同步回 UI 状态（持久化已在 localStorage，不重写）
-          updateSlice({ startTime: stored.startTime, endTime: stored.endTime }, false)
         }
       }),
     )
@@ -614,12 +613,15 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       }),
     )
 
-    // 单切片约束：新 region 出现即移除旧 region；update-end（拖动/resize 结束）才回写持久化
+    // 单切片约束：新 region 出现即移除旧 region；切片状态与持久化在创建时即同步——
+    // 拖选新建的 region 只发 region-created，插件的 update-end 仅在拖移/resize 结束时发
+    // （7.12.11 源码核实），等 update-end 会让首次拖选的切片悬空、播放键拿不到起点（§5.1）
     subscriptions.push(
       regions.on('region-created', (region: Region) => {
         const previous = sliceRegionRef.current
         if (previous !== null && previous !== region) previous.remove()
         sliceRegionRef.current = region
+        updateSlice({ startTime: region.start, endTime: region.end })
         subscriptions.push(
           region.on('update', () => {
             draggingRef.current = true
