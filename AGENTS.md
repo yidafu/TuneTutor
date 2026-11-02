@@ -66,3 +66,4 @@ Data flow: MusicXML file → `processFile` → `musicxml-io` → OSMD renders; O
 - `docs/musicxml.md` — MusicXML 导入解析规格（tech.md 导入解析域拆分：导入管线与 .mxl 解包、连线符（连结线/连线）、停顿、连音、装饰音、倚音等全部标记的解析映射与契约承载、错误分类，含决策 M1–M10 与 musicxml-io 0.2.11 实测）；动 `processFile.ts`、`musicXMLParser.ts` 或标记域契约（`src/types/notation.ts`）前先读。
 - `docs/features/text-selection.md` — 二期拖拽多行框选规格（中文）；动框选相关代码（`selection.ts`/`layout.ts` 的拖拽部分）前先读。
 - `docs/prd.md` — feature list F1–F14 (F14 is phase-2) plus roadmap G1–G17, and interaction flows; `docs/ui-design.html` — visual/interaction baseline.
+- `docs/test-cases.md` — 测试用例清单（功能 → 自动化用例映射 TC-*、手动验收过单 TC-MAN、样例谱/夹具清单、已知盲区 §12）；补测试或动测试策略前先读，新增用例落对应域小节，盲区落地后注销。

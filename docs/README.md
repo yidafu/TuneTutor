@@ -16,6 +16,7 @@
 | [selection.md](./selection.md) | 选择交互技术规格：音符命中测试、双索引对齐、端点解析与 LoopRange 推导、选择状态机、覆盖层（自 tech.md §6 拆分扩写，含同类实现调研、spike 实测与决策 S1–S8） | 技术基线（选择域细则，权威） |
 | [musicxml.md](./musicxml.md) | MusicXML 导入解析技术规格：导入管线与 .mxl 解包、连线符（连结线/连线）、停顿、连音、装饰音、倚音等全部标记的解析映射与契约承载、错误分类（自 tech.md §2.2/§3 拆分扩写，含 musicxml-io 0.2.11 实测与决策 M1–M10） | 技术基线（导入解析域细则，权威） |
 | [features/](./features/) | 二期功能规格，逐功能一篇（当前：[text-selection.md](./features/text-selection.md) 拖拽多行框选、[skin-switching.html](./features/skin-switching.html) 皮肤切换） | 补充规格（不得与基线冲突） |
+| [test-cases.md](./test-cases.md) | 测试用例清单：功能（F1–F14 + 二期皮肤）→ 自动化用例映射（单元/集成/e2e，按域编号 TC-*）、手动验收过单（TC-MAN）、样例谱与夹具清单、已知盲区 | 用例清单（随实现维护；验证的行为契约以基线为准，冲突先修规格再修用例） |
 
 ## 阅读顺序
 
@@ -36,4 +37,5 @@
 - MusicXML 导入解析相关变更（`processFile.ts`、`musicXMLParser.ts`、标记域契约）改 [musicxml.md](./musicxml.md)，决策记录随变更更新；
 - 用户可见文案必须进四语言文件（硬约束，tech §8）；
 - 品牌标志与变体改 [brand.html](./brand.html)，矢量源文件放 `docs/brand/`，不放进 `public/`（那是会被构建产物直接暴露的代码目录）；favicon 由 `vite.config.ts` 的 `brandFavicon` 插件从 `docs/brand/tunetutor-app-icon.svg` 生成，不要在 `public/` 里再放一份副本。
+- 测试用例清单随用例增删与盲区认领更新 [test-cases.md](./test-cases.md)（新增合成夹具同步 fixtures.test.ts 清单断言，新增自动化用例落 §3–§9 对应域，盲区落地后从 §12 注销）；
 - 样例谱清单与 spike 验证结论记录于 tech §13。
