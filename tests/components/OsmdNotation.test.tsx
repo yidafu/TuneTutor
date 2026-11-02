@@ -12,6 +12,8 @@ import {
   FAKE_CONTAINER_RECT,
   FakeOsmdRender,
   TWO_ROW_SPEC,
+  specClientCoords,
+  stubElementFromPointBySpec,
   type FakeScoreSpec,
 } from '../helpers/osmdFake'
 
@@ -175,15 +177,25 @@ describe('OsmdNotation', () => {
     expect(summary).toMatchObject({ kind: 'measure', noteCount: 4 })
   })
 
-  it('双击两点设乐句（原生 dblclick）；重复信号幂等', async () => {
+  it('双击两点设乐句（原生 dblclick，capture 重定向后按坐标命中）；重复信号幂等', async () => {
     const { onSelectionChange } = setup()
     const notes = await waitForGeometry()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
 
-    fireEvent.doubleClick(notes[1]!)
+    // 真浏览器：pointer capture 把 dblclick 重定向到 stage（target=stage），组件用
+    // elementFromPoint 坐标命中——jsdom 无布局，桩按 osmdFake 坐标约定复刻该链路
+    const restore = stubElementFromPointBySpec(TWO_ROW_SPEC, notes)
+    const coords = specClientCoords(TWO_ROW_SPEC)
+    const at = (index: number): { clientX: number; clientY: number } => ({
+      clientX: coords[index]!.x,
+      clientY: coords[index]!.y,
+    })
+
+    fireEvent.doubleClick(stage, at(1))
     // pending 阶段：不提交
     expect(onSelectionChange).not.toHaveBeenCalled()
 
-    fireEvent.doubleClick(notes[4]!)
+    fireEvent.doubleClick(stage, at(4))
     await waitFor(() => expect(onSelectionChange).toHaveBeenCalled())
     expect(lastCall(onSelectionChange.mock.calls)[0]).toMatchObject({
       kind: 'phrase',
@@ -193,8 +205,10 @@ describe('OsmdNotation', () => {
 
     // 终点音符在窗口内的重复双击信号（触控双路径）不产生新 pending/提交
     const callsBefore = onSelectionChange.mock.calls.length
-    fireEvent.doubleClick(notes[4]!)
+    fireEvent.doubleClick(stage, at(4))
     expect(onSelectionChange.mock.calls.length).toBe(callsBefore)
+
+    restore()
   })
 
   it('空白拖拽 = 框选，抬手提交跨行区间；音符上拖拽不产生任何选择', async () => {

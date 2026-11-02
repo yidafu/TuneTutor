@@ -313,3 +313,41 @@ export function stubContainerRect(container: HTMLElement): void {
     toJSON: () => ({}),
   } as DOMRect)
 }
+
+/**
+ * 桩 document.elementFromPoint：按 spec 坐标约定（+ FAKE_CONTAINER_RECT 偏移）把
+ * client 坐标解析回音符头元素。真浏览器中 stage 在 pointerdown 时 setPointerCapture，
+ * click/dblclick 被重定向到 stage（target≠音符头），组件按坐标命中（S6，e2e 实测）；
+ * jsdom 无布局，双击类测试用本桩复刻该链路。返回卸载函数。
+ */
+export function stubElementFromPointBySpec(
+  spec: FakeScoreSpec,
+  elements: readonly HTMLElement[],
+): () => void {
+  const coords = spec.measures.flatMap((measure) =>
+    measure.notes.map((n) => ({
+      x: (n.x ?? 0) + FAKE_CONTAINER_RECT.x,
+      y: (n.y ?? 0) + FAKE_CONTAINER_RECT.y,
+    })),
+  )
+  Object.defineProperty(document, 'elementFromPoint', {
+    value: (x: number, y: number): Element | null => {
+      const index = coords.findIndex((c) => Math.abs(c.x - x) < 8 && Math.abs(c.y - y) < 8)
+      return (elements[index] as Element | undefined) ?? null
+    },
+    configurable: true,
+  })
+  return () => {
+    delete (document as unknown as Record<string, unknown>).elementFromPoint
+  }
+}
+
+/** spec 坐标 → client 坐标（与 stubElementFromPointBySpec 配套的事件坐标换算） */
+export function specClientCoords(spec: FakeScoreSpec): { x: number; y: number }[] {
+  return spec.measures.flatMap((measure) =>
+    measure.notes.map((n) => ({
+      x: (n.x ?? 0) + FAKE_CONTAINER_RECT.x,
+      y: (n.y ?? 0) + FAKE_CONTAINER_RECT.y,
+    })),
+  )
+}

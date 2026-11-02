@@ -323,6 +323,21 @@ export class NoteInteraction {
     return this.elementToPosition.get(notehead) ?? null
   }
 
+  /**
+   * 双击命中（S6）：stage 在 pointerdown 时 setPointerCapture，浏览器把后续
+   * pointerup/click/dblclick 一律重定向到 capture 元素（Chromium 156 实测，e2e 抓出），
+   * event.target 不再指向音符头——dblclick 必须按坐标重新命中。语义同 hitFromEvent
+   * （closest 主路径、无最近邻回落：空白双击不设乐句）。
+   */
+  hitFromClientPoint(clientX: number, clientY: number): NotePosition | null {
+    if (typeof document.elementFromPoint !== 'function') return null
+    const target = document.elementFromPoint(clientX, clientY)
+    if (!(target instanceof Element)) return null
+    const notehead = target.closest('.vf-notehead')
+    if (notehead === null) return null
+    return this.elementToPosition.get(notehead) ?? null
+  }
+
   /** 完整命中链（§3.4 三层）：elementsFromPoint → GetNearestNote 回落；空白 = null */
   hitAtPoint(clientX: number, clientY: number): NotePosition | null {
     if (typeof document.elementsFromPoint === 'function') {

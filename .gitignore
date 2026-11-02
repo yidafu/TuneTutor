@@ -29,3 +29,6 @@ dist-ssr
 spike/
 .agents/
 coverage/
+
+# e2e runner artifacts (reports, replay cache, dev-server logs)
+.e2e/

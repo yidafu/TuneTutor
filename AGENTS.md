@@ -16,9 +16,17 @@ pnpm build      # tsc -b + vite production build (also the typecheck)
 pnpm lint       # eslint
 pnpm test       # vitest watch/UI mode (currently --passWithNoTests until tests return)
 pnpm test:run   # vitest CI mode
+pnpm test:e2e   # tester-army/e2e browser integration tests (see below)
 ```
 
 Package manager is pnpm; Node 18+. There is no separate typecheck script — `pnpm build` is the type gate.
+
+## Browser E2E tests (tester-army/e2e)
+
+- Specs live in `tests/e2e/*.e2e.ts`; config in `e2e.config.ts`; runner artifacts under `.e2e/` (gitignored). The type gate covers them via the `tsconfig.e2e.json` reference in root `tsconfig.json`.
+- The runner self-hosts the Vite dev server with port `0` (it picks a free port and substitutes `{port}`) — it never races the 5173/5174 dev servers. Vite `base` is `/TuneTutor/`, so tests open absolute paths like `/TuneTutor/#/audio` (see `openApp` in `tests/e2e/helpers.ts`).
+- All steps are deterministic locators/assertions — no `agent.*` steps, so **no model API key is needed**. Requires Playwright chromium once (`npx playwright install chromium`).
+- UI-label assertions run in en-US: `openApp` pins `localStorage['note-slice-language']` via an init script before the first navigation.
 
 ## Target Architecture (docs/tech.md §2 is normative)
 

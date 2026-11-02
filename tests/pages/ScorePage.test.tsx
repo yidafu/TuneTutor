@@ -6,7 +6,13 @@ import { enUS } from '@/locales/en-US'
 import { createDemoScore } from '@/utils/createDemoScore'
 import { getStoredFile, listStoredFiles, saveStoredFile } from '@/utils/storage/indexedDB'
 import { renderWithProviders } from '../helpers/ui'
-import { FAKE_CONTAINER_RECT, FakeOsmdRender, TWO_ROW_SPEC } from '../helpers/osmdFake'
+import {
+  FAKE_CONTAINER_RECT,
+  FakeOsmdRender,
+  TWO_ROW_SPEC,
+  specClientCoords,
+  stubElementFromPointBySpec,
+} from '../helpers/osmdFake'
 
 // jsdom 无 SVG 布局能力，OSMD 以替身注入（渲染与指针管线契约在 OsmdNotation.test 覆盖）
 vi.mock('@/utils/notation/OsmdRender', async (importOriginal) => {
@@ -273,19 +279,27 @@ describe('ScorePage', () => {
   it('双击两点：乐句 chip（SelectionInfo + 覆盖层 pill）', async () => {
     renderScorePage()
     const notes = await waitForScoreNotes()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
 
-    fireEvent.doubleClick(notes[1]!)
-    fireEvent.doubleClick(notes[6]!)
+    // dblclick 经 stage 捕获重定向后按坐标命中（S6，真浏览器行为；桩见 osmdFake）
+    const restore = stubElementFromPointBySpec(TWO_ROW_SPEC, notes)
+    const coords = specClientCoords(TWO_ROW_SPEC)
+    try {
+      fireEvent.doubleClick(stage, { clientX: coords[1]!.x, clientY: coords[1]!.y })
+      fireEvent.doubleClick(stage, { clientX: coords[6]!.x, clientY: coords[6]!.y })
 
-    const chipText = `${enUS.selectionPhrase} · ${enUS.selectionMeasures(1, 3)} · ${enUS.selectionNoteCount(6)}`
-    // SelectionInfo chip 与 StatusBar 同步同一份摘要文案
-    await waitFor(() => expect(screen.getAllByText(chipText).length).toBeGreaterThanOrEqual(2))
-    // 覆盖层标签 pill：乐句 · 小节范围
-    await waitFor(() =>
-      expect(
-        screen.getAllByText(`${enUS.selectionPhrase} · ${enUS.selectionMeasures(1, 3)}`).length,
-      ).toBeGreaterThanOrEqual(1),
-    )
+      const chipText = `${enUS.selectionPhrase} · ${enUS.selectionMeasures(1, 3)} · ${enUS.selectionNoteCount(6)}`
+      // SelectionInfo chip 与 StatusBar 同步同一份摘要文案
+      await waitFor(() => expect(screen.getAllByText(chipText).length).toBeGreaterThanOrEqual(2))
+      // 覆盖层标签 pill：乐句 · 小节范围
+      await waitFor(() =>
+        expect(
+          screen.getAllByText(`${enUS.selectionPhrase} · ${enUS.selectionMeasures(1, 3)}`).length,
+        ).toBeGreaterThanOrEqual(1),
+      )
+    } finally {
+      restore()
+    }
   })
 
   it('Esc = 停止并清除选择（tech.md §6.3）；播放中的 Space 不受影响', async () => {

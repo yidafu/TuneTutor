@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:e2e": "e2e run"
   },
   "dependencies": {
     "@stylexjs/shared": "^0.19.1",
@@ -35,6 +36,7 @@
     "xml-js": "^1.6.11"
   },
   "devDependencies": {
+    "@e2e-dev/web": "^0.15.3",
     "@eslint/js": "^9.39.1",
     "@stylexjs/rollup-plugin": "^0.19.1",
     "@testing-library/dom": "^10.4.2",
@@ -46,6 +48,7 @@
     "@vitejs/plugin-react-swc": "^4.2.2",
     "@vitest/coverage-v8": "4.0.17",
     "@vitest/ui": "^4.0.17",
+    "e2e": "^0.21.3",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -54,6 +57,7 @@
     "pdf-parse": "^2.4.5",
     "pdf2json": "^4.0.1",
     "pdfjs-dist": "^5.4.530",
+    "playwright": "^1.64.1",
     "playwright-core": "^1.62.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",

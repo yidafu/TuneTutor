@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   checkPairingGeometry,
@@ -267,6 +267,34 @@ describe('DOM 配对三层防线（selection.md §3.3）', () => {
     // 空白目标（非 notehead、无回落命中）→ null = 框选入口
     const blank = interaction.hitFromEvent({ target: container, clientX: 0, clientY: 0 })
     expect(blank).toBeNull()
+    container.remove()
+  })
+
+  it('hitFromClientPoint：按坐标命中（pointer capture 把 dblclick target 重定向到 stage，e2e 实测）', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    stubContainerRect(container)
+    const spec: FakeScoreSpec = {
+      measures: [{ notes: [{ x: 60, y: 40 }, { x: 120, y: 40 }] }],
+    }
+    const { osmd, elements } = buildFakeScore(spec, container)
+    const interaction = new NoteInteraction(osmd as never, container)
+    interaction.build()
+
+    // elementFromPoint 返回音符头 → 命中；返回空白 → null（无最近邻回落：空白双击不设乐句）
+    const elementFromPoint = vi.fn<(x: number, y: number) => Element | null>()
+      .mockReturnValueOnce(elements[0] as unknown as Element)
+      .mockReturnValueOnce(container)
+    Object.defineProperty(document, 'elementFromPoint', {
+      value: elementFromPoint,
+      configurable: true,
+    })
+    try {
+      expect(interaction.hitFromClientPoint(60, 40)?.noteIndex).toBe(0)
+      expect(interaction.hitFromClientPoint(999, 999)).toBeNull()
+    } finally {
+      delete (document as unknown as Record<string, unknown>).elementFromPoint
+    }
     container.remove()
   })
 

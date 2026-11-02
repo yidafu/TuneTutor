@@ -336,6 +336,9 @@ export default function OsmdNotation({
 
   // 内容装载：rawContent 变更即重载（幂等），换谱清选择（选择是谱内会话态，S8）。
   // 首次挂载不回调清除（选择本来为空，避免无意义的父级状态更新）。
+  // 每次挂载用独立 host div 承载 OSMD：StrictMode 卸载-重挂载后，旧 renderer 的
+  // load() 在途、其内部 render() 迟到执行时画进已脱离 DOM 的旧 host，不污染新渲染
+  // （否则同容器双份 .vf-notehead，zip 计数守卫判失配 → 几何缓存整条降级为空）。
   const loadedContentRef = useRef<string | undefined>(undefined)
   useEffect(() => {
     const container = containerRef.current
@@ -349,7 +352,9 @@ export default function OsmdNotation({
       settingsRef.current.onSelectionChange(null, null)
     }
     loadedContentRef.current = rawContent
-    const renderer = new OsmdRender(container)
+    const host = document.createElement('div')
+    container.replaceChildren(host)
+    const renderer = new OsmdRender(host)
     rendererRef.current = renderer
     loadingRef.current = true
     void (async () => {
@@ -358,7 +363,7 @@ export default function OsmdNotation({
         if (cancelled) return
         await renderer.waitForSvgContent()
         if (cancelled) return
-        rebuild(renderer, container)
+        rebuild(renderer, host)
         emitPlaybackData(renderer, rawContent)
       } catch (error: unknown) {
         console.error('[OsmdNotation] render failed:', error)
@@ -368,7 +373,7 @@ export default function OsmdNotation({
     })()
     return () => {
       cancelled = true
-      container.innerHTML = ''
+      container.replaceChildren()
     }
   }, [rawContent, rebuild, destroyPending, emitPlaybackData])
 
@@ -436,6 +441,21 @@ export default function OsmdNotation({
 
   const handleTapSelect = useCallback(
     (note: NotePosition) => {
+      // 双击第二击的让位（e2e 实测的覆盖序）：useDoubleTap 挂在 document 的 pointerdown
+      // 上，先于本 up handler 运行——同一手势里它要么刚建立 pending（第一击的 down2），
+      // 要么刚以本音符为终点提交乐句（第二击的 down2）。两种情形下本次 tap 都是尾巴：
+      // - pending 已是同一音符 → 跳过，避免启动销毁定时器缩窄乐句窗口；
+      // - 乐句刚提交 → 跳过，避免 measure 提交覆盖刚提交的乐句。
+      const pendingForTap = pendingRef.current
+      if (pendingForTap !== null && pendingForTap.noteIndex === note.noteIndex) return
+      const lastCommit = lastPhraseCommitRef.current
+      if (
+        lastCommit !== null &&
+        lastCommit.endIndex === note.noteIndex &&
+        Date.now() - lastCommit.at < PENDING_DESTROY_MS
+      ) {
+        return
+      }
       // 单击 = 即时选小节（零延迟，S6）；pending 不直接破坏，进入延迟销毁窗口（§4.3）
       if (pendingRef.current !== null && pendingTimerRef.current === null) {
         pendingTimerRef.current = window.setTimeout(() => destroyPending(), PENDING_DESTROY_MS)
@@ -701,7 +721,8 @@ export default function OsmdNotation({
 
     const onDoubleClick = (event: MouseEvent): void => {
       if (Date.now() < suppressDoubleRef.current) return
-      const note = interactionRef.current?.hitFromEvent(event) ?? null
+      // capture 重定向使 event.target 恒为 stage，dblclick 命中必须按坐标（S6）
+      const note = interactionRef.current?.hitFromClientPoint(event.clientX, event.clientY) ?? null
       if (note !== null) handlePhraseTap(note)
     }
 
