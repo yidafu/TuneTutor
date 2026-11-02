@@ -222,6 +222,67 @@ describe('OsmdNotation', () => {
     expect(onSelectionChange.mock.calls.length).toBe(callsBefore)
   })
 
+  it('框选拖拽期间选中区域实时预览（不提交），抬手才 commit', async () => {
+    const { onSelectionChange } = setup()
+    const stage = (await waitForGeometry()) && (document.querySelector('[data-osmd-stage]') as HTMLElement)
+
+    pointerDown(stage, 90, 30)
+    pointerMove(stage, 130, 30)
+    // 起板即预览：第一行盖到音符 1，行带 + 音符高亮在拖拽中就出现
+    await waitFor(() => expect(stage.querySelectorAll('[data-band]')).toHaveLength(1))
+    expect(stage.querySelectorAll('[data-note-highlight]')).toHaveLength(1)
+    expect(onSelectionChange).not.toHaveBeenCalled()
+
+    // 拖到第二行：行带与音符高亮随拖动实时扩展
+    pointerMove(stage, 130, 190)
+    await waitFor(() => expect(stage.querySelectorAll('[data-band]')).toHaveLength(2))
+    expect(stage.querySelectorAll('[data-note-highlight]')).toHaveLength(7)
+    expect(onSelectionChange).not.toHaveBeenCalled()
+
+    // 抬手提交，预览移交 committed（同一批次，视觉无空档）
+    pointerUp(stage, 130, 190)
+    await waitFor(() => expect(onSelectionChange).toHaveBeenCalledTimes(1))
+    expect(lastCall(onSelectionChange.mock.calls)[0]).toMatchObject({
+      kind: 'box',
+      startIndex: 1,
+      endIndex: 7,
+    })
+  })
+
+  it('拖拽中按下 Shift 即时并入预览与提交（修饰键取最新事件状态，§4.2 v1.6）', async () => {
+    const { onSelectionChange } = setup()
+    const stage = (await waitForGeometry()) && (document.querySelector('[data-osmd-stage]') as HTMLElement)
+
+    // 先框选提交 [1..1]（同款坐标：第一行盖到音符 1）
+    pointerDown(stage, 90, 30)
+    pointerMove(stage, 130, 30)
+    pointerUp(stage, 130, 30)
+    await waitFor(() => expect(onSelectionChange).toHaveBeenCalledTimes(1))
+    expect(lastCall(onSelectionChange.mock.calls)[0]).toMatchObject({
+      kind: 'box',
+      startIndex: 1,
+      endIndex: 1,
+    })
+
+    // 第二次框选音符 4、5：先无 Shift（独立区间 ≠ 已提交的 1 个高亮，等待非空），
+    // 中途按下 Shift → 预览即时并成 [1..5]（applyBoxModifiers 并集）
+    pointerDown(stage, 290, 40) // 音符 3/4 之间的空白起板
+    pointerMove(stage, 370, 40) // 盖到音符 4、5（中心 306/366），未按 Shift
+    await waitFor(() => expect(stage.querySelectorAll('[data-note-highlight]')).toHaveLength(2))
+
+    pointerMove(stage, 370, 40, { shiftKey: true }) // 同位置按下 Shift 并入既有 [1..1]
+    await waitFor(() => expect(stage.querySelectorAll('[data-note-highlight]')).toHaveLength(5))
+    expect(onSelectionChange).toHaveBeenCalledTimes(1) // 仍是预览，未提交
+
+    pointerUp(stage, 370, 40)
+    await waitFor(() => expect(onSelectionChange).toHaveBeenCalledTimes(2))
+    expect(lastCall(onSelectionChange.mock.calls)[0]).toMatchObject({
+      kind: 'box',
+      startIndex: 1,
+      endIndex: 5,
+    })
+  })
+
   it('拖拽中 pointercancel 中止，不产生选择', async () => {
     const { onSelectionChange } = setup()
     const stage = (await waitForGeometry()) && (document.querySelector('[data-osmd-stage]') as HTMLElement)
@@ -231,6 +292,20 @@ describe('OsmdNotation', () => {
     fireEvent.pointerCancel(stage, { pointerId: 1 })
     pointerUp(stage, 200, 100)
 
+    expect(onSelectionChange).not.toHaveBeenCalled()
+  })
+
+  it('pointercancel 清除拖拽实时预览，不留选中视觉', async () => {
+    const { onSelectionChange } = setup()
+    const stage = (await waitForGeometry()) && (document.querySelector('[data-osmd-stage]') as HTMLElement)
+
+    pointerDown(stage, 90, 30)
+    pointerMove(stage, 130, 30)
+    await waitFor(() => expect(stage.querySelectorAll('[data-band]')).toHaveLength(1))
+
+    fireEvent.pointerCancel(stage, { pointerId: 1 })
+    await waitFor(() => expect(stage.querySelectorAll('[data-band]')).toHaveLength(0))
+    expect(stage.querySelectorAll('[data-note-highlight]')).toHaveLength(0)
     expect(onSelectionChange).not.toHaveBeenCalled()
   })
 

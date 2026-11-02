@@ -175,7 +175,7 @@ interface RowHighlightRect {
 
 原则（自 v1 原稿继承，仍然成立）：
 
-1. **原生实现，减少 React 介入**：pointer 事件用原生监听；拖拽中的高频更新不进 React state，抬手才提交 `DragSelection`。
+1. **原生实现，减少 React 介入**：pointer 事件用原生监听；拖拽中的高频更新不整体进 React state——橡皮筋矩形直写覆盖层 style，选中区域实时预览按覆盖到的 noteIndex 区间**变化门控**进 state（rAF 合帧，selection.md §4.2 v1.6），抬手才提交 `DragSelection`。
 2. **只更新覆盖层**：选择高亮与边界句柄画在独立覆盖层（`PhraseMarkers` 同款叠加模式），任何选择变化都不得触发 OSMD 重渲染。
 3. **坐标缓存**：音符位置与行几何渲染后缓存、渲染后失效（机制已在 tech §6.1 与 [selection.md](../selection.md) §3.2 中，框选复用）。
 4. **索引同源**：命中与范围一律以全曲连续 `noteIndex` 为准（selection.md §2.1 双索引约束：与 `buildPlaybackData` 同一遍历序、装饰音/延音不占位），坐标只用于命中与绘制。
@@ -196,6 +196,7 @@ v1 原稿的完整原型代码（双层 Canvas 渲染、Indicator 组件、Selec
 
 - [ ] 单行内可拖拽选择任意范围的音符
 - [ ] 拖到行尾继续向右自动延续到下一行；多行选择每行连续高亮且有跨行视觉连接
+- [ ] 拖拽期间选中区域实时预览（行带/音符高亮随拖动扩展收缩；矩形下没有音符时保持现有选择；pointercancel 清除预览；抬手提交）
 - [ ] 反向拖拽自动收缩/扩展
 - [ ] 选中区域左右边界有可拖拽的竖线句柄
 - [ ] Shift+拖拽扩展选择；Ctrl/Cmd+拖拽切换选择

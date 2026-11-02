@@ -10,7 +10,8 @@ import { useI18n } from '../locales/useI18n'
  * 选择视觉——pending 起点弱高亮、committed 行带与音符高亮、START/END 旗标与括号、
  * 标签 pill、（框选）边界句柄与拖拽实时矩形。除边界句柄外 pointer-events: none；
  * 坐标全部读渲染后 rect 缓存（零 DOM 读取），任何选择变化不触发 OSMD 重渲染。
- * 拖拽高频更新由 OsmdNotation 经 dragLayerRef 直写 style，不进 React state（§4.2）。
+ * 拖拽高频更新由 OsmdNotation 经 dragLayerRef 直写 style，不进 React state（§4.2）；
+ * 拖拽中的选中区域实时预览（previewSelection，区间变化门控）优先于 committed 渲染。
  */
 const styles = stylex.create({
   root: {
@@ -122,6 +123,8 @@ interface ScoreSelectionOverlayProps {
   /** pending 起点音符（弱高亮），无则 null */
   pendingNoteIndex: number | null
   selection: ScoreSelection | null
+  /** 框选拖拽实时预览（§4.2 v1.6）；null/undefined = 未拖拽或矩形下无可选区间，回落 selection */
+  previewSelection?: ScoreSelection | null
   /** 播放中音符（金铜光标带，audio.md §3.8 引擎指针直读）；null = 未播放 */
   playingNoteIndex?: number | null
   /** 拖拽实时矩形层（pointermove 期间由容器直写 style；句柄按下由容器 closest 路由） */
@@ -133,22 +136,26 @@ export default function ScoreSelectionOverlay({
   rows,
   pendingNoteIndex,
   selection,
+  previewSelection,
   playingNoteIndex = null,
   dragLayerRef,
 }: ScoreSelectionOverlayProps) {
   const { t } = useI18n()
 
+  // 拖拽中预览优先（实时选中框跟随拖动）；null 回落 committed，避免未盖到音符时闪烁清空
+  const active = previewSelection ?? selection
+
   const highlights = useMemo(
-    () => (selection === null ? [] : computeRowHighlights(selection, positions, rows)),
-    [selection, positions, rows],
+    () => (active === null ? [] : computeRowHighlights(active, positions, rows)),
+    [active, positions, rows],
   )
 
   const selectedNotes = useMemo(() => {
-    if (selection === null) return []
+    if (active === null) return []
     return positions.filter(
-      (p) => p.occupiesSlot && p.noteIndex >= selection.startIndex && p.noteIndex <= selection.endIndex,
+      (p) => p.occupiesSlot && p.noteIndex >= active.startIndex && p.noteIndex <= active.endIndex,
     )
-  }, [selection, positions])
+  }, [active, positions])
 
   const pendingNote = useMemo(() => {
     if (pendingNoteIndex === null) return null
@@ -170,13 +177,13 @@ export default function ScoreSelectionOverlay({
   const lastRow = highlights[highlights.length - 1]
 
   const measuresText =
-    selection !== null
-      ? t.selectionMeasures(selection.startMeasureIndex + 1, selection.endMeasureIndex + 1)
+    active !== null
+      ? t.selectionMeasures(active.startMeasureIndex + 1, active.endMeasureIndex + 1)
       : ''
   const pillText =
-    selection === null
+    active === null
       ? ''
-      : selection.kind === 'box'
+      : active.kind === 'box'
         ? `${t.selectionBox} · ${measuresText}`
         : `${t.selectionPhrase} · ${measuresText}`
 
@@ -197,6 +204,7 @@ export default function ScoreSelectionOverlay({
       {highlights.map((rect) => (
         <div
           key={`band-${rect.rowIndex}`}
+          data-band={rect.rowIndex}
           {...stylex.props(styles.band)}
           style={{ left: rect.x1, top: rect.y, width: rect.x2 - rect.x1, height: rect.height }}
         />
@@ -204,6 +212,7 @@ export default function ScoreSelectionOverlay({
       {selectedNotes.map((note) => (
         <div
           key={`note-${note.graphicIndex}`}
+          data-note-highlight=""
           {...stylex.props(styles.note)}
           style={{ left: note.x - 1, top: note.y - 1, width: note.width + 2, height: note.height + 2 }}
         />
@@ -239,7 +248,7 @@ export default function ScoreSelectionOverlay({
           />
         </>
       )}
-      {selection !== null && firstRow !== undefined && (
+      {active !== null && firstRow !== undefined && (
         <div
           {...stylex.props(styles.pill)}
           style={{
@@ -252,6 +261,7 @@ export default function ScoreSelectionOverlay({
       )}
       {pendingNote !== null && (
         <div
+          data-pending=""
           {...stylex.props(styles.pending)}
           style={{
             left: pendingNote.x - 2,
@@ -261,7 +271,7 @@ export default function ScoreSelectionOverlay({
           }}
         />
       )}
-      {selection?.kind === 'box' && firstRow !== undefined && lastRow !== undefined && (
+      {active?.kind === 'box' && firstRow !== undefined && lastRow !== undefined && (
         <>
           <div
             {...stylex.props(styles.handle)}

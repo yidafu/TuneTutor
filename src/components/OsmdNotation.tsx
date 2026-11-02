@@ -136,11 +136,23 @@ type Gesture =
       y0: number
       x1: number
       y1: number
+      /** 容器原点（起板帧缓存一次）：拖拽中的矩形换算零 getBoundingClientRect */
+      originX: number
+      originY: number
       shift: boolean
       ctrlOrMeta: boolean
     }
   | { kind: 'handle'; pointerId: number; side: 'start' | 'end' }
   | { kind: 'cancelled'; pointerId: number }
+
+type BoxGesture = Extract<Gesture, { kind: 'box' }>
+
+/** 框选矩形解析结果（预览与提交共用，保证所见即所提） */
+type BoxOutcome =
+  | { action: 'keep' }
+  | { action: 'clear' }
+  | { action: 'invalid' }
+  | { action: 'commit'; selection: ScoreSelection }
 
 interface PendingStart {
   noteIndex: number
@@ -150,12 +162,32 @@ interface PendingStart {
 
 const SUPPRESS_DOUBLE_MS = 400
 
+/** 手势 client 坐标 → 容器相对 DragRect（§5.2 坐标契约：减容器原点而非 stage） */
+function gestureRect(gesture: {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+  originX: number
+  originY: number
+}): DragRect {
+  const originX = gesture.originX
+  const originY = gesture.originY
+  return {
+    x1: Math.min(gesture.x0, gesture.x1) - originX,
+    y1: Math.min(gesture.y0, gesture.y1) - originY,
+    x2: Math.max(gesture.x0, gesture.x1) - originX,
+    y2: Math.max(gesture.y0, gesture.y1) - originY,
+  }
+}
+
 /**
  * 纸面乐谱卡渲染区 + 页脚（docs/tech.md §6.1、docs/selection.md §4）。
  * 持有 OSMD 实例与音符缓存：渲染/缩放/换肤/容器尺寸变化后全量重建；
  * 指针管线 = 原生监听（text-selection.md §6 原则 1）：单击音符选小节（零延迟）、
  * 双击两点设乐句（原生 dblclick + useDoubleTap 双路径幂等，S6）、空白拖拽框选（4px
- * slop 起板，抬手提交）、边界句柄微调；拖拽高频更新直写覆盖层不进 React state。
+ * slop 起板，拖拽中实时预览选中区域——橡皮筋矩形直写 style、覆盖区间变化门控进
+ * state，§4.2 v1.6；抬手提交）、边界句柄微调。
  */
 export default function OsmdNotation({
   rawContent,
@@ -185,6 +217,9 @@ export default function OsmdNotation({
   const [zoom, setZoom] = useState(1)
   const [geometry, setGeometry] = useState<{ positions: NotePosition[]; rows: RowGeometry[] } | null>(null)
   const [pendingNoteIndex, setPendingNoteIndex] = useState<number | null>(null)
+  // 框选拖拽实时预览（§4.2 v1.6）：由拖拽帧按覆盖区间现算、区间变化时才更新；
+  // null = 未拖拽或矩形下无可选区间（覆盖层回落 committed selection）
+  const [boxPreview, setBoxPreview] = useState<ScoreSelection | null>(null)
 
   // 跨 render 的最新值镜像：原生监听只挂一次，回调经 ref 读最新 props/几何
   const settingsRef = useRef({ selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady })
@@ -446,25 +481,30 @@ export default function OsmdNotation({
     [destroyPending, commitSelection],
   )
 
+  /** 框选矩形 → 选择产物。预览与提交共用本解析（所见即所提），修饰键语义见 applyBoxModifiers */
+  const resolveBox = useCallback(
+    (rect: DragRect, shift: boolean, ctrlOrMeta: boolean): BoxOutcome => {
+      const geo = geometryRef.current
+      if (geo === null) return { action: 'keep' }
+      const box = computeBoxSelection(rect, geo.positions, geo.rows)
+      if (box === null) return { action: 'keep' } // 没盖到音符：不产生选择（text-selection.md §3.4）
+      const adjusted = applyBoxModifiers(settingsRef.current.selection, box, { shift, ctrlOrMeta })
+      if (adjusted === null) return { action: 'clear' }
+      const next = createBoxSelection(adjusted.startIndex, adjusted.endIndex, geo.positions)
+      if (next === null) return { action: 'invalid' }
+      return { action: 'commit', selection: next }
+    },
+    [],
+  )
+
   const commitBox = useCallback(
     (rect: DragRect, shift: boolean, ctrlOrMeta: boolean) => {
-      const geo = geometryRef.current
-      if (geo === null) return
-      const box = computeBoxSelection(rect, geo.positions, geo.rows)
-      if (box === null) return // 没盖到音符：不产生选择（text-selection.md §3.4）
-      const adjusted = applyBoxModifiers(settingsRef.current.selection, box, { shift, ctrlOrMeta })
-      if (adjusted === null) {
-        commitSelection(null)
-        return
-      }
-      const next = createBoxSelection(adjusted.startIndex, adjusted.endIndex, geo.positions)
-      if (next === null) {
-        settingsRef.current.onSelectionInvalid()
-        return
-      }
-      commitSelection(next)
+      const outcome = resolveBox(rect, shift, ctrlOrMeta)
+      if (outcome.action === 'commit') commitSelection(outcome.selection)
+      else if (outcome.action === 'clear') commitSelection(null)
+      else if (outcome.action === 'invalid') settingsRef.current.onSelectionInvalid()
     },
-    [commitSelection],
+    [resolveBox, commitSelection],
   )
 
   const commitHandle = useCallback(
@@ -487,21 +527,17 @@ export default function OsmdNotation({
     [commitSelection],
   )
 
-  // ── 拖拽实时矩形（直写 style，不进 React state；§4.2）────────────────
+  // ── 拖拽实时反馈（§4.2 v1.6）：橡皮筋矩形直写 style 不进 state；选中区域实时
+  // 预览按覆盖区间变化门控进 React state（rAF 合帧，区间未变时返回原引用跳过重渲染）──
 
-  const writeDragRect = useCallback((gesture: { x0: number; y0: number; x1: number; y1: number }) => {
+  const writeDragRect = useCallback((rect: DragRect) => {
     const layer = dragLayerRef.current
-    const boxRect = containerRef.current?.getBoundingClientRect()
-    if (layer === null || boxRect === undefined) return
-    const x1 = Math.min(gesture.x0, gesture.x1) - boxRect.x
-    const y1 = Math.min(gesture.y0, gesture.y1) - boxRect.y
-    const x2 = Math.max(gesture.x0, gesture.x1) - boxRect.x
-    const y2 = Math.max(gesture.y0, gesture.y1) - boxRect.y
+    if (layer === null) return
     layer.style.display = 'block'
-    layer.style.left = `${x1}px`
-    layer.style.top = `${y1}px`
-    layer.style.width = `${x2 - x1}px`
-    layer.style.height = `${y2 - y1}px`
+    layer.style.left = `${rect.x1}px`
+    layer.style.top = `${rect.y1}px`
+    layer.style.width = `${rect.x2 - rect.x1}px`
+    layer.style.height = `${rect.y2 - rect.y1}px`
   }, [])
 
   const hideDragRect = useCallback(() => {
@@ -509,40 +545,57 @@ export default function OsmdNotation({
     if (layer !== null) layer.style.display = 'none'
   }, [])
 
-  const scheduleDragRect = useCallback(
-    (gesture: { x0: number; y0: number; x1: number; y1: number }) => {
+  const runDragFrame = useCallback(
+    (gesture: BoxGesture) => {
+      dragFrameRef.current = null
+      const rect = gestureRect(gesture)
+      writeDragRect(rect)
+      const outcome = resolveBox(rect, gesture.shift, gesture.ctrlOrMeta)
+      const preview = outcome.action === 'commit' ? outcome.selection : null
+      setBoxPreview((prev) =>
+        prev !== null &&
+        preview !== null &&
+        prev.startIndex === preview.startIndex &&
+        prev.endIndex === preview.endIndex
+          ? prev
+          : preview,
+      )
+    },
+    [writeDragRect, resolveBox],
+  )
+
+  const scheduleDragFrame = useCallback(
+    (gesture: BoxGesture) => {
       if (dragFrameRef.current !== null) return
       const frame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null
       if (frame === null) {
-        writeDragRect(gesture)
+        runDragFrame(gesture)
         return
       }
-      dragFrameRef.current = frame(() => {
-        dragFrameRef.current = null
-        writeDragRect(gesture)
-      })
+      dragFrameRef.current = frame(() => runDragFrame(gesture))
     },
-    [writeDragRect],
+    [runDragFrame],
   )
+
+  /**
+   * 取消挂起的拖拽帧：帧闭包捕获的是当次手势对象，手势结束（up/cancel）后迟到
+   * 触发会画出幽灵矩形并回写过期预览（快于 16ms 的点拖、后台标签页 rAF 节流）；
+   * 同时不取消会让 dragFrameRef 卡在非空，下一手势的首批 move 被边沿触发丢弃。
+   */
+  const cancelDragFrame = useCallback((): void => {
+    const frame = typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : null
+    const id = dragFrameRef.current
+    if (id !== null) {
+      dragFrameRef.current = null
+      frame?.(id)
+    }
+  }, [])
 
   // ── 指针事件管线（S5：原生监听 + setPointerCapture + 4px slop + pointercancel 中止）──
 
   useEffect(() => {
     const stage = stageRef.current
     if (stage === null) return
-
-    const localRect = (gesture: { x0: number; y0: number; x1: number; y1: number }): DragRect => {
-      // 与 positions 同一坐标系（容器相对，S4）：框选矩形必须减容器 rect 而非 stage
-      const boxRect = containerRef.current?.getBoundingClientRect()
-      const ox = boxRect?.x ?? 0
-      const oy = boxRect?.y ?? 0
-      return {
-        x1: Math.min(gesture.x0, gesture.x1) - ox,
-        y1: Math.min(gesture.y0, gesture.y1) - oy,
-        x2: Math.max(gesture.x0, gesture.x1) - ox,
-        y2: Math.max(gesture.y0, gesture.y1) - oy,
-      }
-    }
 
     const onPointerDown = (event: PointerEvent): void => {
       if (event.isPrimary === false || event.button !== 0) return
@@ -581,25 +634,35 @@ export default function OsmdNotation({
           return
         }
         // 音符上起板拖拽不进入框选（text-selection.md §3.4）；空白起板 = 框选
-        gestureRef.current =
-          gesture.note === null
-            ? {
-                kind: 'box',
-                pointerId: gesture.pointerId,
-                x0: gesture.x0,
-                y0: gesture.y0,
-                x1: event.clientX,
-                y1: event.clientY,
-                shift: event.shiftKey,
-                ctrlOrMeta: event.ctrlKey || event.metaKey,
-              }
-            : { kind: 'cancelled', pointerId: gesture.pointerId }
+        if (gesture.note !== null) {
+          gestureRef.current = { kind: 'cancelled', pointerId: gesture.pointerId }
+          return
+        }
+        // 容器原点起板帧缓存一次：拖拽中的矩形换算与预览零 getBoundingClientRect
+        const boxRect = containerRef.current?.getBoundingClientRect()
+        const box: BoxGesture = {
+          kind: 'box',
+          pointerId: gesture.pointerId,
+          x0: gesture.x0,
+          y0: gesture.y0,
+          x1: event.clientX,
+          y1: event.clientY,
+          originX: boxRect?.x ?? 0,
+          originY: boxRect?.y ?? 0,
+          shift: event.shiftKey,
+          ctrlOrMeta: event.ctrlKey || event.metaKey,
+        }
+        gestureRef.current = box
+        scheduleDragFrame(box)
         return
       }
       if (gesture.kind === 'box') {
         gesture.x1 = event.clientX
         gesture.y1 = event.clientY
-        scheduleDragRect(gesture)
+        // 修饰键取最新事件状态：拖拽中按下/松开 Shift/Ctrl 即时反映到预览与提交（§4.2 v1.6）
+        gesture.shift = event.shiftKey
+        gesture.ctrlOrMeta = event.ctrlKey || event.metaKey
+        scheduleDragFrame(gesture)
       }
     }
 
@@ -612,8 +675,10 @@ export default function OsmdNotation({
         return
       }
       if (gesture.kind === 'box') {
+        cancelDragFrame()
         hideDragRect()
-        commitBox(localRect(gesture), gesture.shift, gesture.ctrlOrMeta)
+        setBoxPreview(null) // 预览移交提交（同一事件批次内合帧，无中间空档）
+        commitBox(gestureRect(gesture), gesture.shift, gesture.ctrlOrMeta)
         // 抬手抑制双击（验收：拖拽期间不触发双击选乐句）
         suppressDoubleRef.current = Date.now() + SUPPRESS_DOUBLE_MS
         return
@@ -629,7 +694,9 @@ export default function OsmdNotation({
       if (gesture === null || event.pointerId !== gesture.pointerId) return
       // 浏览器接管手势（滚动/缩放）：中止，不产生任何选择（§4.2）
       gestureRef.current = null
+      if (gesture.kind === 'box') cancelDragFrame()
       hideDragRect()
+      setBoxPreview(null)
     }
 
     const onDoubleClick = (event: MouseEvent): void => {
@@ -650,7 +717,7 @@ export default function OsmdNotation({
       stage.removeEventListener('pointercancel', onPointerCancel)
       stage.removeEventListener('dblclick', onDoubleClick)
     }
-  }, [handleTapSelect, handlePhraseTap, commitBox, commitHandle, hideDragRect, scheduleDragRect])
+  }, [handleTapSelect, handlePhraseTap, commitBox, commitHandle, hideDragRect, scheduleDragFrame, cancelDragFrame])
 
   // 触控双击路径（iOS/iPadOS Safari 不触发原生 dblclick，WebKit bug 202143；S6 v1.3）
   useDoubleTap(
@@ -692,6 +759,7 @@ export default function OsmdNotation({
                 rows={geometry.rows}
                 pendingNoteIndex={pendingNoteIndex}
                 selection={selection}
+                previewSelection={boxPreview}
                 playingNoteIndex={playingNoteIndex}
                 dragLayerRef={dragLayerRef}
               />

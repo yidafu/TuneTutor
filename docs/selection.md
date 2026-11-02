@@ -1,9 +1,9 @@
 # TuneTutor 乐谱选择交互技术规格
 
-**版本**: 1.5
+**版本**: 1.6
 **日期**: 2026-10-18
 **状态**: P2 已落地（实现与本文同步；偏差随实现回写本文）
-**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。v1.3 补触控缺口:iOS/iPadOS Safari 触控不触发原生 `dblclick`（WebKit bug 202143）,S6 的乐句双击在触控面必须并用 pointer 双击检测（§4.3,原曲页已落地 `useDoubleTap` 同款机制）;PC 鼠标与 iPad 触控双平台是硬要求（AGENTS.md 交互约定）。**v1.4（2026-10-18,P2 落地回写）**:①命中链拆分为「路由命中」（closest + elementsFromPoint,不做最近邻吸附——空白必须可达为框选入口,决策 S9）与「完整命中链」（句柄微调才走 GetNearestNote 回落）,§3.4 同步;②graphicIndex 只计可渲染音符（PrintObject ≠ false）,不可渲染音符仍占 noteIndex 播放位,§3.3 同步;③小节模式区间内无发音条目时由区间外条目夹出（曲首全休止小节可选,spike V6）,§2.4 同步;④框选修饰键在单区间 LoopRange 模型下的 toggle 语义 = 重叠裁剪取较长剩余段（决策 S10,features/text-selection.md §3.5 同步）;⑤pending 清零走显式信号（selection 保持 null 时 effect 不可达）,§4.3 同步;⑥autoResize 关闭,重渲染统一由组件 ResizeObserver 防抖驱动、与音符缓存失效同路,§3.2 同步。**v1.5（2026-10-18,随 audio.md v2.7 决策 A17）**:§2.3 发音/装饰音端点解析改**同 noteIndex 组跨度**——倚音发声与装饰音展开后,切片子条目与主音共号（audio.md §2.2-8/9）,区间 = 组首起到组末条目末刻（循环区间含倚音起点、终点不砍主音尾）;装饰音宿主为休止占位时回落下一发音条目。`noteIndex` 计数与 `occupiesPlaybackSlot` 不变。
+**变更**: 自 [tech.md](./tech.md) v2.1 §6 的选择交互部分（原 §6.2 命中测试 / §6.3 选择模型）拆分并扩写;成文前完成同类实现调研（乐谱类:OSMD、osmd-audio-player、alphaTab、Flat embed、Soundslice、MuseScore;通用选区模型:DOM Selection API、ProseMirror、Pointer 事件与 rubber-band 模式,摘录见 §9）与三样例谱的 spike 实测（§8）。本文生效后 tech.md 对应章节降为摘要。v1.1 将 §5.2 语义色对齐 ui-design v3「纸墨排练室」tokens——v1.0 引用的 v2 变量（`--iris` 鸢尾紫/`--loop` 橙）在 v3 已不存在,且 v3 中 START/END 括号同为朱砂 `--verm`、仅箭头方向区分（原「END = 红」作废）。v1.2 随 audio.md v2.0 架构变更:秒域「时间轴」表述全部改为乐谱时域「播放数据」;`LoopRange` 字段改 `startRv/endRv/skipBeats`（乐谱时域 + 拍,BPM 无关）;§2.3/§2.4/§4.5/§7/§9.4/决策 S8 同步——BPM 变更不再影响任何选择产物。v1.3 补触控缺口:iOS/iPadOS Safari 触控不触发原生 `dblclick`（WebKit bug 202143）,S6 的乐句双击在触控面必须并用 pointer 双击检测（§4.3,原曲页已落地 `useDoubleTap` 同款机制）;PC 鼠标与 iPad 触控双平台是硬要求（AGENTS.md 交互约定）。**v1.4（2026-10-18,P2 落地回写）**:①命中链拆分为「路由命中」（closest + elementsFromPoint,不做最近邻吸附——空白必须可达为框选入口,决策 S9）与「完整命中链」（句柄微调才走 GetNearestNote 回落）,§3.4 同步;②graphicIndex 只计可渲染音符（PrintObject ≠ false）,不可渲染音符仍占 noteIndex 播放位,§3.3 同步;③小节模式区间内无发音条目时由区间外条目夹出（曲首全休止小节可选,spike V6）,§2.4 同步;④框选修饰键在单区间 LoopRange 模型下的 toggle 语义 = 重叠裁剪取较长剩余段（决策 S10,features/text-selection.md §3.5 同步）;⑤pending 清零走显式信号（selection 保持 null 时 effect 不可达）,§4.3 同步;⑥autoResize 关闭,重渲染统一由组件 ResizeObserver 防抖驱动、与音符缓存失效同路,§3.2 同步。**v1.5（2026-10-18,随 audio.md v2.7 决策 A17）**:§2.3 发音/装饰音端点解析改**同 noteIndex 组跨度**——倚音发声与装饰音展开后,切片子条目与主音共号（audio.md §2.2-8/9）,区间 = 组首起到组末条目末刻（循环区间含倚音起点、终点不砍主音尾）;装饰音宿主为休止占位时回落下一发音条目。`noteIndex` 计数与 `occupiesPlaybackSlot` 不变。**v1.6（2026-10-18,框选拖拽实时预览）**:§4.2 拖拽期间选中区域实时预览——橡皮筋矩形仍直写覆盖层不进 state,选中视觉（行带/音符高亮/括号/句柄/pill）每帧由矩形现算覆盖区间,**区间变化门控**后才进 React state（未盖到音符时回落 committed 选择,`pointercancel` 清除预览）;修饰键取拖拽中**最新事件状态**（提交同值,所见即所提）;起板帧缓存容器原点,拖拽中零 `getBoundingClientRect`;提交与预览共用同一 `resolveBox` 解析（§6 规则 8 同步）。
 
 ---
 
@@ -157,11 +157,11 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 | 阶段 | 行为 |
 | --- | --- |
 | `pointerdown` | 命中 notehead → 记录候选点击,`setPointerCapture` 到乐谱容器;命中空白 → 二期框选入口（features/text-selection.md §3.4） |
-| `pointermove` | 位移超 slop（**4px**,与 ProseMirror 同款）→ 进入拖拽态,置 suppressClick 标记;二期框选自此起板 |
+| `pointermove` | 位移超 slop（**4px**,与 ProseMirror 同款）→ 进入拖拽态,置 suppressClick 标记;二期框选自此起板,拖拽中选中区域实时预览（v1.6,见下） |
 | `pointerup` | 位移 < slop → 提交单击语义（§4.1）;拖拽态 → 提交 `DragSelection`（text-selection.md） |
 | `pointercancel` | 中止,不产生任何选择（浏览器接管手势,如滚动/缩放） |
 
-乐谱卡拖拽面设 `touch-action: none`,否则滚动接管手势后 `pointermove` 停发;拖拽结束抑制后续 `click`（d3-drag `clickDistance` 语义的手动实现）。拖拽期间高频更新走 ref + rAF 节流直接写覆盖层,**不进 React state**,抬手才提交（features/text-selection.md §6 原则 1,通用模式见 §9.3）。
+乐谱卡拖拽面设 `touch-action: none`,否则滚动接管手势后 `pointermove` 停发;拖拽结束抑制后续 `click`（d3-drag `clickDistance` 语义的手动实现）。拖拽期间高频更新分两路（v1.6）:橡皮筋矩形走 ref + rAF 节流直写覆盖层 style,**不进 React state**;选中区域（行带/音符高亮/括号/句柄/pill）**实时预览**——每帧由矩形现算覆盖区间,区间**变化时**才进 React state（rAF 合帧 + 门控,一次拖拽只渲染区间跨越次数）,矩形下没有音符时回落 committed 选择（不闪烁清空）,`pointercancel` 清除预览。抬手提交不变,提交与预览共用同一解析函数（所见即所提）。修饰键（Shift/Ctrl-Cmd）取**最新事件状态**:拖拽中按下/松开即时反映到预览,提交同值。容器原点在起板帧缓存一次,拖拽中零 `getBoundingClientRect`（features/text-selection.md §6 原则 1,通用模式见 §9.3）。
 
 ### 4.3 双击检测（决策 S6:原生 `dblclick` + pending ref + 延迟销毁窗口）
 
@@ -211,7 +211,7 @@ idle ──双击Y──▶ pending(start=Y,弱高亮) ──双击Z──▶ co
 5. 任何选择变化不得触发 OSMD 重渲染;高亮画在覆盖层（§5.1）。
 6. 命中/配对/rect 缓存随渲染、缩放、换肤、容器尺寸变化全量失效;autoResize 关闭,重渲染与缓存失效走同一条路径（§3.2,tech.md §6.1）。
 7. 指针管线:`setPointerCapture` + `touch-action: none` + 4px slop + 拖拽后抑制双击;`pointercancel` 中止一切（§4.2）。
-8. 拖拽高频更新不进 React state,抬手提交（§4.2,text-selection.md §6）。
+8. 拖拽高频更新不整体进 React state:橡皮筋矩形直写 style;选中预览按覆盖区间变化门控进 state（rAF 合帧）;抬手提交（§4.2 v1.6,text-selection.md §6）。
 9. 乐句双击（S6）双路径:桌面原生 `dblclick` + 触控 pointer 双击检测（iOS/iPadOS 不触发原生 dblclick）;两路径处理幂等——同一手势的双信号（刚提交的终点音符窗口内重复信号、同音符重复双击）由状态护栏去重（§4.3）。
 10. 命中路由不做最近邻吸附（空白 = 框选入口必须可达）;GetNearestNote 回落仅用于句柄微调等显式吸附（§3.4,S9）。
 11. 外部清零必须经显式信号销毁 pending（selection 保持 null 时 prop-effect 不可达,§4.1）。
