@@ -303,18 +303,17 @@ describe('OriginalAudioPage 切片与循环', () => {
     expect(regions.getRegions()).toHaveLength(0)
   })
 
-  it('播放键：有切片从切片起点播；停止键归零', async () => {
+  it('播放键：有切片从切片起点播；播放中再按同键暂停在原位（单按钮切换）', async () => {
     const { ws } = await loadWithSlice()
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${enUS.play}$`) }))
     expect(ws.getCurrentTime()).toBe(42)
     expect(ws.isPlaying()).toBe(true)
 
-    // 播放中 toggle 语义变为「停止」，另有专用停止键：取第二个（TransportButtons 顺序：toggle → stop）
-    const stopButton = screen.getAllByRole('button', { name: new RegExp(`^${enUS.stop}$`) }).at(-1)!
-    fireEvent.click(stopButton)
+    // 播放中 toggle 语义变为「停止」，单按钮切换即暂停，不回卷
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${enUS.stop}$`) }))
     expect(ws.isPlaying()).toBe(false)
-    expect(ws.getCurrentTime()).toBe(0)
+    expect(ws.getCurrentTime()).toBe(42)
   })
 
   it('页面隐藏即暂停循环（visibilitychange，A8 最小正确解）', async () => {

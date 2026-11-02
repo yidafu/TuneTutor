@@ -8,7 +8,6 @@ function renderControls() {
   const handlers = {
     onTempoChange: vi.fn(),
     onPlayToggle: vi.fn(),
-    onStop: vi.fn(),
     onMetronomeToggle: vi.fn(),
     onMetroSoundChange: vi.fn(),
     onStrongVolumeChange: vi.fn(),

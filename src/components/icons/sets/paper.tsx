@@ -83,7 +83,7 @@ export const PAPER_ICON_SET: IconSet = {  piano: {
   },
   play: {
     paths: (
-      <path d="M8.7 5.9v12.2c0 .9 1 1.5 1.8 1l9.8-6.1c.7-.5.7-1.5 0-2L10.5 4.9c-.8-.5-1.8.1-1.8 1Z" />
+      <path d="M7.3 5.9v12.2c0 .9 1 1.5 1.8 1l9.8-6.1c.7-.5.7-1.5 0-2L9.1 4.9c-.8-.5-1.8.1-1.8 1Z" />
     ),
     solid: true,
   },

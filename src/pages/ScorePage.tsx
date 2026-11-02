@@ -371,7 +371,6 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
         onTempoChange={onTempoChange}
         playing={playing}
         onPlayToggle={handlePlayToggle}
-        onStop={handleStop}
         metronomeOn={metronomeOn}
         onMetronomeToggle={() => setMetronomeOn((value) => !value)}
         metroSound={metroSound}

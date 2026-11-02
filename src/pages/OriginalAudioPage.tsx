@@ -1059,7 +1059,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
             )}
 
             <div {...stylex.props(styles.controlsRow)}>
-              <TransportButtons playing={playing} onPlayToggle={handlePlayToggle} onStop={handleStop} />
+              <TransportButtons playing={playing} onPlayToggle={handlePlayToggle} />
               <LoopSkipSelector value={gapBeats} onChange={setGapBeats} />
               <div {...stylex.props(styles.tempoCell)}>
                 {/* 原曲页速度只读，与乐谱页共享（docs/tech.md §2.3） */}

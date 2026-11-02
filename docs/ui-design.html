@@ -252,8 +252,6 @@ body {
 .t-play:hover { filter: brightness(1.05); }
 .t-play .pulse { position: absolute; width: 46px; height: 46px; border-radius: 99px; border: 2px solid var(--gold-bright); opacity: 0.5; animation: pulse 1.8s ease-out infinite; }
 @keyframes pulse { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.55); opacity: 0; } }
-.t-stop { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text-2); }
-.t-stop:hover { color: var(--text); background: var(--surface-3); }
 
 /* 节拍器 */
 .metro { display: flex; align-items: center; gap: 8px; }
@@ -693,7 +691,6 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
               <button class="t-btn t-play" type="button" style="position:relative" title="播放中 · 点击停止">
                 <span class="pulse"></span><span style="position:relative">⏹</span>
               </button>
-              <button class="t-btn t-stop" type="button" title="停止">⏹</button>
             </div>
           </div>
 
@@ -976,8 +973,7 @@ footer.spec-foot { margin-top: 40px; text-align: center; color: var(--text-3); f
         <span class="lbl">走带</span>
         <div class="items">
           <button class="t-btn t-play" type="button">▶</button>
-          <button class="t-btn t-stop" type="button">⏹</button>
-          <span style="font-size:12px;color:var(--text-3)">主按钮播放中转金铜并显示 ⏹（语义 = 停止）；副按钮常驻停止</span>
+          <span style="font-size:12px;color:var(--text-3)">单按钮切换：播放中转金铜并显示 ⏹（语义 = 停止），再次点击停止</span>
         </div>
       </div>
       <div class="comp-row">

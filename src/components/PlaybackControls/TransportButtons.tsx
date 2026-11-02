@@ -40,38 +40,22 @@ const styles = stylex.create({
   playIconWrap: {
     position: 'relative',
   },
-  icon20: {
-    height: '20px',
-    width: '20px',
-  },
-  stopBtn: {
-    display: 'grid',
-    height: '46px',
-    width: '46px',
-    alignItems: 'center',
-    justifyItems: 'center',
-    borderRadius: 9999,
-    backgroundColor: 'var(--color-surface-2)',
-    color: 'var(--color-fg-2)',
-    boxShadow: 'inset 0 0 0 1px var(--color-line-strong)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
-      color: 'var(--color-fg)',
-    },
+  icon22: {
+    height: '22px',
+    width: '22px',
   },
 })
 
 interface TransportButtonsProps {
   playing: boolean
   onPlayToggle: () => void
-  onStop: () => void
 }
 
 /**
- * 走带按钮。播放中主按钮转金铜脉冲并显示 ⏹（L2：语义如实为「停止」，
- * 真暂停/续播见 PRD G1）；副按钮常驻停止。
+ * 走带按钮。单按钮切换：停止态显示 ▶，播放中转金铜脉冲并显示 ⏹
+ * （L2：语义如实为「停止」，真暂停/续播见 PRD G1）。
  */
-export default function TransportButtons({ playing, onPlayToggle, onStop }: TransportButtonsProps) {
+export default function TransportButtons({ playing, onPlayToggle }: TransportButtonsProps) {
   const { t } = useI18n()
 
   return (
@@ -88,17 +72,8 @@ export default function TransportButtons({ playing, onPlayToggle, onStop }: Tran
           <span aria-hidden {...stylex.props(styles.pulseRing)} />
         )}
         <span aria-hidden {...stylex.props(styles.playIconWrap)}>
-          <ThemeIcon name={playing ? 'stop' : 'play'} style={styles.icon20} />
+          <ThemeIcon name={playing ? 'stop' : 'play'} style={styles.icon22} />
         </span>
-      </button>
-      <button
-        type="button"
-        onClick={onStop}
-        title={t.stop}
-        aria-label={t.stop}
-        {...stylex.props(styles.stopBtn)}
-      >
-        <ThemeIcon name="stop" style={styles.icon20} />
       </button>
     </div>
   )

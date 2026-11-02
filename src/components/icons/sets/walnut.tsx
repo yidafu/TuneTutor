@@ -80,7 +80,7 @@ export const WALNUT_ICON_SET: IconSet = {
   },
   play: {
     paths: (
-      <path d="M8.4 5.6v12.8c0 1 1.1 1.6 2 1l10-6.4c.78-.5.78-1.5 0-2l-10-6.4c-.9-.6-2 0-2 1Z" />
+      <path d="M7.1 5.6v12.8c0 1 1.1 1.6 2 1l10-6.4c.78-.5.78-1.5 0-2l-10-6.4c-.9-.6-2 0-2 1Z" />
     ),
     solid: true,
   },

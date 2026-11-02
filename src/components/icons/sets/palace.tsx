@@ -75,7 +75,7 @@ export const PALACE_ICON_SET: IconSet = {
     ),
   },
   play: {
-    paths: <path d="M8.6 5.2 19.4 12 8.6 18.8Z" />,
+    paths: <path d="M8 5.2 18.8 12 8 18.8Z" />,
     solid: true,
   },
   stop: {
