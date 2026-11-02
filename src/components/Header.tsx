@@ -163,6 +163,10 @@ const styles = stylex.create({
     paddingBlock: '6px',
     fontSize: '13.5px',
     fontWeight: 600,
+    // 触控专项（PRD G12）：触屏导航命中面加大
+    '@media (pointer: coarse)': {
+      paddingBlock: '10px',
+    },
   },
   navLinkActive: {
     color: 'var(--color-fg)',

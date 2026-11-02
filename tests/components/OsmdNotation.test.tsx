@@ -377,6 +377,150 @@ describe('OsmdNotation', () => {
   })
 })
 
+// ── 双指视口手势（PRD G12 触控专项）：捏合缩放 + 双指平移，不产生选择 ──
+
+describe('OsmdNotation 双指视口手势', () => {
+  afterEach(() => {
+    FakeOsmdRender.spec = null
+    FakeOsmdRender.last = null
+  })
+
+  /** 双指事件助手：pointerId 1 = 主指，2 = 非主指（第二触点），坐标走 FAKE_CONTAINER_RECT 换算 */
+  function makePinch(stage: HTMLElement) {
+    const at = (x: number, y: number): Record<string, unknown> => ({
+      clientX: client(x, FAKE_CONTAINER_RECT.x),
+      clientY: client(y, FAKE_CONTAINER_RECT.y),
+    })
+    return {
+      down(pointerId: number, x: number, y: number, isPrimary: boolean): void {
+        fireEvent.pointerDown(stage, { pointerId, isPrimary, button: 0, pointerType: 'touch', ...at(x, y) })
+      },
+      move(pointerId: number, x: number, y: number): void {
+        fireEvent.pointerMove(stage, { pointerId, ...at(x, y) })
+      },
+      up(pointerId: number, x: number, y: number): void {
+        fireEvent.pointerUp(stage, { pointerId, ...at(x, y) })
+      },
+      cancel(pointerId: number): void {
+        fireEvent.pointerCancel(stage, { pointerId })
+      },
+    }
+  }
+
+  it('双指捏合放大：抬手提交缩放重排、页脚倍率更新，不产生选择', async () => {
+    const { onSelectionChange } = setup()
+    await waitForGeometry()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
+    const p = makePinch(stage)
+    const rendersBefore = FakeOsmdRender.last!.renderCount
+
+    p.down(1, 200, 100, true)
+    p.down(2, 300, 110, false) // span ≈100 → 捏合建立
+    p.move(1, 100, 100)
+    p.move(2, 400, 110) // span ≈300 → target = 3 → 钳到 ZOOM_MAX 2
+    await waitFor(() => expect(screen.getByText('200%')).toBeInTheDocument())
+    // CSS transform 预览在拖拽中存在（OSMD 真重排等抬手）
+    expect(document.querySelector('[style*="scale("]')).not.toBeNull()
+
+    p.up(1, 100, 100)
+    await waitFor(() => expect(FakeOsmdRender.last!.renderCount).toBeGreaterThan(rendersBefore))
+    await waitFor(() => expect(screen.getByText('200%')).toBeInTheDocument())
+    expect(onSelectionChange).not.toHaveBeenCalled()
+  })
+
+  it('双指并拢落下再展开：move 中补建捏合并提交', async () => {
+    setup()
+    await waitForGeometry()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
+    const p = makePinch(stage)
+    const rendersBefore = FakeOsmdRender.last!.renderCount
+
+    p.down(1, 200, 100, true)
+    p.down(2, 210, 100, false) // span 10 < 24 → 起板不建立
+    p.move(1, 100, 100) // 坐标跟进后 span 110 → 补建捏合
+    p.move(2, 410, 100) // span 310 → target 钳到 2
+    p.up(2, 410, 100)
+
+    await waitFor(() => expect(FakeOsmdRender.last!.renderCount).toBeGreaterThan(rendersBefore))
+    await waitFor(() => expect(screen.getByText('200%')).toBeInTheDocument())
+  })
+
+  it('第二指落下作废第一指的候选 tap：双指手势不产生任何选择', async () => {
+    const { onSelectionChange } = setup()
+    const notes = await waitForGeometry()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
+    const p = makePinch(stage)
+
+    pointerDown(notes[0]!, 60, 40) // 主指按在音符上 = 候选 tap
+    p.down(2, 300, 200, false) // 第二指落下 → 捏合接管，候选作废
+    p.up(1, 60, 40)
+    p.up(2, 320, 220)
+
+    expect(onSelectionChange).not.toHaveBeenCalled()
+    expect(screen.getByText('100%')).toBeInTheDocument()
+  })
+
+  it('pointercancel 中断捏合：缩放显示回退、transform 清除、不重排', async () => {
+    const { onSelectionChange } = setup()
+    await waitForGeometry()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
+    const p = makePinch(stage)
+    const rendersBefore = FakeOsmdRender.last!.renderCount
+
+    p.down(1, 200, 100, true)
+    p.down(2, 300, 100, false)
+    p.move(1, 100, 100)
+    p.move(2, 400, 100)
+    await waitFor(() => expect(screen.getByText('200%')).toBeInTheDocument())
+
+    p.cancel(1)
+    await waitFor(() => expect(screen.getByText('100%')).toBeInTheDocument())
+    expect(document.querySelector('[style*="scale("]')).toBeNull()
+    p.up(2, 400, 100)
+    expect(FakeOsmdRender.last!.renderCount).toBe(rendersBefore)
+    expect(onSelectionChange).not.toHaveBeenCalled()
+  })
+
+  it('双指平移：中点位移写 stage 滚动，纯平移不触发重排', async () => {
+    setup()
+    await waitForGeometry()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
+    Object.defineProperty(stage, 'scrollWidth', { configurable: true, value: 2000 })
+    Object.defineProperty(stage, 'clientWidth', { configurable: true, value: 800 })
+    const p = makePinch(stage)
+    const rendersBefore = FakeOsmdRender.last!.renderCount
+
+    p.down(1, 400, 100, true)
+    p.down(2, 500, 100, false) // mid = 450
+    p.move(1, 340, 100)
+    p.move(2, 440, 100) // mid = 390 → scrollLeft = 0 - (390-450) = 60
+    expect(stage.scrollLeft).toBe(60)
+    expect(screen.getByText('100%')).toBeInTheDocument() // 跨度不变：纯平移
+
+    p.up(1, 340, 100)
+    p.up(2, 440, 100)
+    expect(FakeOsmdRender.last!.renderCount).toBe(rendersBefore)
+    expect(stage.scrollLeft).toBe(60)
+  })
+
+  it('捏合缩小到下限：提交 50% 并重排', async () => {
+    setup()
+    await waitForGeometry()
+    const stage = document.querySelector('[data-osmd-stage]') as HTMLElement
+    const p = makePinch(stage)
+    const rendersBefore = FakeOsmdRender.last!.renderCount
+
+    p.down(1, 300, 100, true)
+    p.down(2, 100, 100, false) // span 200
+    p.move(1, 350, 100)
+    p.move(2, 250, 100) // span 100 → target 0.5
+    p.up(1, 350, 100)
+
+    await waitFor(() => expect(screen.getByText('50%')).toBeInTheDocument())
+    await waitFor(() => expect(FakeOsmdRender.last!.renderCount).toBeGreaterThan(rendersBefore))
+  })
+})
+
 // ── 光标跟随与播放数据（docs/audio.md §3.8，P3 接入）────────────────────
 
 /** 引擎替身：只暴露 OsmdNotation 订阅的面（onIteration/onStateChange/指针直读） */

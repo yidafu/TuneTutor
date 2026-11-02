@@ -18,7 +18,17 @@ import {
   type DragRect,
   type RowGeometry,
 } from '../utils/notation/layout'
-import { OsmdRender, nextZoomStep } from '../utils/notation/OsmdRender'
+import { OsmdRender, nextZoomStep, ZOOM_MAX, ZOOM_MIN } from '../utils/notation/OsmdRender'
+import {
+  PINCH_MIN_SPAN_PX,
+  PINCH_ZOOM_EPSILON,
+  anchoredScrollLeft,
+  clampedScroll,
+  pinchMidpoint,
+  pinchSpan,
+  targetPinchZoom,
+  type PinchPoint,
+} from '../utils/notation/pinchZoom'
 import {
   applyBoxModifiers,
   createBoxSelection,
@@ -107,6 +117,13 @@ const styles = stylex.create({
       backgroundColor: 'var(--color-surface-2)',
       color: 'var(--color-fg)',
     },
+    // 触控专项（PRD G12）：页脚缩放钮触屏下加大命中面
+    '@media (pointer: coarse)': {
+      fontSize: '14px',
+      lineHeight: '20px',
+      paddingInline: '12px',
+      paddingBlock: '10px',
+    },
   },
 })
 
@@ -144,8 +161,26 @@ type Gesture =
     }
   | { kind: 'handle'; pointerId: number; side: 'start' | 'end' }
   | { kind: 'cancelled'; pointerId: number }
+  /** 双指视口手势（PRD G12）：捏合缩放 + 双指平移，不产生任何选择。target/mid 随 move 原地更新 */
+  | {
+      kind: 'pinch'
+      pointerIds: [number, number]
+      span0: number
+      zoom0: number
+      target: number
+      midX0: number
+      midY0: number
+      midX: number
+      midY: number
+      /** sheetBox 原点（起板帧缓存）：transform-origin 与滚动锚定的视口坐标换算基准 */
+      originX: number
+      originY: number
+      scrollLeft0: number
+      scrollTop0: number
+    }
 
 type BoxGesture = Extract<Gesture, { kind: 'box' }>
+type PinchGesture = Extract<Gesture, { kind: 'pinch' }>
 
 /** 框选矩形解析结果（预览与提交共用，保证所见即所提） */
 type BoxOutcome =
@@ -202,10 +237,17 @@ export default function OsmdNotation({
   const { theme } = useTheme()
   const stageRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // 覆盖层锚定盒：双指捏合时对其施加 CSS scale 预览（谱面 + 覆盖层整体缩放）
+  const sheetBoxRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<OsmdRender | null>(null)
   const interactionRef = useRef<NoteInteraction | null>(null)
   const loadingRef = useRef(false)
   const gestureRef = useRef<Gesture | null>(null)
+  /** 当前屏幕上的活跃指针（双指判定；up/cancel 即刻移除） */
+  const activePointersRef = useRef(new Map<number, PinchPoint>())
+  // 捏合中页脚倍率的合帧：60–120Hz 的 pointermove 不逐事件刷 React（同播放光标带模式）
+  const pinchLabelFrameRef = useRef<number | null>(null)
+  const pinchLabelTargetRef = useRef<number | null>(null)
   const pendingRef = useRef<PendingStart | null>(null)
   const pendingTimerRef = useRef<number | null>(null)
   const lastPhraseCommitRef = useRef<{ endIndex: number; at: number } | null>(null)
@@ -611,6 +653,115 @@ export default function OsmdNotation({
     }
   }, [])
 
+  // ── 双指视口手势（PRD G12）：捏合缩放 + 双指平移 ─────────────────────
+  // iPad 上乐谱为 endless 横排，缩放后常宽于视口，而单指拖拽已让给框选语义
+  // （selection.md §4.2），触控平移/缩放只能走双指。拖拽面 touch-action: none
+  // 使浏览器不会自己接管双指，管线在此自实现。缩放预览走 CSS transform（OSMD
+  // 全量重排太重，不能每帧做），抬手一次性提交真实重排并按捏合中点锚定滚动。
+
+  /** 起板：取活跃指针对的前两指；跨度不足（并拢落下）返回 false，等 move 中再试 */
+  const startPinchGesture = useCallback((): boolean => {
+    if (rendererRef.current === null) return false
+    if (gestureRef.current !== null) return false
+    const ids = [...activePointersRef.current.keys()].slice(0, 2)
+    const points = ids.map((id) => activePointersRef.current.get(id))
+    const a = points[0]
+    const b = points[1]
+    if (a === undefined || b === undefined) return false
+    const span0 = pinchSpan(a, b)
+    if (span0 < PINCH_MIN_SPAN_PX) return false
+    const mid = pinchMidpoint(a, b)
+    const boxRect = sheetBoxRef.current?.getBoundingClientRect()
+    const stage = stageRef.current
+    gestureRef.current = {
+      kind: 'pinch',
+      pointerIds: [ids[0]!, ids[1]!],
+      span0,
+      zoom0: zoomRef.current,
+      target: zoomRef.current,
+      midX0: mid.x,
+      midY0: mid.y,
+      midX: mid.x,
+      midY: mid.y,
+      originX: boxRect?.x ?? 0,
+      originY: boxRect?.y ?? 0,
+      scrollLeft0: stage?.scrollLeft ?? 0,
+      scrollTop0: stage?.scrollTop ?? 0,
+    }
+    return true
+  }, [])
+
+  const clearPinchPreview = useCallback((): void => {
+    const sheetBox = sheetBoxRef.current
+    if (sheetBox !== null) {
+      sheetBox.style.transform = ''
+      sheetBox.style.transformOrigin = ''
+    }
+  }, [])
+
+  const schedulePinchLabel = useCallback((target: number): void => {
+    pinchLabelTargetRef.current = target
+    if (pinchLabelFrameRef.current !== null) return
+    const frame =
+      typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : (callback: () => void): number => window.setTimeout(callback, 16)
+    pinchLabelFrameRef.current = frame(() => {
+      pinchLabelFrameRef.current = null
+      if (pinchLabelTargetRef.current !== null) setZoom(pinchLabelTargetRef.current)
+    })
+  }, [])
+
+  const cancelPinchLabel = useCallback((): void => {
+    if (pinchLabelFrameRef.current === null) return
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(pinchLabelFrameRef.current)
+    else window.clearTimeout(pinchLabelFrameRef.current)
+    pinchLabelFrameRef.current = null
+    pinchLabelTargetRef.current = null
+  }, [])
+
+  /** 双指手势结束：commit=false（pointercancel）回退预览不重排；true 提交缩放并锚定滚动 */
+  const endPinch = useCallback(
+    (gesture: PinchGesture, commit: boolean): void => {
+      gestureRef.current = null
+      activePointersRef.current.clear() // 剩余手指不单独成手势，抬起不再触发 tap
+      cancelPinchLabel() // 在途倍率合帧不覆盖终值
+      clearPinchPreview()
+      // 双指快速交替的抖动不构成双击节奏（suppress 与框选同款语义）
+      suppressDoubleRef.current = Date.now() + SUPPRESS_DOUBLE_MS
+      if (!commit) {
+        // 视口手势中断：缩放显示回退（§4.2 pointercancel 中止一切）
+        zoomRef.current = gesture.zoom0
+        setZoom(gesture.zoom0)
+        return
+      }
+      const target = gesture.target
+      if (Math.abs(target - gesture.zoom0) <= PINCH_ZOOM_EPSILON) return
+      zoomRef.current = target
+      setZoom(target)
+      const stage = stageRef.current
+      if (stage === null) {
+        void rerender(target)
+        return
+      }
+      // 锚定提交：捏合中点下的谱面点在重排后留在原视口位置（横向）
+      const stageRect = stage.getBoundingClientRect()
+      const anchorViewportX = gesture.midX - stageRect.x
+      const beforeOffset = stage.scrollLeft
+      const beforeTotal = stage.scrollWidth
+      void rerender(target).then(() => {
+        const stageNow = stageRef.current
+        if (stageNow === null || beforeTotal <= 0) return
+        stageNow.scrollLeft = clampedScroll(
+          anchoredScrollLeft(beforeOffset, anchorViewportX, beforeTotal, stageNow.scrollWidth),
+          stageNow.scrollWidth,
+          stageNow.clientWidth,
+        )
+      })
+    },
+    [cancelPinchLabel, clearPinchPreview, rerender],
+  )
+
   // ── 指针事件管线（S5：原生监听 + setPointerCapture + 4px slop + pointercancel 中止）──
 
   useEffect(() => {
@@ -618,15 +769,30 @@ export default function OsmdNotation({
     if (stage === null) return
 
     const onPointerDown = (event: PointerEvent): void => {
-      if (event.isPrimary === false || event.button !== 0) return
-      const target = event.target
-      if (!(target instanceof Element)) return
-      const interaction = interactionRef.current
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
       try {
         stage.setPointerCapture(event.pointerId)
       } catch {
         // jsdom/无捕获环境：管线降级为普通监听
       }
+      const existing = gestureRef.current
+      // 第二指落下 → 双指视口手势接管：单指意图（tap/框选/句柄）一律作废，双指不产生选择
+      if (existing !== null && existing.kind !== 'pinch') {
+        if (existing.kind === 'box') {
+          cancelDragFrame()
+          hideDragRect()
+          setBoxPreview(null)
+        }
+        gestureRef.current = null
+      }
+      if (gestureRef.current === null && activePointersRef.current.size >= 2) {
+        if (startPinchGesture()) return
+      }
+      if (activePointersRef.current.size >= 2) return // 第三指不参与
+      if (event.isPrimary === false || event.button !== 0) return
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const interaction = interactionRef.current
       const handle = target.closest('[data-selection-handle]')
       if (handle !== null) {
         gestureRef.current = {
@@ -648,7 +814,55 @@ export default function OsmdNotation({
 
     const onPointerMove = (event: PointerEvent): void => {
       const gesture = gestureRef.current
-      if (gesture === null || event.pointerId !== gesture.pointerId) return
+      if (gesture === null) {
+        // 两指并拢落下再展开：先跟进坐标，跨度达标时补建捏合（起板瞬间的抖动不作数）
+        if (activePointersRef.current.has(event.pointerId)) {
+          activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+        }
+        if (activePointersRef.current.size >= 2) startPinchGesture()
+        return
+      }
+      if (gesture.kind === 'pinch') {
+        if (!gesture.pointerIds.includes(event.pointerId)) return
+        activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+        const a = activePointersRef.current.get(gesture.pointerIds[0])
+        const b = activePointersRef.current.get(gesture.pointerIds[1])
+        if (a === undefined || b === undefined) return
+        const mid = pinchMidpoint(a, b)
+        gesture.midX = mid.x
+        gesture.midY = mid.y
+        const stage = stageRef.current
+        if (stage !== null) {
+          // 双指平移：中点位移写滚动（拖拽面 overflow auto，真值由钳制兜底）
+          stage.scrollLeft = clampedScroll(
+            gesture.scrollLeft0 - (mid.x - gesture.midX0),
+            stage.scrollWidth,
+            stage.clientWidth,
+          )
+          stage.scrollTop = clampedScroll(
+            gesture.scrollTop0 - (mid.y - gesture.midY0),
+            stage.scrollHeight,
+            stage.clientHeight,
+          )
+        }
+        // 捏合缩放：CSS scale 预览（origin 钉在捏合起点），真实重排抬手提交
+        gesture.target = targetPinchZoom(
+          gesture.zoom0,
+          gesture.span0,
+          pinchSpan(a, b),
+          ZOOM_MIN,
+          ZOOM_MAX,
+        )
+        const sheetBox = sheetBoxRef.current
+        if (sheetBox !== null) {
+          const scale = gesture.zoom0 > 0 ? gesture.target / gesture.zoom0 : 1
+          sheetBox.style.transformOrigin = `${gesture.midX0 - gesture.originX}px ${gesture.midY0 - gesture.originY}px`
+          sheetBox.style.transform = `scale(${scale})`
+        }
+        schedulePinchLabel(gesture.target) // 页脚倍率即时反馈（rAF 合帧，不触发 OSMD 重排）
+        return
+      }
+      if (event.pointerId !== gesture.pointerId) return
       if (gesture.kind === 'candidate') {
         if (Math.hypot(event.clientX - gesture.x0, event.clientY - gesture.y0) <= DRAG_SLOP_PX) {
           return
@@ -687,8 +901,16 @@ export default function OsmdNotation({
     }
 
     const onPointerUp = (event: PointerEvent): void => {
+      activePointersRef.current.delete(event.pointerId)
       const gesture = gestureRef.current
-      if (gesture === null || event.pointerId !== gesture.pointerId) return
+      if (gesture === null) return
+      if (gesture.kind === 'pinch') {
+        // 第三指抬起不结束捏合；两指之一抬起即提交
+        if (!gesture.pointerIds.includes(event.pointerId)) return
+        endPinch(gesture, true)
+        return
+      }
+      if (event.pointerId !== gesture.pointerId) return
       gestureRef.current = null
       if (gesture.kind === 'candidate') {
         if (gesture.note !== null) handleTapSelect(gesture.note)
@@ -710,9 +932,16 @@ export default function OsmdNotation({
     }
 
     const onPointerCancel = (event: PointerEvent): void => {
+      activePointersRef.current.delete(event.pointerId)
       const gesture = gestureRef.current
-      if (gesture === null || event.pointerId !== gesture.pointerId) return
+      if (gesture === null) return
       // 浏览器接管手势（滚动/缩放）：中止，不产生任何选择（§4.2）
+      if (gesture.kind === 'pinch') {
+        if (!gesture.pointerIds.includes(event.pointerId)) return
+        endPinch(gesture, false)
+        return
+      }
+      if (event.pointerId !== gesture.pointerId) return
       gestureRef.current = null
       if (gesture.kind === 'box') cancelDragFrame()
       hideDragRect()
@@ -738,7 +967,7 @@ export default function OsmdNotation({
       stage.removeEventListener('pointercancel', onPointerCancel)
       stage.removeEventListener('dblclick', onDoubleClick)
     }
-  }, [handleTapSelect, handlePhraseTap, commitBox, commitHandle, hideDragRect, scheduleDragFrame, cancelDragFrame])
+  }, [handleTapSelect, handlePhraseTap, commitBox, commitHandle, hideDragRect, scheduleDragFrame, cancelDragFrame, startPinchGesture, endPinch, schedulePinchLabel])
 
   // 触控双击路径（iOS/iPadOS Safari 不触发原生 dblclick，WebKit bug 202143；S6 v1.3）
   useDoubleTap(
@@ -758,8 +987,9 @@ export default function OsmdNotation({
       if (dragFrameRef.current !== null && typeof cancelAnimationFrame === 'function') {
         cancelAnimationFrame(dragFrameRef.current)
       }
+      cancelPinchLabel()
     },
-    [],
+    [cancelPinchLabel],
   )
 
   return (
@@ -772,7 +1002,7 @@ export default function OsmdNotation({
         {rawContent === undefined ? (
           <p {...stylex.props(styles.placeholder)}>{t.notationPlaceholder}</p>
         ) : (
-          <div {...stylex.props(styles.sheetBox)}>
+          <div {...stylex.props(styles.sheetBox)} ref={sheetBoxRef}>
             <div ref={containerRef} {...stylex.props(styles.osmdContainer)} />
             {geometry !== null && (
               <ScoreSelectionOverlay

@@ -28,6 +28,10 @@ const styles = stylex.create({
     ':hover': {
       backgroundColor: 'var(--color-surface-3)',
     },
+    // 触控专项（PRD G12）：触屏触发钮命中面加大
+    '@media (pointer: coarse)': {
+      paddingBlock: '11px',
+    },
   },
   glyph15: {
     height: '15px',

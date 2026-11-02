@@ -11,7 +11,13 @@
       } catch (e) {}
     </script>
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%logo.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover：开启 env(safe-area-inset-*)，iPad 横竖屏/主屏指示器不再压住吸底控制条 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- 触控专项（PRD G12）：iOS 加到主屏后全屏运行，状态栏样式随内容区 -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TuneTutor" />
     <meta name="description" content="Music learning application with sheet music support" />
     <meta name="theme-color" content="#f0ebdd" />
     <meta name="keywords" content="music learning, sheet music, MusicXML, music notation, VexFlow, TuneTutor, piano, saxophone, guitar, violin" />

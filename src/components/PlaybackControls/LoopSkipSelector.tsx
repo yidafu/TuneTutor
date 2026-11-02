@@ -16,6 +16,9 @@ const styles = stylex.create({
   beatGroup: {
     display: 'flex',
     gap: '3px',
+    '@media (pointer: coarse)': {
+      gap: '5px',
+    },
   },
   beatBtn: {
     display: 'grid',
@@ -28,6 +31,12 @@ const styles = stylex.create({
     lineHeight: '16px',
     fontWeight: 600,
     fontVariantNumeric: 'tabular-nums',
+    // 触控专项（PRD G12）：27px 远低于 Apple HIG 44pt 命中线，触屏加大到 36px
+    '@media (pointer: coarse)': {
+      height: '36px',
+      width: '36px',
+      fontSize: '13px',
+    },
   },
   beatOn: {
     backgroundColor: 'var(--color-verm)',

@@ -88,6 +88,8 @@
 }
 html {
   -webkit-text-size-adjust: 100%;
+  /* 触控专项（PRD G12）：iOS 点按灰块高亮与 UI 视觉不符，全部移除（点击反馈由组件态承担） */
+  -webkit-tap-highlight-color: transparent;
 }
 h1, h2, h3, h4, h5, h6, p {
   margin: 0;
@@ -109,10 +111,31 @@ button {
   cursor: pointer;
 }
 
+/* ── 触控专项（PRD G12）：手指可点元素关闭 iOS 双击缩放判定 ──
+   touch-action: manipulation 保留平移/捏合但去掉 ~300ms 双击等待；乐谱拖拽面
+   自带 touch-action: none（selection.md §4.2），不受本条影响 */
+button,
+[role='option'],
+input,
+select,
+textarea,
+a {
+  touch-action: manipulation;
+}
+
+/* 乐谱拖拽面：iOS 长按弹放大镜/系统文本选择 UI 会打断音符手势，整体关掉
+   （谱面无文本选择语义；框选是 notes 的橡皮筋，selection.md §4.2） */
+[data-osmd-stage] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overscroll-behavior: none; /* 触控面拖到边界不再链式橡皮筋（滚动手势由各滚动容器自管） */
   /* 页面装饰渐变由 token 派生（skin-switching §③-03 审计项）：
      白玉高光 + 朱砂晕 + 画布底，换肤自动重映射 */
   background:
@@ -212,6 +235,23 @@ body *::after {
 .tt-range:disabled {
   cursor: default;
   opacity: 0.75;
+}
+
+/* 触屏（iPad）加大滑杆命中面与拇指：桌面鼠标不动（Apple HIG 44pt 目标的折中，
+   input range 触屏命中区本就纵向扩到整条轨道，这里再补可视抓握感） */
+@media (pointer: coarse) {
+  .tt-range {
+    height: 28px;
+  }
+  .tt-range::-webkit-slider-thumb {
+    margin-top: -8px;
+    height: 19px;
+    width: 19px;
+  }
+  .tt-range::-moz-range-thumb {
+    height: 17px;
+    width: 17px;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════

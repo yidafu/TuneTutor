@@ -18,7 +18,9 @@ const styles = stylex.create({
     borderTopColor: 'var(--color-line)',
     backgroundColor: 'var(--color-surface-3)',
     paddingInline: '16px',
-    paddingBlock: '9px',
+    // 触控专项（PRD G12）：吸底状态栏让出 iPad 主屏指示器（浏览器模式 env()=0 不变）
+    paddingBottom: 'max(9px, calc(env(safe-area-inset-bottom) + 9px))',
+    paddingTop: '9px',
     fontSize: '12.5px',
     fontVariantNumeric: 'tabular-nums',
     color: 'var(--color-fg-2)',

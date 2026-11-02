@@ -18,7 +18,10 @@ const styles = stylex.create({
     minHeight: 0,
     flex: 1,
     flexDirection: 'column',
-    paddingTop: '20px',
+    // 加到主屏（PWA）后 iPad 圆角/传感器区不遮内容；浏览器模式 env()=0 值不变
+    paddingTop: 'max(20px, calc(env(safe-area-inset-top) + 20px))',
+    paddingLeft: 'max(0px, env(safe-area-inset-left))',
+    paddingRight: 'max(0px, env(safe-area-inset-right))',
   },
 })
 

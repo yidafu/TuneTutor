@@ -74,6 +74,11 @@ const styles = stylex.create({
     justifyItems: 'center',
     borderRadius: '9px',
     fontSize: '15px',
+    // 触控专项（PRD G12）：齿轮钮触屏加大到 44pt 命中线
+    '@media (pointer: coarse)': {
+      height: '44px',
+      width: '44px',
+    },
   },
   gearOn: {
     borderWidth: 1,
@@ -130,6 +135,10 @@ const styles = stylex.create({
     fontSize: '12px',
     lineHeight: '16px',
     fontWeight: 500,
+    // 触控专项（PRD G12）：音色四选一触屏加高
+    '@media (pointer: coarse)': {
+      paddingBlock: '11px',
+    },
   },
   soundOn: {
     borderColor: 'var(--color-verm-line-strong)',

@@ -51,10 +51,14 @@ const styles = stylex.create({
     minHeight: 0,
     flex: 1,
     overflowY: 'auto',
-    paddingInline: '16px',
-    paddingBlock: '24px',
+    // 触控专项（PRD G12）：safe-area 让出 iPad 圆角/主屏指示器（浏览器模式 env()=0 不变）
+    paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 24px))',
+    paddingLeft: 'max(16px, env(safe-area-inset-left))',
+    paddingRight: 'max(16px, env(safe-area-inset-right))',
+    paddingTop: '24px',
     '@media (min-width: 640px)': {
-      paddingInline: '22px',
+      paddingLeft: 'max(22px, env(safe-area-inset-left))',
+      paddingRight: 'max(22px, env(safe-area-inset-right))',
     },
   },
   card: {

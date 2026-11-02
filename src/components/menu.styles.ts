@@ -25,6 +25,10 @@ export const menuTrigger = stylex.create({
       backgroundColor: 'var(--color-surface-3)',
       color: 'var(--color-fg)',
     },
+    // 触控专项（PRD G12）：触屏下拉钮命中面加大
+    '@media (pointer: coarse)': {
+      paddingBlock: '10px',
+    },
   },
 })
 
@@ -62,6 +66,10 @@ export const menuItem = stylex.create({
     fontSize: '13px',
     ':hover': {
       backgroundColor: 'var(--color-surface-3)',
+    },
+    // 触控专项（PRD G12）：触屏选项行加高（下拉整行可点）
+    '@media (pointer: coarse)': {
+      paddingBlock: '12px',
     },
   },
 })

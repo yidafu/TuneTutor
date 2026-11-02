@@ -24,6 +24,10 @@ const styles = stylex.create({
       borderColor: 'var(--color-line)',
       backgroundColor: 'var(--color-surface-3)',
     },
+    // 触控专项（PRD G12）：历史条目行触屏加高
+    '@media (pointer: coarse)': {
+      paddingBlock: '12px',
+    },
   },
   iconBox: {
     display: 'grid',
@@ -81,6 +85,11 @@ const styles = stylex.create({
     ':hover': {
       backgroundColor: 'var(--color-clay-soft)',
       color: 'var(--color-clay)',
+    },
+    // 触控专项（PRD G12）：删除钮触屏加大到命中线
+    '@media (pointer: coarse)': {
+      height: '36px',
+      width: '36px',
     },
   },
   rowActive: {
