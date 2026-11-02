@@ -17,6 +17,8 @@ export interface FakeNoteSpec {
   tie?: 'start' | 'continue'
   /** false = 不可渲染（PrintObject=false，不产生 DOM 但占 noteIndex） */
   printObject?: false
+  /** 全小节休止（IsWholeMeasureRest）：解析休止照常渲染 .vf-notehead（OSMD 1.9.7 实测，rendersNotehead v1.8） */
+  wholeMeasureRest?: true
 }
 
 export interface FakeScoreSpec {
@@ -158,6 +160,10 @@ export function buildFakeScore(spec: FakeScoreSpec, container: HTMLElement): Fak
         Length: { RealValue: 0.25 },
         isRest: () => false,
       }
+      if (noteSpec.wholeMeasureRest === true) {
+        sourceNote.isRest = () => true
+        sourceNote.IsWholeMeasureRest = true
+      }
       if (noteSpec.tie === 'start') {
         pendingTie = { StartNote: sourceNote }
         sourceNote.NoteTie = pendingTie
@@ -167,6 +173,7 @@ export function buildFakeScore(spec: FakeScoreSpec, container: HTMLElement): Fak
       cursorNotes.push({ source: sourceNote, measureIndex })
       const width = noteSpec.width ?? 12
       const height = noteSpec.height ?? 10
+      // 仅 PrintObject=false 不产生 DOM（rendersNotehead：解析休止含全小节休止照常渲染）
       if (noteSpec.printObject !== false) {
         const element = document.createElement('div')
         element.classList.add('vf-notehead')

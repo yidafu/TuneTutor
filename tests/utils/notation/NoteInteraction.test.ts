@@ -7,6 +7,7 @@ import {
   NoteInteraction,
   occupiesPlaybackSlot,
   pointToUnit,
+  rendersNotehead,
   unitToPx,
   zipNotesWithElements,
   type NotePosition,
@@ -20,11 +21,29 @@ function fakeSource(
     tie?: 'start' | 'continue'
     tieStart?: Record<string, unknown>
     printObject?: boolean
+    /** 休止符（isRest() = true，不带整休止标志） */
+    rest?: boolean
+    /** 全小节休止：isRest() = true 且 IsWholeMeasureRest = true */
+    wholeMeasureRest?: boolean
+    /** 休止时长等价判定用：Length.RealValue 与小节拍号 RealValue */
+    lengthReal?: number
+    measureTsReal?: number
+    /** 音符类型时值（`<type>` 解析产物；无 `<type>` 的 measure=yes 休止为 0，实测） */
+    typeLength?: number
   } = {},
 ): Note {
   return {
     IsGraceNote: fields.isGrace === true,
     PrintObject: fields.printObject !== false,
+    IsWholeMeasureRest: fields.wholeMeasureRest === true,
+    isRest: () => fields.rest === true || fields.wholeMeasureRest === true,
+    Length: { RealValue: fields.lengthReal ?? 0.25 },
+    TypeLength:
+      fields.typeLength === undefined ? undefined : { RealValue: fields.typeLength },
+    SourceMeasure:
+      fields.measureTsReal === undefined
+        ? undefined
+        : { ActiveTimeSignature: { RealValue: fields.measureTsReal } },
     NoteTie:
       fields.tie === 'start'
         ? { StartNote: undefined }
@@ -43,6 +62,26 @@ describe('occupiesPlaybackSlot（audio.md §2.2 计数规则镜像）', () => {
     expect(occupiesPlaybackSlot(fakeSource({ isGrace: true }))).toBe(false)
     expect(occupiesPlaybackSlot(start)).toBe(true)
     expect(occupiesPlaybackSlot(fakeSource({ tie: 'continue', tieStart: start as unknown as Record<string, unknown> }))).toBe(false)
+  })
+})
+
+describe('rendersNotehead（防线 1 成员判定，OSMD 1.9.7 五谱实测 2026-10-28）', () => {
+  it('带 <type> 的休止渲染（含全小节休止）；PrintObject=false 不渲染', () => {
+    expect(rendersNotehead(fakeSource({ rest: true, typeLength: 1, lengthReal: 1 }))).toBe(true)
+    expect(rendersNotehead(fakeSource({ rest: true, typeLength: 0.25 }))).toBe(true)
+    expect(rendersNotehead(fakeSource({ printObject: false }))).toBe(false)
+  })
+
+  it('TypeLength=0 的休止（<rest measure="yes"/> 无 <type>）不渲染——《刻》谱 m34/59/70 回归', () => {
+    expect(rendersNotehead(fakeSource({ rest: true, typeLength: 0, lengthReal: 1 }))).toBe(false)
+  })
+
+  it('TypeLength 未知的休止保守渲染（只收窄已实测类，不扩大排除面）', () => {
+    expect(rendersNotehead(fakeSource({ rest: true }))).toBe(true)
+  })
+
+  it('排除只对休止收窄：TypeLength=0 的发音音符不受影响', () => {
+    expect(rendersNotehead(fakeSource({ typeLength: 0 }))).toBe(true)
   })
 })
 
@@ -87,6 +126,32 @@ describe('collectGraphicNotes（双索引计数，selection.md §2.1）', () => 
     expect(notes.map((n) => n.noteIndex)).toEqual([0, 2])
   })
 
+  it('全小节休止产生图形序且占播放位（OSMD 1.9.7 实测：带 <type> 的解析休止渲染 notehead）', () => {
+    const sources = [fakeSource({}), fakeSource({ wholeMeasureRest: true }), fakeSource({})]
+    const { notes, slotCount } = collectGraphicNotes(
+      specOf(sources.map((n) => ({ sourceNote: n }))) as never,
+    )
+    expect(slotCount).toBe(3)
+    expect(notes).toHaveLength(3)
+    expect(notes.map((n) => n.noteIndex)).toEqual([0, 1, 2])
+    expect(notes.map((n) => n.graphicIndex)).toEqual([0, 1, 2])
+  })
+
+  it('TypeLength=0 的休止不进图形序但仍占播放位（防线 1 计数对齐，《刻》谱回归）', () => {
+    const sources = [
+      fakeSource({}),
+      fakeSource({ rest: true, typeLength: 0, lengthReal: 1 }),
+      fakeSource({}),
+    ]
+    const { notes, slotCount } = collectGraphicNotes(
+      specOf(sources.map((n) => ({ sourceNote: n }))) as never,
+    )
+    expect(slotCount).toBe(3)
+    expect(notes).toHaveLength(2)
+    expect(notes.map((n) => n.noteIndex)).toEqual([0, 2])
+    expect(notes.map((n) => n.graphicIndex)).toEqual([0, 1])
+  })
+
   it('行号按 ParentStaffLine 身份分配（换行 → 下一行号）', () => {
     const rowA = { id: 'row-a' }
     const rowB = { id: 'row-b' }
@@ -128,11 +193,57 @@ describe('DOM 配对三层防线（selection.md §3.3）', () => {
     )
     // 第三个配对伪造 PAS（期望位置偏 30px）→ 应被剔除
     const makeNote = (unitX: number) =>
-      ({ source: { PositionAndShape: { AbsolutePosition: { x: unitX, y: 5 } } } }) as never
+      ({
+        source: {
+          sourceNote: { isRest: () => false },
+          PositionAndShape: { AbsolutePosition: { x: unitX, y: 5 } },
+        },
+      }) as never
     const notes = [makeNote(10), makeNote(20), makeNote(33)]
     const pairs = zipNotesWithElements(notes, elements)!
     const kept = checkPairingGeometry(pairs, 1, { x: 20, y: 10, width: 1000, height: 400 })
     expect(kept).toHaveLength(2)
+    container.remove()
+  })
+
+  it('防线 2：休止/音符分类标定——类间 bbox 偏差 >5px 不再整类误杀（v1.9，《刻》谱实测）', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    stubContainerRect(container)
+    // 交错排列（zip 按序配对）：音符 dy=0、休止 dy=+7（类间差 > 容差 5px）；
+    // 混合中位数取音符类 0 → 休止整类被剔，分类标定后全部保留
+    const spec = [
+      { x: 100, y: 50 }, { x: 150, y: 57 }, { x: 200, y: 50 }, { x: 250, y: 57 },
+      { x: 300, y: 50 }, { x: 350, y: 57 }, { x: 400, y: 50 }, { x: 500, y: 50 },
+    ]
+    const { elements } = buildFakeScore({ measures: [{ notes: spec }] }, container)
+    const makeSource = (unitX: number, rest: boolean) =>
+      ({
+        source: {
+          sourceNote: { isRest: () => rest },
+          PositionAndShape: { AbsolutePosition: { x: unitX, y: 5 } },
+        },
+      }) as never
+    const notes = [
+      makeSource(8, false), makeSource(13, true), makeSource(18, false),
+      makeSource(23, true), makeSource(28, false), makeSource(33, true),
+      makeSource(38, false), makeSource(48, false),
+    ]
+    const pairs = zipNotesWithElements(notes, elements)!
+    const kept = checkPairingGeometry(pairs, 1, { x: 20, y: 10, width: 1000, height: 400 })
+    expect(kept).toHaveLength(8)
+
+    // 类内个体漂移仍剔除：末枚休止伪造 PAS 偏 30px（期望 630 vs 实际 350）
+    const notes2 = [
+      makeSource(8, false), makeSource(13, true), makeSource(18, false),
+      makeSource(23, true), makeSource(28, false), makeSource(33, true),
+      makeSource(38, false),
+      makeSource(63, true),
+    ]
+    const pairs2 = zipNotesWithElements(notes2, elements)!
+    const kept2 = checkPairingGeometry(pairs2, 1, { x: 20, y: 10, width: 1000, height: 400 })
+    expect(kept2).toHaveLength(7)
+    expect(kept2).not.toContain(pairs2[7])
     container.remove()
   })
 
@@ -175,6 +286,34 @@ describe('DOM 配对三层防线（selection.md §3.3）', () => {
     const result = interaction.build()
     expect(result.degraded).toBe(true)
     expect(result.positions).toHaveLength(0)
+    container.remove()
+  })
+
+  it('全小节休止照常配对（「世界赠予我的」m1–m6/m26–m29 实测矩阵：解析休止有 notehead DOM）', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    stubContainerRect(container)
+    const { osmd, elements } = buildFakeScore(
+      {
+        measures: [
+          {
+            notes: [
+              { x: 10, y: 10 },
+              { x: 20, y: 10, wholeMeasureRest: true },
+              { x: 30, y: 10 },
+            ],
+          },
+        ],
+      },
+      container,
+    )
+    expect(elements).toHaveLength(3) // 替身镜像真实 OSMD：解析休止（含全小节）产生 notehead DOM
+    const interaction = new NoteInteraction(osmd as never, container)
+    const result = interaction.build()
+    // v1.7 误排除时：collect 2 ≠ DOM 3 → 计数守卫整条放弃（positions 清空、选择全灭）
+    expect(result.degraded).toBe(false)
+    expect(result.positions).toHaveLength(3)
+    expect(result.positions.map((p) => p.noteIndex)).toEqual([0, 1, 2])
     container.remove()
   })
 

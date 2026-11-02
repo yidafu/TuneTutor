@@ -1,9 +1,10 @@
 /**
  * 音符命中测试与坐标（docs/selection.md §3）。
  * 双索引（决策 S1）：graphicIndex = 图形遍历序（可配对音符序，与 .vf-notehead DOM 序
- * zip 配对）；noteIndex = 复刻 buildPlaybackData 计数（audio.md §2.2/§2.4：装饰音、
- * 连音线延续音不占位，休止符与发音音符占位）——与播放数据同源是硬约束，任何一侧
- * 改动计数必须双侧同改 + 重跑计数镜像回归（tests/utils/notation/NoteInteraction.test.ts）。
+ * zip 配对；rendersNotehead 判定成员资格）；noteIndex = 复刻 buildPlaybackData 计数
+ * （audio.md §2.2/§2.4：装饰音、连音线延续音不占位，休止符与发音音符占位）——与播放
+ * 数据同源是硬约束，任何一侧改动计数必须双侧同改 + 重跑计数镜像回归
+ * （tests/utils/notation/NoteInteraction.test.ts）。
  * 坐标：屏幕像素唯一来源 getBoundingClientRect（决策 S4）；unit 只经官方公式换算
  * px = unit × 10 × zoom（OSMD issue 504）；禁止读 PositionAndShape.Width/Height。
  * 单声部承诺：产品范围 = 第一声部（staff 0），多声部对齐依赖播放数据演进（§10）。
@@ -49,6 +50,27 @@ export function occupiesPlaybackSlot(source: Note): boolean {
   return true
 }
 
+/**
+ * 是否产生 .vf-notehead DOM（graphicIndex 与 DOM zip 配对的成员判定，§3.3 防线 1）。
+ * OSMD 1.9.7 实测矩阵（2026-10-28 五谱对账，应用同参数：
+ * AutoGenerateMultipleRestMeasuresFromRestMeasures=false + PageBottomMargin=0）：
+ * - 发音音符、装饰音、`<rest/>`（含带 `<type>whole` 的全小节休止）：一律产 .vf-notehead
+ *   （「世界赠予我的」10 处、「乌兰巴托的夜」6 处，TypeLength=1，图形/DOM 全配平）；
+ * - **`<rest measure="yes"/>` 且无 `<type>`**（TypeLength=0）：进图形 staffEntries 但
+ *   **不产 .vf-notehead**（「刻在我心底的名字」m34/59/70 三处实测，DOM 45px 内无符头）。
+ *   v1.8 曾断言「休止任何编码一律渲染 notehead」，对此编码不成立——三处未排除曾使
+ *   防线 1 计数错位 463 vs 460，整谱降级、选择全灭（TC-MAN-02 浏览器取证，2026-10-28）；
+ * - PrintObject = false（显式隐藏）：无 DOM，双侧一致；
+ * - multirest 折叠杠：无 DOM；应用已关 AutoGenerateMultipleRestMeasures（v1.8），
+ *   连续休止小节不会被吞。
+ * 只影响 graphicIndex；noteIndex 占位（休止占播放位、光标层照数）不受影响。
+ */
+export function rendersNotehead(source: Note): boolean {
+  if (source.PrintObject === false) return false
+  if (source.isRest() && source.TypeLength?.RealValue === 0) return false
+  return true
+}
+
 /** 与官方命中原语换算同款（OSMD issue 857）：容器相对 px → OSMD unit */
 export function pointToUnit(px: number, zoom: number): number {
   return px / 10 / zoom
@@ -74,8 +96,8 @@ interface CollectedNote {
 
 /**
  * 图形遍历 → 双索引序列（§3.2）。
- * graphicIndex 只计可渲染音符（PrintObject !== false）：DOM 配对序必须与
- * querySelectorAll('.vf-notehead') 对齐；不可渲染音符仍消耗 noteIndex 占位
+ * graphicIndex 只计真正产生 .vf-notehead 的音符（rendersNotehead）：DOM 配对序必须与
+ * querySelectorAll('.vf-notehead') 对齐；不渲染音符仍消耗 noteIndex 占位
  * （播放数据经光标层计数，跳过会错位）。
  */
 export function collectGraphicNotes(
@@ -105,7 +127,7 @@ export function collectGraphicNotes(
             // 起始音记录自身 noteIndex，供延音延续音回查（S2）
             tieStartIndexes.set(source, noteIndex)
           }
-          if (source.PrintObject !== false) {
+          if (rendersNotehead(source)) {
             notes.push({
               source: graphicalNote,
               measureIndex: m,
@@ -160,7 +182,9 @@ interface RectLike {
 /**
  * 几何自检（§3.3 防线 2）：元素 rect 与 PAS AbsolutePosition × 10 × zoom 的仿射
  * 关系应成立（V-S4）；以中位偏移为标定（容器 padding，≈ −6px 实测），偏离超容差的
- * 配对剔除。
+ * 配对剔除。标定按字形类（休止/音符）分别计算：休止字形 bbox 相对 PAS 的 y 偏移
+ * 与音符相差 ≈6.7px（《刻》谱实测休止 dy ∈ [0.1,1.5] vs 音符 −5.2），混合中位数
+ * 会把少数类整类误杀——超容差剔除只应命中个体漂移（v1.9）。
  */
 export function checkPairingGeometry(
   pairs: ReadonlyArray<{ note: CollectedNote; element: Element }>,
@@ -172,19 +196,35 @@ export function checkPairingGeometry(
     const absolute = pair.note.source.PositionAndShape.AbsolutePosition
     return {
       pair,
+      rest: pair.note.source.sourceNote.isRest(),
       rect: { x: rect.x - containerRect.x, y: rect.y - containerRect.y, width: rect.width, height: rect.height },
       expectedX: unitToPx(absolute.x, zoom),
       expectedY: unitToPx(absolute.y, zoom),
     }
   })
-  const offsetX = median(measured.map((m) => m.rect.x - m.expectedX))
-  const offsetY = median(measured.map((m) => m.rect.y - m.expectedY))
+  const calibrate = (selected: typeof measured, fallback: typeof measured) => {
+    const source = selected.length > 0 ? selected : fallback
+    return {
+      offsetX: median(source.map((m) => m.rect.x - m.expectedX)),
+      offsetY: median(source.map((m) => m.rect.y - m.expectedY)),
+    }
+  }
+  const noteOffset = calibrate(
+    measured.filter((m) => !m.rest),
+    measured,
+  )
+  const restOffset = calibrate(
+    measured.filter((m) => m.rest),
+    measured,
+  )
   return measured
-    .filter(
-      (m) =>
+    .filter((m) => {
+      const { offsetX, offsetY } = m.rest ? restOffset : noteOffset
+      return (
         Math.abs(m.rect.x - m.expectedX - offsetX) <= GEOMETRY_TOLERANCE_PX &&
-        Math.abs(m.rect.y - m.expectedY - offsetY) <= GEOMETRY_TOLERANCE_PX,
-    )
+        Math.abs(m.rect.y - m.expectedY - offsetY) <= GEOMETRY_TOLERANCE_PX
+      )
+    })
     .map((m) => m.pair)
 }
 
