@@ -23,12 +23,12 @@
 | 乐谱渲染 | OpenSheetMusicDisplay（OSMD，SVG 后端） | ^1.9 |
 | 音频引擎 | Tone.js（Sampler 采样触发、Draw 动画对齐；调度不用 Transport，见 audio.md A1/A12） | ^15 |
 | 播放调度 | 自研 look-ahead 引擎（官方播放器 PlaybackManager 同构，audio.md §3.1） | — |
-| 采样音色 | `tonejs-instrument-*-mp3` ×7（钢琴/萨克斯/吉他/贝斯/小提琴/长笛/小号） | ^1.1 |
+| 采样音色 | `tonejs-instrument-*-mp3` ×12（纯 mp3 资源源，JS 不导入；加载 CDN 加速 + 同源兜底，见 audio.md A20） | ^1.1 |
 | 乐谱解析 | `musicxml-io`（`fs/promises` 需浏览器垫片，见 §9） | ^0.2 |
 | 压缩包 | `jszip`（`.mxl` 解包） | ^3.10 |
 | 波形 | `wavesurfer.js` v7（Regions 插件） | ^7 |
 | 路由 | `react-router-dom`（**HashRouter**，兼容 GitHub Pages 静态托管） | ^7 |
-| PWA | `vite-plugin-pwa`（autoUpdate，injectManifest）+ 自研 SW（`src/sw.ts`：整读响应体后 `cache.put` + 指数退避重试，workbox 运行时模块 pnpm 隔离下不可解析故不引入） | — |
+| PWA | `vite-plugin-pwa`（autoUpdate，injectManifest）+ 自研 SW（`src/sw.ts`：整读响应体后 `cache.put` + 指数退避重试；CDN 采样 mp3 runtime cache-first，audio.md A20；workbox 运行时模块 pnpm 隔离下不可解析故不引入） | — |
 | 测试 | Vitest 4 + `fake-indexeddb` + jsdom | — |
 | 包管理 | pnpm（Node 18+） | — |
 
@@ -162,7 +162,7 @@ interface StoredAudioFile { id; fileName; fileSize; uploadedAt; data: ArrayBuffe
 
 ## 5. 播放引擎（细则见 [audio.md](./audio.md) §3–§5）
 
-`PlaybackEngine`（官方播放器 PlaybackManager 同构）以 `TimingSource` 锚点时钟驱动自调度 look-ahead tick（100ms 窗口、采样精确 `when`）调度采样、`Draw.schedule` 同步光标、引擎内循环状态机实现「循环 + 空拍」、tick 内逐拍调度节拍器；BPM 变更即时重锚定、不停止、零重建（audio.md A2）；时钟可注入（实时实现锚定 AudioContext.currentTime，暂停/恢复零漂移路径内置）。乐器音色加载（tonejs-instrument 包族）、原曲页 wavesurfer 波形可视化与切片循环、音频域工程约束与决策记录（A1–A12，含官方播放器逆向对照，官方行为规格见 tech §13 V10）见 audio.md。
+`PlaybackEngine`（官方播放器 PlaybackManager 同构）以 `TimingSource` 锚点时钟驱动自调度 look-ahead tick（100ms 窗口、采样精确 `when`）调度采样、`Draw.schedule` 同步光标、引擎内循环状态机实现「循环 + 空拍」、tick 内逐拍调度节拍器；BPM 变更即时重锚定、不停止、零重建（audio.md A2）；时钟可注入（实时实现锚定 AudioContext.currentTime，暂停/恢复零漂移路径内置）。乐器音色加载（tonejs-instrument 采样源，CDN 加速 + 同源兜底，A20）、原曲页 wavesurfer 波形可视化与切片循环、音频域工程约束与决策记录（A1–A20，含官方播放器逆向对照，官方行为规格见 tech §13 V10）见 audio.md。
 
 ---
 

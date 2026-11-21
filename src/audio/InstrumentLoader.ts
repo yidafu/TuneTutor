@@ -1,8 +1,9 @@
 /**
  * Tone.js 边界层（docs/audio.md §4 + §3.7 节拍器音色 + §3.2 接线默认件）：
- * 12 种 tonejs-instrument 采样器加载与缓存（决策 A6：不用 minify，全量采样静态打包 +
- * PWA 缓存；同类型并发请求共享同一实例）、4 种节拍器合成器声部、真实引擎组装
- * （LinearTimingSource 锚定 Tone 音频时钟 + Draw + Tone.start + 预载钢琴）；
+ * 12 种乐器采样器加载与缓存（决策 A6：不用 minify，全量采样；决策 A20：CDN 加速 +
+ * 同源打包兜底 + 自建 Sampler——包族退化为纯 mp3 资源源，JS 不再被导入，包构造函数
+ * 吞掉 onerror 的死挂缺陷不再经过；同类型并发请求共享同一实例）、4 种节拍器合成器声部、
+ * 真实引擎组装（LinearTimingSource 锚定 Tone 音频时钟 + Draw + Tone.start + 预载钢琴）；
  * 采样失败经 onerror 上抛（ready reject），失败条目下次加载自动重建。
  * 本文件是 src/audio/ 中唯一 import Tone 的模块：核心（playbackData / TimingSource /
  * PlaybackEngine）保持可注入、可在无音频环境单测。
@@ -21,38 +22,7 @@ import { LinearTimingSource } from './TimingSource'
 import { PlaybackEngine } from './PlaybackEngine'
 import type { DrawScheduler, MetronomeVoice, PlaybackSampler } from './PlaybackEngine'
 
-import PianoMp3 from 'tonejs-instrument-piano-mp3'
-import SaxophoneMp3 from 'tonejs-instrument-saxophone-mp3'
-import ClarinetMp3 from 'tonejs-instrument-clarinet-mp3'
-import FluteMp3 from 'tonejs-instrument-flute-mp3'
-import TrumpetMp3 from 'tonejs-instrument-trumpet-mp3'
-import FrenchHornMp3 from 'tonejs-instrument-french-horn-mp3'
-import TromboneMp3 from 'tonejs-instrument-trombone-mp3'
-import ViolinMp3 from 'tonejs-instrument-violin-mp3'
-import CelloMp3 from 'tonejs-instrument-cello-mp3'
-import GuitarAcousticMp3 from 'tonejs-instrument-guitar-acoustic-mp3'
-import GuitarNylonMp3 from 'tonejs-instrument-guitar-nylon-mp3'
-import BassElectricMp3 from 'tonejs-instrument-bass-electric-mp3'
-
-type InstrumentConstructor = new (options?: {
-  onload?: () => void
-  onerror?: (error: Error) => void
-}) => Sampler
-
-const INSTRUMENT_CONSTRUCTORS: Record<InstrumentType, InstrumentConstructor> = {
-  piano: PianoMp3,
-  saxophone: SaxophoneMp3,
-  clarinet: ClarinetMp3,
-  flute: FluteMp3,
-  trumpet: TrumpetMp3,
-  frenchHorn: FrenchHornMp3,
-  trombone: TromboneMp3,
-  violin: ViolinMp3,
-  cello: CelloMp3,
-  guitar: GuitarAcousticMp3,
-  guitarNylon: GuitarNylonMp3,
-  bass: BassElectricMp3,
-}
+import { SAMPLE_SOURCES } from './sampleSources.generated'
 
 /** 已加载音色：sampler 为引擎可注入视图（已接 destination），ready 前 triggerAttackRelease 静默丢弃 */
 export interface LoadedInstrument {
@@ -70,7 +40,7 @@ export interface LoadedInstrument {
 const instrumentCache = new Map<InstrumentType, LoadedInstrument>()
 
 function createLoadedInstrument(type: InstrumentType): LoadedInstrument {
-  const Constructor = INSTRUMENT_CONSTRUCTORS[type]!
+  const source = SAMPLE_SOURCES[type]!
   let readySettled = false
   let errored = false
   let resolveReady!: () => void
@@ -85,33 +55,70 @@ function createLoadedInstrument(type: InstrumentType): LoadedInstrument {
       reject(new Error(`instrument samples failed to load: ${type}`))
     }
   })
-  // 包族只 extends Sampler 不接输出，Tone 节点也不自动连 destination：连接由本层负责
-  // onerror 兜住网络失败：否则 onload 永不到达，加载态悬挂、音符静默丢弃无解释
-  const toneSampler = new Constructor({ onload: resolveReady, onerror: rejectReady }).toDestination()
-  // 统一 release 改善尾音、收紧空拍开头渗音（audio.md §3.4 已知瑕疵 / §4 可选优化）
-  toneSampler.release = 0.8
+  // 两段构造（A20）：CDN 优先（jsdelivr 版本化 URL，CORS + immutable 缓存），
+  // 失败自动换同源打包采样（回应 A6「防 CDN 失效」的原始顾虑）。
+  // Tone.Sampler 原生转发 onerror（旧包类吞掉它 → 加载失败死挂无 UI），此处才真正可达。
+  let current: Sampler | null = null
+  const startAttempt = (
+    urls: Record<string, string>,
+    baseUrl: string,
+    /** null = 已是同源兜底，再失败即 reject（UI 显示加载失败 + 重试） */
+    failover: (() => void) | null,
+  ): void => {
+    const sampler = new Sampler({
+      urls,
+      baseUrl,
+      onload: () => {
+        // 只认当前尝试：CDN 部分加载后失败的晚到 onload 不得误置就绪
+        //（此刻 current 已换成兜底 sampler，未就绪触发会被 readySettled 守卫拦下）
+        if (current === sampler) resolveReady()
+      },
+      onerror: () => {
+        // Tone 对每个失败 buffer 各触发一次 onerror；换源后旧尝试的后续回调全部无视
+        if (current !== sampler) return
+        if (failover === null) {
+          rejectReady()
+          return
+        }
+        failover()
+      },
+    }).toDestination()
+    // 统一 release 改善尾音、收紧空拍开头渗音（audio.md §3.4 已知瑕疵 / §4 可选优化）
+    sampler.release = 0.8
+    current = sampler
+  }
+  const startCdn = (): void => {
+    startAttempt({ ...source.cdnUrls }, source.cdnBase, () => {
+      current?.dispose()
+      startBundled()
+    })
+  }
+  const startBundled = (): void => {
+    startAttempt({ ...source.bundledUrls }, '', null)
+  }
+  startCdn()
   const loaded: LoadedInstrument = {
     type,
     sampler: {
       triggerAttackRelease: (note, durationSeconds, whenSeconds, velocity) => {
         // ready 前静默丢弃：Tone 对未加载 buffer 抛「No available buffers for note」，
         // 异常发生在引擎 tick 内会打死自调度循环（§3.1 单飞纪律）。
-        // 该守卫同时覆盖「失败后已 dispose」的旧 wrapper：永不触达底层节点
+        // 该守卫同时覆盖「失败后已 dispose / 换源中」的旧 wrapper：永不触达底层节点
         if (!readySettled) return
-        toneSampler.triggerAttackRelease(note, durationSeconds, whenSeconds, velocity)
+        current?.triggerAttackRelease(note, durationSeconds, whenSeconds, velocity)
       },
       releaseAll: () => {
         // ready 前不可能有已发声声部（trigger 全被丢弃），此处 no-op 即可；
         // 也避免对失败后已 dispose 的底层节点调 releaseAll 抛「disposed」
         if (!readySettled) return
-        toneSampler.releaseAll()
+        current?.releaseAll()
       },
     },
     ready,
     isReady: () => readySettled,
     hasError: () => errored,
     dispose: () => {
-      toneSampler.dispose()
+      current?.dispose()
       instrumentCache.delete(type)
     },
   }

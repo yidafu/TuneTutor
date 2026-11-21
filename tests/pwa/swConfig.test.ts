@@ -52,6 +52,16 @@ describe('SW 源码契约(src/sw.ts)', () => {
     expect(swSource).toContain('installPrecacheEntries(')
   })
 
+  it('CDN 采样走 runtime 缓存分支(A20):sw.ts 引用 runtime 服务函数与缓存名', () => {
+    expect(swSource).toContain('serveFromRuntimeCacheOrNetwork(')
+    expect(swSource).toContain('RUNTIME_CACHE_NAME')
+    expect(precacheSource).toContain("RUNTIME_CACHE_NAME = 'tt-runtime'")
+    // allowlist 只认 jsdelivr 的 tonejs-instrument mp3,其余跨源一律不拦截
+    expect(precacheSource).toContain("url.hostname === 'cdn.jsdelivr.net'")
+    expect(precacheSource).toContain("url.pathname.startsWith('/npm/tonejs-instrument-')")
+    expect(precacheSource).toContain("url.pathname.endsWith('.mp3')")
+  })
+
   it('activate 清理旧版缓存(workbox-precache 前缀)', () => {
     expect(swSource).toContain("addEventListener('activate'")
     expect(precacheSource).toContain('workbox-precache')

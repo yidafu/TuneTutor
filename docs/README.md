@@ -12,7 +12,7 @@
 | [ui-design.html](./ui-design.html) | 页面高保真示意、组件状态、设计规范（独立 HTML，浏览器直接打开） | UI 基准（权威） |
 | [brand.html](./brand.html) | 品牌标志「反复记号」：构成比例、变体与文件清单（[brand/](./brand/)）、尺寸下限、安全区、用色禁忌、错误用法、字体授权与复现说明 | 视觉资产基准（权威） |
 | [tech.md](./tech.md) | 技术规格：模块划分、数据契约、存储/i18n/构建约束、测试与里程碑 | 技术基线（权威） |
-| [audio.md](./audio.md) | 音频播放技术规格：播放数据模型（乐谱时域）、look-ahead 播放引擎与可注入时钟、乐器音色、节拍器、原曲波形可视化与切片循环（自 tech.md §4/§5 拆分扩写，含同类实现调研、官方播放器逆向对照与决策 A1–A18；v2.0 起架构对齐官方播放器） | 技术基线（音频域细则，权威） |
+| [audio.md](./audio.md) | 音频播放技术规格：播放数据模型（乐谱时域）、look-ahead 播放引擎与可注入时钟、乐器音色、节拍器、原曲波形可视化与切片循环（自 tech.md §4/§5 拆分扩写，含同类实现调研、官方播放器逆向对照与决策 A1–A20；v2.0 起架构对齐官方播放器） | 技术基线（音频域细则，权威） |
 | [selection.md](./selection.md) | 选择交互技术规格：音符命中测试、双索引对齐、端点解析与 LoopRange 推导、选择状态机、覆盖层（自 tech.md §6 拆分扩写，含同类实现调研、spike 实测与决策 S1–S8） | 技术基线（选择域细则，权威） |
 | [musicxml.md](./musicxml.md) | MusicXML 导入解析技术规格：导入管线与 .mxl 解包、连线符（连结线/连线）、停顿、连音、装饰音、倚音等全部标记的解析映射与契约承载、错误分类（自 tech.md §2.2/§3 拆分扩写，含 musicxml-io 0.2.11 实测与决策 M1–M11） | 技术基线（导入解析域细则，权威） |
 | [features/](./features/) | 二期功能规格，逐功能一篇（当前：[text-selection.md](./features/text-selection.md) 拖拽多行框选、[skin-switching.html](./features/skin-switching.html) 皮肤切换、[phone-compat.md](./features/phone-compat.md) 手机端布局兼容） | 补充规格（不得与基线冲突） |

@@ -16,7 +16,9 @@ import {
   installPrecacheEntries,
   LEGACY_CACHE_PREFIXES,
   PRECACHE_CACHE_NAME,
+  RUNTIME_CACHE_NAME,
   serveFromPrecacheOrNetwork,
+  serveFromRuntimeCacheOrNetwork,
 } from './sw/precache'
 import type { PrecacheEntry } from './sw/precache'
 
@@ -90,6 +92,16 @@ self.addEventListener('fetch', (event) => {
     index,
   )
   if (decision.kind === 'ignore') return
+  // CDN 采样 mp3(A20):runtime 缓存 cache-first,离线可用;其余同源走 precache/网络
+  if (decision.kind === 'runtime') {
+    event.respondWith(
+      serveFromRuntimeCacheOrNetwork(event.request, {
+        openCache: () => self.caches.open(RUNTIME_CACHE_NAME),
+        fetch,
+      }),
+    )
+    return
+  }
   event.respondWith(
     serveFromPrecacheOrNetwork(decision, event.request, {
       openCache: () => self.caches.open(PRECACHE_CACHE_NAME),

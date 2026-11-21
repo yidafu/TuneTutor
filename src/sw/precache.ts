@@ -24,6 +24,12 @@ export interface PrecacheEntry {
  * 版本号变更可强制全体重装(整个 app shell 都在这里,体积 ~3 MiB,不需要分片)。
  */
 export const PRECACHE_CACHE_NAME = 'tt-precache-v1'
+/**
+ * CDN 采样运行时缓存(A20):cache-first 持久化 jsdelivr 采样 mp3,离线可用。
+ * 刻意不带版本后缀:条目键是完整 URL(含包@版本),采样包升级后旧条目自然失活
+ * 不再被命中;策略本身若变更,改名并加入 LEGACY_CACHE_PREFIXES 让 activate 清理。
+ */
+export const RUNTIME_CACHE_NAME = 'tt-runtime'
 /** 需要在 activate 阶段清掉的旧缓存名前缀(含旧版 generateSW 的 workbox 缓存) */
 export const LEGACY_CACHE_PREFIXES = ['workbox-precache', 'tt-precache'] as const
 
@@ -48,13 +54,27 @@ export function buildPrecacheIndex(entries: readonly PrecacheEntry[]): Map<strin
 export type FetchDecision =
   | { kind: 'precache'; cacheKey: string }
   | { kind: 'navigate'; cacheKey: string | null }
+  | { kind: 'runtime' }
   | { kind: 'ignore' }
 
 /**
- * 纯函数决策:该请求是否用 precache 应答。
+ * CDN 采样 allowlist(A20):jsdelivr 上 tonejs-instrument 包族的采样 mp3。
+ * 只认这条路径形态(包名前缀 + .mp3 后缀),其余跨源请求一律不拦截。
+ */
+export function isCdnSampleUrl(url: URL): boolean {
+  return (
+    url.hostname === 'cdn.jsdelivr.net' &&
+    url.pathname.startsWith('/npm/tonejs-instrument-') &&
+    url.pathname.endsWith('.mp3')
+  )
+}
+
+/**
+ * 纯函数决策:该请求是否由 SW 应答。
  * - 导航请求:scope 下任意路径都回 precache 的 index.html(HashRouter SPA,
  *   没有真实子路径;离线打开/刷新也能拿到 app shell);
  * - 同源 GET 且无 Range 头、路径命中索引:回 precache;
+ * - CDN 采样 mp3(GET 且无 Range):回 runtime 缓存(cache-first,离线可用);
  * - 其余(跨源、非 GET、Range 流式加载、未命中):不拦截,交给浏览器默认网络。
  */
 export function decideFetch(
@@ -74,6 +94,8 @@ export function decideFetch(
   } catch {
     return { kind: 'ignore' }
   }
+  // CDN 采样放行在同源检查之前:跨源但命中 allowlist 的请求由 runtime 层接管
+  if (isCdnSampleUrl(url)) return { kind: 'runtime' }
   if (url.origin !== scopeUrl.origin) return { kind: 'ignore' }
   const scopeDir = scopeUrl.pathname // '/TuneTutor/'
   // '/TuneTutor'(无斜杠根路径,Pages 会 302 到带斜杠的)也算导航
@@ -97,6 +119,8 @@ export interface FetchResponseLike {
   status: number
   statusText: string
   headers: Headers
+  /** 真实 Response 有值('cors'/'basic'/'opaque'…);测试 stub 可省略 */
+  readonly type?: string
   arrayBuffer(): Promise<ArrayBuffer>
 }
 
@@ -161,7 +185,7 @@ export interface ServeDeps {
 
 /** precache 命中则回缓存;未命中(首装未完成等)回退网络,保证可用性 */
 export async function serveFromPrecacheOrNetwork(
-  decision: Exclude<FetchDecision, { kind: 'ignore' }>,
+  decision: Exclude<FetchDecision, { kind: 'ignore' } | { kind: 'runtime' }>,
   request: Request,
   deps: ServeDeps,
 ): Promise<Response> {
@@ -171,4 +195,38 @@ export async function serveFromPrecacheOrNetwork(
     if (cached) return cached
   }
   return deps.fetch(request)
+}
+
+export interface RuntimeServeDeps {
+  openCache: () => Promise<CacheLike>
+  fetch: (input: Request) => Promise<FetchResponseLike>
+  /** 测试注入:从缓冲好的响应体重建 Response(jsdom 无 Response 全局) */
+  makeResponse?: (body: ArrayBuffer, source: FetchResponseLike) => Response
+}
+
+/**
+ * CDN 采样应答(A20):cache-first 于 RUNTIME_CACHE_NAME。
+ * 未命中 → 网络 fetch → 非 opaque 且 2xx 时整读响应体后 put 再应答
+ * (与 install 同纪律:cache.put 是流式消费,断流报错不可重试,先读后 put
+ * 把它变成可捕获的 fetch 阶段错误,且绝不缓存半截响应)。
+ * put 失败不影响本次应答(采样照常播,下次访问再尝试缓存)。
+ */
+export async function serveFromRuntimeCacheOrNetwork(
+  request: Request,
+  deps: RuntimeServeDeps,
+): Promise<Response> {
+  const cache = await deps.openCache()
+  const cached = await cache.match(request.url)
+  if (cached) return cached
+  const response = await deps.fetch(request)
+  const makeResponse = deps.makeResponse ?? defaultMakeResponse
+  // opaque(CORS 失败的跨源应答)put 后读回 ~0 字节,非 2xx 无缓存价值:直接透传
+  if (!response.ok || response.type === 'opaque') return makeResponse(await response.arrayBuffer(), response)
+  const body = await response.arrayBuffer()
+  try {
+    await cache.put(request.url, makeResponse(body, response))
+  } catch {
+    // 运行时缓存尽力而为:put 失败不阻塞播放
+  }
+  return makeResponse(body, response)
 }

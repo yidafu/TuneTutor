@@ -4,11 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  tonejs-instrument-cello-mp3@1.1.1:
-    hash: p4bsiqvqtso7i5rpifj7bamrky
-    path: patches/tonejs-instrument-cello-mp3@1.1.1.patch
-
 importers:
 
   .:
@@ -54,7 +49,7 @@ importers:
         version: 1.1.2(tone@15.1.22)
       tonejs-instrument-cello-mp3:
         specifier: ^1.1.1
-        version: 1.1.1(patch_hash=p4bsiqvqtso7i5rpifj7bamrky)(tone@15.1.22)
+        version: 1.1.1(tone@15.1.22)
       tonejs-instrument-clarinet-mp3:
         specifier: ^1.1.2
         version: 1.1.2(tone@15.1.22)
@@ -8033,7 +8028,7 @@ snapshots:
     dependencies:
       tone: 15.1.22
 
-  tonejs-instrument-cello-mp3@1.1.1(patch_hash=p4bsiqvqtso7i5rpifj7bamrky)(tone@15.1.22):
+  tonejs-instrument-cello-mp3@1.1.1(tone@15.1.22):
     dependencies:
       tone: 15.1.22
 

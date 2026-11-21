@@ -1,0 +1,8 @@
+# pnpm 10 起设置从 package.json 的 pnpm 字段迁移至此（v9.15+ 兼容读取）。
+# allowBuilds 为 pnpm 12 approve-builds 的持久化结果：三个原生 postinstall 依赖
+#（平台二进制实际由 optional 平台包提供，postinstall 仅校验/兜底，gl 的 node-gyp
+# 失败亦无碍——与既往「跳过构建」状态一致）。
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
+  gl: true

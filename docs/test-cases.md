@@ -175,9 +175,11 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | 编号 | 用例 | 关键验证点 / 预期 | 落点 |
 | --- | --- | --- | --- |
 | TC-INS-01 | 视觉对齐 | `drawWhenSeconds` 叠加 outputLatency；API 缺失/非法原样返回 | `tests/audio/InstrumentLoader.test.ts` |
-| TC-INS-02 | 采样器缓存与守卫（§4） | 同类型并发单飞；十二种乐器各构造对应包；**构造即接 destination**（漏接 = 全程无声）；ready 前 triggerAttackRelease 静默丢弃、releaseAll no-op；统一 release 尾音；onload 后 isReady；onerror → ready reject + hasError（UI 加载失败态依据）；失败条目不缓存复用（再加载重建并 dispose 旧实例）；dispose 全量释放清缓存 | 同上 |
+| TC-INS-02 | 采样器缓存与守卫（§4） | 同类型并发单飞；十二种乐器按生成清单各构造 CDN 尝试（urls 为音符键→文件名、baseUrl 为 jsdelivr 包@版本）；**构造即接 destination**（漏接 = 全程无声）；ready 前 triggerAttackRelease 静默丢弃、releaseAll no-op；统一 release 尾音；onload 后 isReady；**A20 双源构造**：CDN onerror → dispose 并换同源打包采样（urls 为打包资产 URL）、兜底 onload 才就绪、晚到 onload/stale onerror 被当前实例守卫无视、双失败 → ready reject + hasError（UI 加载失败态依据，原生 onerror 可达）；失败条目不缓存复用（再加载重建并 dispose 旧实例）；dispose 全量释放清缓存 | 同上 |
 | TC-INS-03 | 节拍器音色 | classic/digital/kick/click 四款强/弱拍映射与调用签名 | 同上 |
 | TC-INS-04 | 真实接线默认件（§3.2/§3.9） | 构造即预载钢琴、时钟锚定注入音频钟；节拍器声部经注入工厂创建 | 同上 |
+| TC-INS-05 | 采样清单新鲜度（A20） | `sampleSources.generated.ts` 与 node_modules 现状一致：12 乐器版本逐一比对包 package.json、各包采样文件数/键集一致、音符键派生（As1→A#1）正确、钢琴 85 全量、cello 无 "F2 v2"（升级采样包必须重跑生成器） | `tests/audio/sampleSources.test.ts` |
+| TC-SWR-01 | SW CDN 采样 runtime 缓存（A20） | allowlist 只认 jsdelivr tonejs-instrument mp3（非 mp3/其他域/Range/非 GET → ignore），同源 precache 决策不受影响；cache-first 命中不发起网络；未命中整读响应体后 put（键=完整 URL）并应答；非 2xx/opaque 不缓存；put 失败不阻塞应答；缓存名 `tt-runtime` | `tests/pwa/runtimeCache.test.ts` |
 | TC-HPB-01 | 循环范围优先级（§3.4） | 有选择交 `computeLoopRange`（含 skipBeats）；无选择空拍 >0 循环全曲、否则 null 顺序播放 | `tests/hooks/usePlayback.test.tsx` |
 | TC-HPB-02 | 引擎接线与生命周期 | 就绪后按接线序列挂播放数据、换谱重挂；tempo 即时传播（A2）；节拍器设置传播、卸载 dispose；乐器切换经 loadInstrument → setSampler；playing 随状态事件翻转、进度相对区间归一 | 同上 |
 | TC-HPB-03 | 选择热更新 | 播放中改选择只写循环状态不停止（下一轮生效，selection.md §4.5）；空拍循环不自动停 vs 顺序播放自动停 | 同上 |

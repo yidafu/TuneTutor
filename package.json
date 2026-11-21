@@ -69,10 +69,5 @@
     "vite": "^7.2.4",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.0.17"
-  },
-  "pnpm": {
-    "patchedDependencies": {
-      "tonejs-instrument-cello-mp3@1.1.1": "patches/tonejs-instrument-cello-mp3@1.1.1.patch"
-    }
   }
 }
