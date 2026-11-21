@@ -28,7 +28,7 @@
 | 压缩包 | `jszip`（`.mxl` 解包） | ^3.10 |
 | 波形 | `wavesurfer.js` v7（Regions 插件） | ^7 |
 | 路由 | `react-router-dom`（**HashRouter**，兼容 GitHub Pages 静态托管） | ^7 |
-| PWA | `vite-plugin-pwa`（autoUpdate） | — |
+| PWA | `vite-plugin-pwa`（autoUpdate，injectManifest）+ 自研 SW（`src/sw.ts`：整读响应体后 `cache.put` + 指数退避重试，workbox 运行时模块 pnpm 隔离下不可解析故不引入） | — |
 | 测试 | Vitest 4 + `fake-indexeddb` + jsdom | — |
 | 包管理 | pnpm（Node 18+） | — |
 

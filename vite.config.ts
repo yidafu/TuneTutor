@@ -71,7 +71,15 @@ export default defineConfig(({ command }) => ({
     stylexHtmlLink(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['fonts/*.woff2'],
+      // injectManifest + 自研 SW（src/sw.ts）：generateSW 的 precache 安装对
+      // cache.put 失败无重试也无插件钩子，弱网下响应体传输中断会抛
+      // "Cache.put() encountered a network error" 使整次更新失败；
+      // 自研实现先整读响应体再 put 并做指数退避重试（见 src/sw/precache.ts）。
+      // 注意：不引入 workbox 运行时模块——vite-plugin-pwa 只携带
+      // workbox-build/window，pnpm 隔离布局下业务源码解析不到。
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       manifest: {
         name: 'TuneTutor',
         short_name: 'TuneTutor',
@@ -89,24 +97,11 @@ export default defineConfig(({ command }) => ({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // 主 JS bundle 含 12 种乐器采样器的注册表代码，2.0→2.12 MiB（12 乐器）超过
         // workbox 单文件预缓存默认上限（2 MiB）；app shell 必须进预缓存，故上调。
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-            },
-          },
-        ],
       },
     }),
   ],
