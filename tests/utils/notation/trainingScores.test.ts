@@ -40,8 +40,9 @@ function realValues(parsed: ParsedScore, measureIndex: number): number[] {
 }
 
 describe('训练谱全量导入回归（musicxml/training/）', () => {
-  it('三份训练谱在位（防误删/误命名）', () => {
-    expect(readdirSync(TRAINING_DIR).sort()).toEqual(Object.values(SCORE_FILES).sort())
+  it('三份训练谱在位（防误删/误命名；只扫 .musicxml，允许源 PDF 等工作文件同居）', () => {
+    const scores = readdirSync(TRAINING_DIR).filter((name) => name.endsWith('.musicxml')).sort()
+    expect(scores).toEqual(Object.values(SCORE_FILES).sort())
   })
 
   it.each(Object.entries(SCORE_FILES))(
