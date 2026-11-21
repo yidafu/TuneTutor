@@ -1,9 +1,9 @@
 # TuneTutor 测试用例文档
 
-**版本**：1.3
-**日期**：2026-11-02
-**状态**：随实现维护的用例清单（本版快照：单元/集成 529 例 · 51 文件全绿；e2e 9 例 · 6 规格全绿；手动用例 9 例）
-**变更**：初版。tech.md §10 只定测试策略分层（纯函数/存储/i18n/手动），本文补全**用例级清单**：PRD 功能（F1–F14 + 二期皮肤）→ 自动化用例映射（单元/集成/e2e）、里程碑手动过单（TC-MAN）、样例谱与夹具清单、已知盲区。用例按域分组，编号 `TC-<域>-<序号>`，每例给出验证点与自动化落点（测试文件）。**v1.3（2026-11-02）**：新增 TC-SEL-15（双指视口手势，selection.md v1.10 / PRD G12 触控专项回写）；快照计数随新增用例更新。**v1.2（2026-10-28）**：装饰音/倚音单测补全覆盖——TC-IMP-07/09 补倚音和弦与装饰音全家族（io 0.2.11 可产出 13 种、other-ornament/inverted-vertical-turn 声明但被丢弃）、TC-PBD-02 补倚音宿主悬起/倚音+装饰音同主音/邻音 B↔C 八度进位与邻音调号变化音、TC-PBD-03 补 marks-turn 真实 OSMD 回归。**v1.1（2026-10-28）**：新增 TC-E2E-06（真实谱选择+光标带，selection.md v1.9 回归）；§5.1 TC-SEL-03 补分类标定；§12.2 盲区随防线 1 成员判定补全与防线 2 分类标定落地改写。
+**版本**：1.5
+**日期**：2026-11-20
+**状态**：随实现维护的用例清单（本版快照：单元/集成 576 例 · 54 文件全绿；e2e 14 例 · 7 规格全绿；手动用例 10 例）
+**变更**：初版。tech.md §10 只定测试策略分层（纯函数/存储/i18n/手动），本文补全**用例级清单**：PRD 功能（F1–F14 + 二期皮肤）→ 自动化用例映射（单元/集成/e2e）、里程碑手动过单（TC-MAN）、样例谱与夹具清单、已知盲区。用例按域分组，编号 `TC-<域>-<序号>`，每例给出验证点与自动化落点（测试文件）。**v1.5（2026-11-20，节奏训练谱落地）**：新增 TC-IMP-12（`musicxml/training/` 三份八分/十六分切分训练谱全管线回归：tempo 62 直读、4/4 逐小节填满、五声音高域对齐「世界赠予我的」、显式 beam/hook 契约）与 §11 训练谱清单行；快照计数更新至 576 例 / 54 文件。**v1.4（2026-11-09，手机端布局兼容 PRD G18 回写）**：新增 §8.7 TC-MOB-01–04（弹层钳制、单指手势模式、StyleX 书写约定守卫、悬停门控 CSS）、TC-E2E-07（390×844 手机视口）、TC-MAN-10（手机真机）；§12.5 随 G12/G18 注销改写。**v1.3（2026-11-02）**：新增 TC-SEL-15（双指视口手势，selection.md v1.10 / PRD G12 触控专项回写）；快照计数随新增用例更新。**v1.2（2026-10-28）**：装饰音/倚音单测补全覆盖——TC-IMP-07/09 补倚音和弦与装饰音全家族（io 0.2.11 可产出 13 种、other-ornament/inverted-vertical-turn 声明但被丢弃）、TC-PBD-02 补倚音宿主悬起/倚音+装饰音同主音/邻音 B↔C 八度进位与邻音调号变化音、TC-PBD-03 补 marks-turn 真实 OSMD 回归。**v1.1（2026-10-28）**：新增 TC-E2E-06（真实谱选择+光标带，selection.md v1.9 回归）；§5.1 TC-SEL-03 补分类标定；§12.2 盲区随防线 1 成员判定补全与防线 2 分类标定落地改写。
 
 ---
 
@@ -23,9 +23,9 @@
 | --- | --- | --- | --- | --- |
 | 类型门禁 | 全仓（含 `tests/e2e/`，经 `tsconfig.e2e.json` 引用） | tsc | `pnpm build` | — |
 | Lint | 全仓 | eslint | `pnpm lint` | — |
-| 单元/集成 | 纯函数、组件、hooks、页面、存储、i18n | vitest + jsdom + `fake-indexeddb` | `pnpm test:run` | 502 例 / 49 文件（部分用例由夹具循环动态生成） |
-| e2e | 真浏览器关键路径 | tester-army + Playwright chromium | `pnpm test:e2e` | 9 例 / 6 规格 |
-| 手动 | 出声、真机触控、PWA、性能 | 浏览器 / iPad | §10 | 9 例 |
+| 单元/集成 | 纯函数、组件、hooks、页面、存储、i18n | vitest + jsdom + `fake-indexeddb` | `pnpm test:run` | 576 例 / 54 文件（部分用例由夹具循环动态生成） |
+| e2e | 真浏览器关键路径 | tester-army + Playwright chromium | `pnpm test:e2e` | 14 例 / 7 规格 |
+| 手动 | 出声、真机触控（iPad/手机）、PWA、性能 | 浏览器 / iPad / 手机 | §10 | 10 例 |
 
 约定（AGENTS.md 为准，此处摘要）：
 
@@ -82,6 +82,7 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | TC-IMP-09 | 标记域 capture-only（M8） | 演奏记号/装饰音/技法/延音记号/琶音 → 扁平标签；装饰音全家族 `ornament:<name>` 逐枚举透传（io 0.2.11 可产出 13 种；other-ornament/inverted-vertical-turn 声明但被解析丢弃；`long`/`accelerate`/`beath` 修饰属性不透出）；slur → `slur:<type>#<number>`（嵌套按 number 区分）；direction 瞬时力度挂其后第一条 note、乐句末尾 direction 丢弃；多小节休止 → `Measure.multipleRest`；forward/backup 游标跳过不产出 Note |
 | TC-IMP-10 | 全量夹具回归（`fixtures.test.ts`） | `musicxml/` 全部 14 个合成夹具导入不抛错 + 清单在位（防误删）：marks-tie/slur/grace/mordent/turn/trill、rhythm-mixed/tuplets/syncopation/meters、keys-sharps/flats/minor/extremes 逐族断言解析契约 |
 | TC-IMP-11 | 真实谱回归 | 「乌兰巴托的夜」63 小节 beam 导入 + 12 组 tie 配对完整（无悬空 stop）+ OSMD 光标侧 tie 链合并为单条目（`wulanbatuo-import.test.ts`）；「世界赠予我的」58 小节 beam 导入、note 数对账（`shijie-beams.test.ts`） |
+| TC-IMP-12 | 训练谱回归（`trainingScores.test.ts`） | `musicxml/training/` 三份 20 小节训练谱（八分音符/切分/十六分音符节奏训练，音高语境对齐「世界赠予我的」：G 大调 + transpose −5/−9、五声核心 G4–E5、tempo 62）走完整 processFile 管线；`<sound tempo>` 直读（62，非兜底 60 路径）；4/4 逐小节 realValue 和 = 1；空拍结构 m1/m6/m11/m16 为普通 `<rest/>+<type>whole</type>` 全休止（首小节节拍器导入，此后每吹 4 小节整小节换气，管乐呼吸点，不走《刻》谱 measure-rest 坑）；节奏形逐小节 realValue 断言（十六分谱阶段1过渡小节 = 4 八分 + 两组十六分 ×4、切分形 ♪♩♪/♪𝅗𝅥♪♩/♪𝅗𝅥.♪/♪.♬/♬♪./♬♪♬）；显式 beam 契约（八分谱仅一级成对 beam、切分谱八分旗尾无 hook、十六分谱二级 beam + forward/backward hook 在位） |
 
 ### 3.3 存储层（F2，`tests/utils/storage/indexedDB.test.ts`）
 
@@ -174,7 +175,7 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | 编号 | 用例 | 关键验证点 / 预期 | 落点 |
 | --- | --- | --- | --- |
 | TC-INS-01 | 视觉对齐 | `drawWhenSeconds` 叠加 outputLatency；API 缺失/非法原样返回 | `tests/audio/InstrumentLoader.test.ts` |
-| TC-INS-02 | 采样器缓存与守卫（§4） | 同类型并发单飞；七种乐器各构造对应包；**构造即接 destination**（漏接 = 全程无声）；ready 前 triggerAttackRelease 静默丢弃；统一 release 尾音；onload 后 isReady；dispose 全量释放清缓存 | 同上 |
+| TC-INS-02 | 采样器缓存与守卫（§4） | 同类型并发单飞；十二种乐器各构造对应包；**构造即接 destination**（漏接 = 全程无声）；ready 前 triggerAttackRelease 静默丢弃；统一 release 尾音；onload 后 isReady；dispose 全量释放清缓存 | 同上 |
 | TC-INS-03 | 节拍器音色 | classic/digital/kick/click 四款强/弱拍映射与调用签名 | 同上 |
 | TC-INS-04 | 真实接线默认件（§3.2/§3.9） | 构造即预载钢琴、时钟锚定注入音频钟；节拍器声部经注入工厂创建 | 同上 |
 | TC-HPB-01 | 循环范围优先级（§3.4） | 有选择交 `computeLoopRange`（含 skipBeats）；无选择空拍 >0 循环全曲、否则 null 顺序播放 | `tests/hooks/usePlayback.test.tsx` |
@@ -245,7 +246,7 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | TC-THM-01 | token 覆盖块全表契约 | 除 paper（:root 默认）外八款各有覆盖块；:root 值域 = paper 全部颜色 token；7 个皮肤化新增 ★ token；派生色走 color-mix、无写死色值 | `tests/themes/css.test.ts` |
 | TC-THM-02 | StyleX 无写死色（T1） | 组件/页面/hooks 源码不出现写死 hex | 同上 |
 | TC-THM-03 | 主题切换器 | 入口显当前皮肤名；弹层经典/古风两组 9 款（字形 + 三色预览 + 英文副标 + 选中 ✓）；点选即时换肤（dataset.theme + 持久化）弹层收起；非法存储回落 paper；Esc/外点/再点入口关闭 | `tests/components/ThemeSwitcher.test.tsx` |
-| TC-THM-04 | 每主题专形专绘图标 | 九款各注册整 17 枚无遗漏；走带键恒实心（SOLID_ICONS）；path d 语法合法（M 起笔、无 NaN）；每枚图标跨皮肤字形互异（专形专绘非共用几何）；每款定义笔触；换肤同时切笔触与字形；play/stop 恒实心；palace 方折笔触；17×9 全渲染；乐器 7 种全 SVG 无 emoji；ThemeGlyph 笔触固定取本主题、9 字形 × 9 皮肤均有内容 | `tests/components/icons/ThemeIcon.test.tsx`、`ThemeGlyph.test.tsx` |
+| TC-THM-04 | 每主题专形专绘图标 | 九款各注册整 22 枚无遗漏；走带键恒实心（SOLID_ICONS）；path d 语法合法（M 起笔、无 NaN）；每枚图标跨皮肤字形互异（专形专绘非共用几何）；每款定义笔触；换肤同时切笔触与字形；play/stop 恒实心；palace 方折笔触；22×9 全渲染；乐器 12 种全 SVG 无 emoji；ThemeGlyph 笔触固定取本主题、9 字形 × 9 皮肤均有内容 | `tests/components/icons/ThemeIcon.test.tsx`、`ThemeGlyph.test.tsx` |
 
 ### 8.6 通用组件
 
@@ -253,8 +254,17 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | --- | --- | --- | --- |
 | TC-CMP-01 | 展示组件 | Header 品牌/副标题/双页导航/语言菜单（展开、选中态、切换持久化即时生效、外点关闭）；ScoreInfo 曲名 + 元信息行、可选字段缺省不出分隔符；SelectionInfo 空态/朱砂 chip（乐句·小节范围·音符数）/kind 区分/无效选择提示；StatusBar 停止态乐器 BPM、播放指示、空拍拍数简称与单数文案 | `Header/ScoreInfo/SelectionInfo/StatusBar.test.tsx` |
 | TC-CMP-02 | 播放控制族 | PlaybackControls 四区块渲染 + 回调透传；TempoSlider 范围/BPM 大字/拖动回调/disabled 只读；TransportButtons 单按钮 Play↔Stop 语义切换；LoopSkipSelector 1–8 拍、点当前归零、aria-pressed 与说明文案；MetronomeToggle 开关回调、On 文案、设置面板（音色四选一 + 强/弱音量）、Esc/外点关闭 | `PlaybackControls/*.test.tsx` |
-| TC-CMP-03 | 乐器选择 | 触发按钮显当前乐器；展开列 7 种并标选中；选择回调收起；点非当前值不误触发 onChange；instrumentMeta 四语言非空标签、en-US 映射正确 | `InstrumentSelect/instrumentMeta.test.ts` |
+| TC-CMP-03 | 乐器选择 | 触发按钮显当前乐器；展开列 12 种并标选中；选择回调收起；点非当前值不误触发 onChange；instrumentMeta 四语言非空标签、en-US 映射正确 | `InstrumentSelect/instrumentMeta.test.ts` |
 | TC-CMP-04 | 文件弹窗族 | FileLoaderModal / AudioLibraryModal：open=false 不渲染；对话框结构（标题/上传区 accept/最近计数/隐藏 input）；历史条目回调与 data-active 高亮；Esc/✕/遮罩关闭、内部点击不关；上传区键盘操作（Enter/Space）；文件回调双入口（change + drop）；导入中文案 aria-busy 且键盘不触发；错误横幅 role=alert；空态文案；拖拽悬停高亮；FileHistoryList 逐条渲染/删除可访问名/点选回调/缺省不触发/icon 换图/activeId 标记 | `FileLoaderModal/AudioLibraryModal/FileLoader/FileHistoryList.test.tsx` |
+
+### 8.7 手机布局（features/phone-compat.md，PRD G18）
+
+| 编号 | 用例 | 关键验证点 / 预期 | 落点 |
+| --- | --- | --- | --- |
+| TC-MOB-01 | 弹层钳制纯函数 | 右对齐投影左溢右移 / 右溢左移 / 视口内 0 / 视口容不下贴左边距 / 自定义边距；hook：开启测量、关闭归零、resize 跟随、卸载摘监听 | `tests/hooks/usePopoverClamp.test.tsx` |
+| TC-MOB-02 | 单指手势模式（selection.md §4.7） | 未加载无开关无模式标记；默认滚动模式（`data-touch-mode=scroll` + `stageScrollMode` 类）；开关切换（box 撤类 / 再点复原，boxToggleOn 类同步）；模式只经 touch-action 生效——滚动模式下鼠标框选照常提交、`pointercancel` 不残留手势随后单击照常、换谱不重置模式 | `tests/components/OsmdNotation.test.tsx` |
+| TC-MOB-03 | StyleX 书写约定守卫 | `:hover` 必须包 `(hover: hover)`；媒体键禁止 `'a and b'` 复合查询（dev 运行时去重丢规则，phone-compat P1） | `tests/themes/stylexConventions.test.ts` |
+| TC-MOB-04 | 悬停门控 CSS | 波形把手 `:hover` 规则在 `(hover: hover)` 块内、门控外无裸 `:hover` 行 | `tests/themes/css.test.ts` |
 
 ## 9. e2e 用例（真浏览器）
 
@@ -268,6 +278,7 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | TC-E2E-04 | 换肤 | 切宫墙红：staff token 替换、谱面重新上色 | `theme.e2e.ts` |
 | TC-E2E-05 | 走带 | 走带按钮 Play ↔ Stop 切换（用户手势内 Tone.start） | `transport.e2e.ts` |
 | TC-E2E-06 | 真实谱选择+光标带（selection.md v1.9 回归） | 导入「刻在我心底的名字」（含 `<rest measure="yes"/>` 无 `<type>` 休止）：单击选小节、双击设乐句在真实谱上生效（防线 1 计数对齐回归）；Play 后光标带跨过前导全小节休止静默期出现（m1 @ ♩=65 ≈ 3.7s） | `real-score.e2e.ts` |
+| TC-E2E-07 | 手机竖屏 390×844（features/phone-compat.md，G18） | 两路由无横向溢出；空拍 8 键单行等分、走带可达；皮肤/语言/乐器/节拍器弹层钳在视口内；弹窗矮视口（390×300）重排、关闭钮可达；原曲页装载后头部不溢出、速度与走带同排；旋转 390→1000→390 谱面重排且容器可缩回（P12）。注：引擎无法仿真 pointer/hover，coarse 专属规则不在本层 | `phone.e2e.ts` |
 
 ## 10. 手动验收用例（浏览器 / iPad）
 
@@ -275,7 +286,7 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 
 | 编号 | 前置 | 步骤 | 预期 |
 | --- | --- | --- | --- |
-| TC-MAN-01 | 动过 `src/audio/`、`PlaybackControls/` 或乐器采样 | 加载《小星星》→ Space 播放听钢琴声、音随光标；停止态依次切换 7 种乐器再播；开节拍器切四音色、拖强弱音量 | 全程有声（验证「构造即接 destination」真实生效——单测只验接线，jsdom 无声）；节拍器强弱拍可辨；变速拖动中不炸音不跳拍 |
+| TC-MAN-01 | 动过 `src/audio/`、`PlaybackControls/` 或乐器采样 | 加载《小星星》→ Space 播放听钢琴声、音随光标；停止态依次切换 12 种乐器再播；开节拍器切四音色、拖强弱音量 | 全程有声（验证「构造即接 destination」真实生效——单测只验接线，jsdom 无声）；节拍器强弱拍可辨；变速拖动中不炸音不跳拍 |
 | TC-MAN-02 | 三份权威样例谱 + 内置示范曲 | 每份谱走 F1–F13 全链：导入→渲染→单击/双击/框选→清除→播放/停止→循环空拍 1–8→节拍器→播放中拖速度滑杆→乐器切换→语言切换→刷新恢复历史 | 《刻》谱（含空小节全休止，v1.8 教训谱）选择/播放/光标不错位；《连音符》谱三连音时值正确；《小星星》作兜底示范曲；非法文件（损坏 `.mxl`、纯文本、GB2312 老谱）用户可见报错文案正确（TC-IMP-04 的 i18n 面） |
 | TC-MAN-03 | iPad 真机（Safari / PWA），手指 + Apple Pencil | 单击选小节；双击两点设乐句（触控无原生 dblclick，走 pointer 双击路径）；空白拖拽框选 + 抬手提交 + 边界句柄微调；乐谱页滚动/缩放不误触选择（touch-action）；原曲页切片拖选/拖动/边界微调/双击删切片；全程无 300ms 点击延迟感 | 各交互与桌面等价；触控双击响应在 400ms 窗内；拖拽有 4px slop（微抖不成选）；滚动流畅无选中残影 |
 | TC-MAN-04 | 桌面 Chrome + iPad Safari | 播放中观察光标带推进 vs 声音节拍；开节拍器对拍 | 视听对齐（drawWhenSeconds 叠加 outputLatency 生效）；iPad 输出延迟下光标不明显超前/滞后 |
@@ -284,6 +295,7 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | TC-MAN-07 | — | 四语言逐一切换走查两页全部文案（含琴名、拍数、状态栏、弹窗、错误提示） | 无裸 key、无缺译；插值（数字/名称）正确；zh-TW 用词与 zh-CN 区分 |
 | TC-MAN-08 | 大谱两份 | 导入「世界赠予我的」（58 小节）与「乌兰巴托的夜」（63 小节、12 组 tie）：渲染耗时、缩放/框选/播放流畅度；「乌」谱设含 tie 段的循环回跳听衔接 | 渲染秒级完成、交互不掉帧；tie 段循环无重音/断音（延续音合并正确）；内存无持续增长 |
 | TC-MAN-09 | 仓库根损坏样例 `刻在我心底的名字.mxl` | 作为 F1 报错路径的实物材料走导入 | 报「压缩包损坏」类错误（E1），不白屏不卡死；该文件仅作 E1 材料，勿用于 `.mxl` 正常路径验证 |
+| TC-MAN-10 | 手机真机竖屏（Safari / PWA），360–430px | 乐谱页：单指滚动带惯性；**双击两点设乐句不触发页面放大**（pan-x pan-y 不含 zoom 关键字的 WebKit 行为，phone-compat P2 风险点）；舞台右上「框选」chip 开启后单指拖拽框选、句柄微调不被平移接管；双指捏合缩放锚定。原曲页：头部行折行、波形拖选/把手微调、双指捏合。弹窗：长历史列表内滚、✕ 可达 | 全部交互与桌面等价；无粘滞 hover 残影；旋转横屏不破（无横向溢出）；若双击触发放大，启用 P2 兜底（非 passive touchstart 二击 preventDefault） |
 
 ## 11. 样例谱与夹具清单
 
@@ -294,12 +306,13 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | `musicxml/连音符.musicxml` | 真实谱：连音时值 | TC-MAN-02、TC-IMP-07 |
 | `musicxml/世界赠予我的.musicxml` | 真实谱：58 小节 beam、10 处全小节休止（配对实测矩阵） | TC-IMP-11、TC-SEL-03、TC-MAN-08 |
 | `musicxml/乌兰巴托的夜.musicxml` | 真实谱：63 小节 beam、12 组跨小节 tie | TC-IMP-11、TC-PBD-03、TC-MAN-08 |
+| `musicxml/training/{八分音符,切分,十六分音符}节奏训练.musicxml` | 训练谱 ×3：各 20 小节 4/4（m1 全休止节拍器导入，m6/m11/m16 全休止换气——每吹 4 小节空一拍段）、tempo 62、written G 大调中音萨克斯（transpose −5/−9）、五声核心 G4–E5；切分练习材料（十六分谱以「4 八分 + 两组十六分」过渡小节引入，继以八分/十六分混合切分 ♬♪♬ 等；另有 ♪♩♪、大切分、反拍起） | TC-IMP-12 |
 | `刻在我心底的名字.mxl`（根，**已损坏**：文本损坏的 zip） | 仅作 E1 报错材料；**勿**用于 `.mxl` 正常路径 | TC-MAN-09、TC-IMP-04 |
 | `musicxml/marks-{tie,slur,grace,mordent,turn,trill}.musicxml` | 合成标记夹具（决策 M6/M8、A17） | TC-IMP-10、TC-PBD-03 |
 | `musicxml/rhythm-{mixed,tuplets,syncopation,meters}.musicxml` | 合成节奏夹具（M4/M5） | TC-IMP-07/10 |
 | `musicxml/keys-{sharps,flats,minor,extremes}.musicxml` | 合成调号夹具（§4.9、A17 邻音取调号） | TC-IMP-10、TC-PBD-02 |
 
-在 `musicxml/` 新增合成夹具时必须同步 `tests/utils/notation/fixtures.test.ts` 的夹具清单断言（AGENTS.md）。
+在 `musicxml/` 新增合成夹具时必须同步 `tests/utils/notation/fixtures.test.ts` 的夹具清单断言（AGENTS.md）。`musicxml/training/` 子目录的训练谱不进该清单（readdirSync 非递归），由 TC-IMP-12 专属断言覆盖。
 
 ## 12. 已知盲区与遗留
 
@@ -309,6 +322,6 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 2. **命中防线 2 残余（v1.9 收窄）**：38% 剔除率的主因已修——防线 1 成员判定补 `<rest measure="yes"/>` 无 `<type>`（TypeLength=0，曾致《刻》谱整谱选择死区，TC-E2E-06 兜底）；防线 2 改按休止/音符分类标定（类间 bbox 差曾被混合中位数整类误杀）。残余为**个体**雕版漂移：《刻》谱 4/460（dx ≈ −28~−31px，含装饰音 PAS 不反映绘制位）成路由命中死区；乌兰巴托的夜个别音符、连音符首音符同类。类内再分档（grace 校准表）待跨真实谱回归数据支撑。
 3. **PWA（F12）零自动化**：可安装/离线/manifest 正确性无用例，仅 TC-MAN-05；e2e 也只到 boot 级两页，覆盖浅。
 4. **wavesurfer 真插件行为差异**：原曲页单测用 fake（真插件拖选只发 region-created），region 拖动/边界微调的手感与事件序列靠 e2e + TC-MAN-03。
-5. **G12 移动端触控专项未启动**：单测/e2e 已覆盖触控等价路径（Pointer Events + `useDoubleTap`），但真机手感（slop 值、双击窗、滚动误触）只有 TC-MAN-03。
+5. ~~**G12 移动端触控专项未启动**~~：G12 已交付（2026-11-02）；真机手感仍只有 TC-MAN-03（iPad）与 TC-MAN-10（手机）。
 6. **性能无基线**：大谱渲染/播放流畅度（TC-MAN-08）只有手动观察，无指标断言。
-7. **G1–G17 规划功能无用例**：随落地按域增补（真暂停 G1 落地时补 usePlayback/Engine 暂停态用例；count-in G2 补节拍器预备拍用例等）。
+7. **G1–G18 规划功能无用例**：随落地按域增补（真暂停 G1 落地时补 usePlayback/Engine 暂停态用例；count-in G2 补节拍器预备拍用例等）。G18 已落地（2026-11-09，TC-MOB/TC-E2E-07/TC-MAN-10）。

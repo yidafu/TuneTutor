@@ -32,3 +32,6 @@ coverage/
 
 # e2e runner artifacts (reports, replay cache, dev-server logs)
 .e2e/
+
+# ZCode agent workspace (local session data, not repo content)
+.zcode/
