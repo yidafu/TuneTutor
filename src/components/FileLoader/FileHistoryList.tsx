@@ -20,9 +20,11 @@ const styles = stylex.create({
     borderColor: 'transparent',
     paddingInline: '11px',
     paddingBlock: '9px',
-    ':hover': {
-      borderColor: 'var(--color-line)',
-      backgroundColor: 'var(--color-surface-3)',
+    '@media (hover: hover)': {
+      ':hover': {
+        borderColor: 'var(--color-line)',
+        backgroundColor: 'var(--color-surface-3)',
+      },
     },
     // 触控专项（PRD G12）：历史条目行触屏加高
     '@media (pointer: coarse)': {
@@ -62,8 +64,10 @@ const styles = stylex.create({
     fontWeight: 600,
     color: 'var(--color-fg)',
     textAlign: 'left',
-    ':hover': {
-      color: 'var(--color-verm-deep)',
+    '@media (hover: hover)': {
+      ':hover': {
+        color: 'var(--color-verm-deep)',
+      },
     },
   },
   meta: {
@@ -82,9 +86,11 @@ const styles = stylex.create({
     justifyItems: 'center',
     borderRadius: '8px',
     color: 'var(--color-fg-3)',
-    ':hover': {
-      backgroundColor: 'var(--color-clay-soft)',
-      color: 'var(--color-clay)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-clay-soft)',
+        color: 'var(--color-clay)',
+      },
     },
     // 触控专项（PRD G12）：删除钮触屏加大到命中线
     '@media (pointer: coarse)': {

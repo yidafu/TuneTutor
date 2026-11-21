@@ -34,6 +34,9 @@ export const enUS = {
   notationFootInfo: 'OSMD · SVG render · responsive width',
   notationZoomIn: 'Zoom in score',
   notationZoomOut: 'Zoom out score',
+  // 手机触屏框选开关（selection.md §4.7）
+  notationBoxSelect: 'Box select',
+  notationBoxSelectHint: 'On: one-finger drag box-selects. Off: one finger scrolls the score.',
 
   // 选择信息
   selectionNone: 'No selection',

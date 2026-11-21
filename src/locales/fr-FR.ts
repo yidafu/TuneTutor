@@ -32,6 +32,8 @@ export const frFR: TranslationSet = {
   notationFootInfo: 'OSMD · rendu SVG · largeur adaptative',
   notationZoomIn: 'Agrandir la partition',
   notationZoomOut: 'Réduire la partition',
+  notationBoxSelect: 'Encadrer',
+  notationBoxSelectHint: 'Activé : glisser un doigt sélectionne par cadre. Désactivé : un doigt fait défiler la partition.',
 
   // Informations de sélection
   selectionNone: 'Aucune sélection',

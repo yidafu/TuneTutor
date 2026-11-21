@@ -3,8 +3,12 @@ import * as stylex from '@stylexjs/stylex'
 import { ThemeIcon } from '../icons/ThemeIcon'
 import { ctlLabel } from './styles'
 import { useClickOutside } from '../../hooks/useClickOutside'
+import { clampTransform, usePopoverClamp } from '../../hooks/usePopoverClamp'
 import { useI18n } from '../../locales/useI18n'
 import { METRONOME_SOUND_TYPES, type MetronomeSoundType } from '../../types/audio'
+
+/** 设置弹层宽度（钳制计算与样式共用） */
+const SETTINGS_POP_WIDTH = 248
 
 interface MetronomeToggleProps {
   on: boolean
@@ -40,6 +44,10 @@ const styles = stylex.create({
     paddingBlock: '8px',
     fontSize: '13px',
     fontWeight: 600,
+    // 触控（phone-compat P10）：开关钮 ≈38px 高，触屏补到 44pt 命中线
+    '@media (pointer: coarse)': {
+      paddingBlock: '11px',
+    },
   },
   toggleOn: {
     borderWidth: 1,
@@ -54,8 +62,10 @@ const styles = stylex.create({
     borderColor: 'var(--color-line-strong)',
     backgroundColor: 'var(--color-surface-2)',
     color: 'var(--color-fg-2)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+      },
     },
   },
   icon16: {
@@ -92,9 +102,11 @@ const styles = stylex.create({
     borderStyle: 'solid',
     borderColor: 'var(--color-line-strong)',
     color: 'var(--color-fg-2)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
-      color: 'var(--color-fg)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+        color: 'var(--color-fg)',
+      },
     },
   },
   settingsPop: {
@@ -102,7 +114,12 @@ const styles = stylex.create({
     bottom: 'calc(100% + 10px)',
     right: 0,
     zIndex: 30,
-    width: '248px',
+    width: `${SETTINGS_POP_WIDTH}px`,
+    // 手机窄屏/矮屏（phone-compat P3）：宽高钳到视口内、超高内滚
+    maxWidth: 'calc(100vw - 24px)',
+    maxHeight: 'calc(100dvh - 140px)',
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
     borderRadius: 'var(--radius-card)',
     borderWidth: 1,
     borderStyle: 'solid',
@@ -123,10 +140,14 @@ const styles = stylex.create({
   },
   soundRow: {
     display: 'flex',
+    flexWrap: 'wrap',
     gap: '4px',
   },
   soundBtn: {
-    flex: 1,
+    // 按内容伸缩：长音色名（法语 Électronique/Grosse caisse）自动折到第二行而非溢出
+    flexGrow: 1,
+    flexShrink: 0,
+    flexBasis: 'auto',
     borderRadius: '8px',
     borderWidth: 1,
     borderStyle: 'solid',
@@ -135,6 +156,7 @@ const styles = stylex.create({
     fontSize: '12px',
     lineHeight: '16px',
     fontWeight: 500,
+    whiteSpace: 'nowrap',
     // 触控专项（PRD G12）：音色四选一触屏加高
     '@media (pointer: coarse)': {
       paddingBlock: '11px',
@@ -149,8 +171,10 @@ const styles = stylex.create({
     borderColor: 'var(--color-line)',
     backgroundColor: 'transparent',
     color: 'var(--color-fg-2)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+      },
     },
   },
   volHead: {
@@ -215,6 +239,7 @@ export default function MetronomeToggle({
   const { t } = useI18n()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useClickOutside<HTMLDivElement>(() => setSettingsOpen(false))
+  const offsetX = usePopoverClamp(settingsRef, settingsOpen, SETTINGS_POP_WIDTH)
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -256,7 +281,11 @@ export default function MetronomeToggle({
             <ThemeIcon name="gear" style={styles.icon17} />
           </button>
           {settingsOpen && (
-            <div data-settings-popover="" {...stylex.props(styles.settingsPop)}>
+            <div
+              data-settings-popover=""
+              {...stylex.props(styles.settingsPop)}
+              style={clampTransform(offsetX)}
+            >
               <div {...stylex.props(styles.section)}>
                 <div {...stylex.props(styles.sectionLabel)}>{t.soundName}</div>
                 <div {...stylex.props(styles.soundRow)}>

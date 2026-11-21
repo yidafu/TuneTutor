@@ -13,7 +13,17 @@ const styles = stylex.create({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '24px',
+    // 安全区：加到主屏后刘海/主屏指示器不压弹窗（浏览器模式 env()=0 即 24px）
+    paddingTop: 'max(24px, env(safe-area-inset-top))',
+    paddingRight: 'max(24px, env(safe-area-inset-right))',
+    paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
+    paddingLeft: 'max(24px, env(safe-area-inset-left))',
+    '@media (max-width: 639px)': {
+      paddingTop: 'max(16px, env(safe-area-inset-top))',
+      paddingRight: 'max(16px, env(safe-area-inset-right))',
+      paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+      paddingLeft: 'max(16px, env(safe-area-inset-left))',
+    },
   },
   backdrop: {
     position: 'absolute',
@@ -22,8 +32,13 @@ const styles = stylex.create({
   },
   dialog: {
     position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
     width: '460px',
     maxWidth: '100%',
+    // 矮屏/长历史（phone-compat P7）：高度钳在遮罩内容盒内，历史区内滚，
+    // 标题与关闭钮始终可达
+    maxHeight: '100%',
     borderRadius: 'var(--radius-pop)',
     borderWidth: 1,
     borderStyle: 'solid',
@@ -31,10 +46,14 @@ const styles = stylex.create({
     backgroundColor: 'var(--color-surface-2)',
     padding: '22px',
     boxShadow: 'var(--shadow-pop)',
+    '@media (max-width: 639px)': {
+      padding: '18px',
+    },
   },
   headRow: {
     marginBottom: '16px',
     display: 'flex',
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -75,12 +94,20 @@ const styles = stylex.create({
     borderStyle: 'solid',
     borderColor: 'var(--color-line)',
     color: 'var(--color-fg-3)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
-      color: 'var(--color-fg)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+        color: 'var(--color-fg)',
+      },
+    },
+    // 触控（phone-compat P10）：关闭钮 30px 补到命中线
+    '@media (pointer: coarse)': {
+      height: '38px',
+      width: '38px',
     },
   },
   dropzone: {
+    flexShrink: 0,
     cursor: 'pointer',
     borderRadius: 'var(--radius-card)',
     borderWidth: '1.5px',
@@ -89,12 +116,18 @@ const styles = stylex.create({
     paddingBottom: '22px',
     paddingTop: '26px',
     textAlign: 'center',
+    '@media (max-width: 639px)': {
+      paddingBottom: '16px',
+      paddingTop: '18px',
+    },
   },
   dropzoneIdle: {
     borderColor: 'var(--color-verm-line-strong)',
     backgroundColor: 'color-mix(in srgb, var(--color-verm) 4%, transparent)',
-    ':hover': {
-      backgroundColor: 'var(--color-verm-soft)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-verm-soft)',
+      },
     },
   },
   dropzoneActive: {
@@ -132,6 +165,7 @@ const styles = stylex.create({
   errorBanner: {
     marginTop: '12px',
     display: 'flex',
+    flexShrink: 0,
     alignItems: 'baseline',
     gap: '8px',
     borderRadius: '10px',
@@ -147,6 +181,13 @@ const styles = stylex.create({
   },
   recentSection: {
     marginTop: '16px',
+    // 弹窗内唯一可伸缩段：内容少时按内容高，超出遮罩时收缩并内滚
+    flexGrow: 0,
+    flexShrink: 1,
+    flexBasis: 'auto',
+    minHeight: 0,
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
   },
   recentHead: {
     marginBottom: '8px',
@@ -172,8 +213,11 @@ const styles = stylex.create({
   footRow: {
     marginTop: '15px',
     display: 'flex',
+    flexShrink: 0,
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: '8px',
     borderTopWidth: 1,
     borderTopStyle: 'solid',
     borderTopColor: 'var(--color-line)',
@@ -202,6 +246,10 @@ const styles = stylex.create({
     display: 'inline-flex',
     alignItems: 'center',
     gap: '5px',
+    // 键盘加速提示只给精确指针设备（触屏走 ✕ / 点遮罩关闭）
+    '@media (pointer: coarse)': {
+      display: 'none',
+    },
   },
 })
 

@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import * as stylex from '@stylexjs/stylex'
 import { useClickOutside } from '../hooks/useClickOutside'
+import { clampTransform, usePopoverClamp } from '../hooks/usePopoverClamp'
 import { useI18n } from '../locales/useI18n'
 import { INSTRUMENT_TYPES, type InstrumentType } from '../types/audio'
 import { instrumentLabel } from './instrumentMeta'
 import { menuItem, menuPop } from './menu.styles'
 import { InstrumentGlyph } from './icons/ThemeIcon'
+
+/** 乐器弹层宽度（menuPop 基线宽，钳制计算用；须与 menu.styles.ts 一致） */
+const INSTRUMENT_POP_WIDTH = 176
 
 const styles = stylex.create({
   anchor: {
@@ -25,8 +29,10 @@ const styles = stylex.create({
     fontSize: '13px',
     fontWeight: 500,
     color: 'var(--color-fg)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+      },
     },
     // 触控专项（PRD G12）：触屏触发钮命中面加大
     '@media (pointer: coarse)': {
@@ -44,8 +50,11 @@ const styles = stylex.create({
   triggerDisabled: {
     opacity: 0.45,
     cursor: 'not-allowed',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-2)',
+    // 与 trigger 的悬停门控同条件覆盖，禁用态不变色
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-2)',
+      },
     },
   },
   option: {
@@ -73,11 +82,13 @@ interface InstrumentSelectProps {
   disabled?: boolean
 }
 
-/** 乐器音色选择器（7 种采样，仅停止态可换——播放中由调用方以 disabled 约束） */
+/** 乐器音色选择器（12 种采样，仅停止态可换——播放中由调用方以 disabled 约束） */
 export default function InstrumentSelect({ value, onChange, disabled = false }: InstrumentSelectProps) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
+  // 工具行窄屏折行后触发钮贴左缘，右对齐弹层会左溢（phone-compat P3）
+  const offsetX = usePopoverClamp(ref, open, INSTRUMENT_POP_WIDTH)
 
   return (
     <div {...stylex.props(styles.anchor)} ref={ref}>
@@ -97,6 +108,7 @@ export default function InstrumentSelect({ value, onChange, disabled = false }: 
         <ul
           role="listbox"
           {...stylex.props(menuPop.base)}
+          style={clampTransform(offsetX)}
         >
           {INSTRUMENT_TYPES.map((instrument) => (
             <li key={instrument}>

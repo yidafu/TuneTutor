@@ -32,6 +32,8 @@ export const zhTW: TranslationSet = {
   notationFootInfo: 'OSMD · SVG 渲染 · 自適應寬度',
   notationZoomIn: '放大樂譜',
   notationZoomOut: '縮小樂譜',
+  notationBoxSelect: '框選',
+  notationBoxSelectHint: '開啟：單指拖曳框選；關閉：單指捲動樂譜',
 
   // 選擇資訊
   selectionNone: '未選擇',

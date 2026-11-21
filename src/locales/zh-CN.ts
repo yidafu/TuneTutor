@@ -32,6 +32,8 @@ export const zhCN: TranslationSet = {
   notationFootInfo: 'OSMD · SVG 渲染 · 自适应宽度',
   notationZoomIn: '放大乐谱',
   notationZoomOut: '缩小乐谱',
+  notationBoxSelect: '框选',
+  notationBoxSelectHint: '开启：单指拖拽框选；关闭：单指滚动乐谱',
 
   // 选择信息
   selectionNone: '未选择',

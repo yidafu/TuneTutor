@@ -117,6 +117,20 @@ export class OsmdRender {
     this.render()
   }
 
+  /**
+   * 谱内标题/作曲者绘制开关（phone-compat P9）：手机竖屏容器 ~330px，OSMD 自绘
+   * 大标题左右溢出被裁（卡片头部 ScoreInfo 已展示同源标题），窄屏关掉、宽屏恢复。
+   * drawingParameters 是 protected，读回判断退而求其次只看本类记账；setOptions
+   * 幂等且级联关 Subtitle（调用方负责跟随 render()）。
+   */
+  private titlesDrawn = true
+
+  setDrawTitles(enabled: boolean): void {
+    if (this.titlesDrawn === enabled) return
+    this.titlesDrawn = enabled
+    this.osmd.setOptions({ drawTitle: enabled, drawComposer: enabled })
+  }
+
   /** 渲染后 waitForSvgContent（tech.md §6.1）：rAF 轮询等 SVG 有子节点，超时放行 */
   waitForSvgContent(timeoutMs = 5000): Promise<void> {
     return new Promise((resolve) => {

@@ -18,10 +18,14 @@ const styles = stylex.create({
     minHeight: 0,
     flex: 1,
     flexDirection: 'column',
-    // 加到主屏（PWA）后 iPad 圆角/传感器区不遮内容；浏览器模式 env()=0 值不变
-    paddingTop: 'max(20px, calc(env(safe-area-inset-top) + 20px))',
+    // 顶部安全区由贴顶的 Header 自己让（phone-compat P4）；左右 inset 在此统一让出，
+    // 各页滚动区只加自身内边距，不再二次叠加 env()（横屏刘海机型曾双倍留白）
+    paddingTop: '20px',
     paddingLeft: 'max(0px, env(safe-area-inset-left))',
     paddingRight: 'max(0px, env(safe-area-inset-right))',
+    '@media (max-width: 639px)': {
+      paddingTop: '12px',
+    },
   },
 })
 

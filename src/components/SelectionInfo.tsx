@@ -10,6 +10,9 @@ const styles = stylex.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '10px',
+    '@media (max-width: 639px)': {
+      marginTop: '10px',
+    },
   },
   chip: {
     display: 'inline-flex',
@@ -46,6 +49,15 @@ const styles = stylex.create({
     lineHeight: '16px',
     color: 'var(--color-fg-3)',
   },
+  /**
+   * 常规操作提示手机隐藏（phone-compat P6）：窄屏折 3–4 行，且「空白拖拽框选」
+   * 在手机默认滚动模式下不成立。无效选择的反馈（hintInvalid）始终显示。
+   */
+  hintIdle: {
+    '@media (max-width: 639px)': {
+      display: 'none',
+    },
+  },
   hintInvalid: {
     color: 'var(--color-verm-deep)',
   },
@@ -61,9 +73,15 @@ const styles = stylex.create({
     fontWeight: 600,
     color: 'var(--color-fg-2)',
     cursor: 'pointer',
-    ':hover': {
-      borderColor: 'var(--color-verm-line-strong)',
-      color: 'var(--color-verm-deep)',
+    '@media (hover: hover)': {
+      ':hover': {
+        borderColor: 'var(--color-verm-line-strong)',
+        color: 'var(--color-verm-deep)',
+      },
+    },
+    // 触控（phone-compat P10）：≈33px 高补到命中线
+    '@media (pointer: coarse)': {
+      paddingBlock: '10px',
     },
   },
 })
@@ -101,7 +119,7 @@ export default function SelectionInfo({ selection, invalid, onClear }: Selection
           </button>
         </>
       )}
-      <span {...stylex.props(styles.hint, invalid && styles.hintInvalid)}>
+      <span {...stylex.props(styles.hint, invalid ? styles.hintInvalid : styles.hintIdle)}>
         {invalid ? t.selectionInvalid : t.selectionHint}
       </span>
     </div>

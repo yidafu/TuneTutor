@@ -51,14 +51,17 @@ const styles = stylex.create({
     minHeight: 0,
     flex: 1,
     overflowY: 'auto',
-    // 触控专项（PRD G12）：safe-area 让出 iPad 圆角/主屏指示器（浏览器模式 env()=0 不变）
+    // 本页滚动区直达屏幕底缘：底部安全区在此让出；左右 inset 已由 App main 统一让出
+    // （phone-compat P4，不再叠加 env()）
     paddingBottom: 'max(24px, calc(env(safe-area-inset-bottom) + 24px))',
-    paddingLeft: 'max(16px, env(safe-area-inset-left))',
-    paddingRight: 'max(16px, env(safe-area-inset-right))',
+    paddingInline: '16px',
     paddingTop: '24px',
     '@media (min-width: 640px)': {
-      paddingLeft: 'max(22px, env(safe-area-inset-left))',
-      paddingRight: 'max(22px, env(safe-area-inset-right))',
+      paddingInline: '22px',
+    },
+    '@media (max-width: 639px)': {
+      paddingTop: '4px',
+      paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
     },
   },
   card: {
@@ -74,6 +77,9 @@ const styles = stylex.create({
   },
   cardCompact: {
     padding: '18px',
+    '@media (max-width: 639px)': {
+      padding: '14px',
+    },
   },
   emptyBtn: {
     display: 'block',
@@ -89,8 +95,10 @@ const styles = stylex.create({
     paddingBottom: '30px',
     paddingTop: '36px',
     textAlign: 'center',
-    ':hover': {
-      backgroundColor: 'var(--color-verm-soft)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-verm-soft)',
+      },
     },
   },
   emptyBtnActive: {
@@ -154,9 +162,15 @@ const styles = stylex.create({
   headRow: {
     marginBottom: '14px',
     display: 'flex',
+    // 窄屏/长文案（phone-compat P8）：操作钮组折到下一行，文件名不再被压没
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '12px',
+    '@media (max-width: 639px)': {
+      marginBottom: '10px',
+      rowGap: '10px',
+    },
   },
   metaRow: {
     display: 'flex',
@@ -205,10 +219,16 @@ const styles = stylex.create({
     lineHeight: '16px',
     fontWeight: 500,
     color: 'var(--color-fg-2)',
-    ':hover': {
-      borderColor: 'var(--color-clay-line)',
-      backgroundColor: 'var(--color-clay-soft)',
-      color: 'var(--color-clay)',
+    '@media (hover: hover)': {
+      ':hover': {
+        borderColor: 'var(--color-clay-line)',
+        backgroundColor: 'var(--color-clay-soft)',
+        color: 'var(--color-clay)',
+      },
+    },
+    // 触控（phone-compat P10）：≈32px 高补到命中线
+    '@media (pointer: coarse)': {
+      paddingBlock: '11px',
     },
   },
   headActions: {
@@ -263,14 +283,31 @@ const styles = stylex.create({
     fontSize: '12px',
     lineHeight: '16px',
     fontVariantNumeric: 'tabular-nums',
-    ':hover': {
-      backgroundColor: 'var(--color-wash)',
-      color: 'var(--color-fg)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-wash)',
+        color: 'var(--color-fg)',
+      },
     },
-    ':disabled': {
-      opacity: 0.4,
-      backgroundColor: 'var(--color-surface-3)',
-      color: 'var(--color-fg-2)',
+    // 触控（phone-compat P10）：≈20px 高的缩放 chip 补到命中线
+    '@media (pointer: coarse)': {
+      paddingInline: '12px',
+      paddingBlock: '10px',
+      fontSize: '14px',
+    },
+  },
+  /**
+   * 禁用态走 JS 条件样式而非 ':disabled'：悬停已门控进 (hover: hover)，门控规则带
+   * 双类特异性，会压过原生 ':disabled' 让禁用钮悬停变色（2026-11-09 编译实测）
+   */
+  chipDisabled: {
+    opacity: 0.4,
+    cursor: 'default',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+        color: 'var(--color-fg-2)',
+      },
     },
   },
   dropOverlay: {
@@ -321,6 +358,14 @@ const styles = stylex.create({
     '@media (min-width: 1280px)': {
       display: 'inline',
     },
+    // 触屏（iPad/手机）手势无从悬停发现，提示常显（phone-compat P8）
+    '@media (pointer: coarse)': {
+      display: 'inline',
+    },
+    '@media (max-width: 639px)': {
+      flexBasis: '100%',
+      marginLeft: 0,
+    },
   },
   controlsRow: {
     marginTop: '16px',
@@ -329,11 +374,26 @@ const styles = stylex.create({
     alignItems: 'center',
     columnGap: '24px',
     rowGap: '12px',
+    '@media (max-width: 639px)': {
+      marginTop: '12px',
+      columnGap: '12px',
+      rowGap: '10px',
+    },
   },
   tempoCell: {
     marginLeft: 'auto',
     width: '300px',
     minWidth: '220px',
+    // 手机竖屏：速度提到首位与走带同排（与乐谱页控制条同序），空拍整行在下
+    '@media (max-width: 639px)': {
+      order: -1,
+      marginLeft: 0,
+      width: 'auto',
+      minWidth: 0,
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: '200px',
+    },
   },
 })
 
@@ -1057,7 +1117,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
                 title={t.zoomOut}
                 disabled={atFit}
                 onClick={handleZoomOut}
-                {...stylex.props(styles.chipBtn)}
+                {...stylex.props(styles.chipBtn, atFit && styles.chipDisabled)}
               >
                 −
               </button>
@@ -1067,7 +1127,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
                 title={t.zoomFit}
                 disabled={atFit}
                 onClick={handleZoomFit}
-                {...stylex.props(styles.chipBtn)}
+                {...stylex.props(styles.chipBtn, atFit && styles.chipDisabled)}
               >
                 {zoomLabel}
               </button>
@@ -1077,7 +1137,7 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
                 title={t.zoomIn}
                 disabled={atMax}
                 onClick={handleZoomIn}
-                {...stylex.props(styles.chipBtn)}
+                {...stylex.props(styles.chipBtn, atMax && styles.chipDisabled)}
               >
                 ＋
               </button>

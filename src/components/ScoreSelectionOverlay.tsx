@@ -104,9 +104,17 @@ const styles = stylex.create({
     transform: 'translateX(-50%)',
     cursor: 'ew-resize',
     pointerEvents: 'auto',
+    // 句柄起手的拖拽永不让给滚动：手机滚动模式下舞台是 pan-x pan-y，
+    // touch-action 取命中链交集，句柄自带 none 才保住端点微调（selection.md §4.7）
+    touchAction: 'none',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    // 触控（phone-compat P10）：命中宽 13 → 22px（对齐原曲页波形把手 14 → 22 先例），
+    // 视觉竖条不变
+    '@media (pointer: coarse)': {
+      width: '22px',
+    },
   },
   handleBar: {
     height: '26px',

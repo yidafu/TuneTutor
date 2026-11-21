@@ -22,11 +22,21 @@ const styles = stylex.create({
     '@media (min-width: 640px)': {
       paddingInline: '22px',
     },
+    // 手机竖屏（phone-compat P6）：速度+走带一行、节拍器一行、空拍整行，
+    // 收紧间距压低吸底控制条高度，把纵向空间还给谱面
+    '@media (max-width: 639px)': {
+      columnGap: '12px',
+      rowGap: '8px',
+      paddingBlock: '10px',
+    },
   },
   sliderCell: {
     minWidth: 0,
     flex: 1,
     flexBasis: '300px',
+    '@media (max-width: 639px)': {
+      flexBasis: '240px',
+    },
   },
 })
 

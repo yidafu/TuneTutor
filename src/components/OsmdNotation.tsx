@@ -43,6 +43,15 @@ import {
 } from '../utils/notation/selection'
 
 const styles = stylex.create({
+  // 舞台包装盒（phone-compat P2）：框选开关要钉在舞台可视区右上角且不随舞台
+  // 滚动跑掉，只能在滚动容器（stage）外再包一层相对定位盒
+  stageWrap: {
+    position: 'relative',
+    display: 'flex',
+    minHeight: 0,
+    flex: 1,
+    flexDirection: 'column',
+  },
   stage: {
     position: 'relative',
     marginTop: '8px',
@@ -66,6 +75,21 @@ const styles = stylex.create({
     touchAction: 'none',
     cursor: 'default',
     overflow: 'auto',
+    // 列轨不随谱面内容撑宽（phone-compat P12）：auto 列的最小贡献是 SVG 固定像素宽，
+    // 视口变窄（旋转/缩窗）后列宽卡在旧宽、观测容器不缩，ResizeObserver 永不触发重排
+    gridTemplateColumns: 'minmax(0, 1fr)',
+  },
+  // 手机滚动模式（phone-compat P2 / selection.md §4.7）：触屏窄屏默认单指原生滚动
+  // （带惯性），单指框选让给页脚开关。不含 zoom 关键字：双指捏合仍归 JS 管线，
+  // 且 WebKit 不在此面上触发双击放大（双击设乐句不受影响）。
+  // 条件必须写成嵌套单条件，不能写 'a and b' 复合查询：StyleX 0.19.1 dev 运行时注入
+  // 的去重键正则不认复合查询，同一复合查询下只有第一条规则会被插入（2026-11-09 实测）
+  stageScrollMode: {
+    '@media (pointer: coarse)': {
+      '@media (max-width: 639px)': {
+        touchAction: 'pan-x pan-y',
+      },
+    },
   },
   placeholder: {
     maxWidth: '420px',
@@ -87,8 +111,10 @@ const styles = stylex.create({
     marginTop: '14px',
     display: 'flex',
     flexShrink: 0,
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: '8px',
     borderTopWidth: 1,
     borderTopStyle: 'solid',
     borderTopColor: 'var(--color-line)',
@@ -96,10 +122,21 @@ const styles = stylex.create({
     fontSize: '11.5px',
     fontVariantNumeric: 'tabular-nums',
     color: 'var(--color-ink-2)',
+    '@media (max-width: 639px)': {
+      marginTop: '10px',
+      paddingTop: '8px',
+    },
+  },
+  /** 渲染器说明：手机让位给框选开关与缩放钮 */
+  footInfo: {
+    '@media (max-width: 639px)': {
+      display: 'none',
+    },
   },
   zoomRow: {
     display: 'inline-flex',
     gap: '4px',
+    marginLeft: 'auto',
   },
   zoomChip: {
     borderRadius: '6px',
@@ -113,9 +150,11 @@ const styles = stylex.create({
     fontSize: '12px',
     lineHeight: '16px',
     cursor: 'pointer',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-2)',
-      color: 'var(--color-fg)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-2)',
+        color: 'var(--color-fg)',
+      },
     },
     // 触控专项（PRD G12）：页脚缩放钮触屏下加大命中面
     '@media (pointer: coarse)': {
@@ -124,6 +163,48 @@ const styles = stylex.create({
       paddingInline: '12px',
       paddingBlock: '10px',
     },
+  },
+  // 框选开关（phone-compat P2）：钉在舞台右上角的浮动 chip，只在触屏窄屏出现；
+  // 挂在滚动容器外的包装盒上，缩放平移谱面时它不动
+  boxToggle: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    zIndex: 12,
+    display: 'none',
+    alignItems: 'center',
+    gap: '7px',
+    borderRadius: '6px',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--color-line-strong)',
+    backgroundColor: 'var(--color-surface-2)',
+    paddingInline: '12px',
+    paddingBlock: '10px',
+    fontSize: '13px',
+    lineHeight: '20px',
+    fontWeight: 600,
+    color: 'var(--color-fg-2)',
+    boxShadow: 'var(--shadow-pop)',
+    // 嵌套单条件（同 stageScrollMode 注释：复合查询在 StyleX dev 运行时会被去重吞掉）
+    '@media (pointer: coarse)': {
+      '@media (max-width: 639px)': {
+        display: 'inline-flex',
+      },
+    },
+  },
+  boxToggleOn: {
+    borderColor: 'var(--color-verm-line-strong)',
+    backgroundColor: 'var(--color-verm-soft)',
+    color: 'var(--color-verm-deep)',
+  },
+  boxGlyph: {
+    height: '10px',
+    width: '13px',
+    borderWidth: '1.5px',
+    borderStyle: 'dashed',
+    borderColor: 'currentColor',
+    borderRadius: '2px',
   },
 })
 
@@ -268,6 +349,10 @@ export default function OsmdNotation({
   // 框选拖拽实时预览（§4.2 v1.6）：由拖拽帧按覆盖区间现算、区间变化时才更新；
   // null = 未拖拽或矩形下无可选区间（覆盖层回落 committed selection）
   const [boxPreview, setBoxPreview] = useState<ScoreSelection | null>(null)
+  // 手机触屏单指语义（selection.md §4.7）：false = 滚动模式（默认），true = 框选模式。
+  // 只经 touch-action 生效（媒体查询门控在样式里），指针管线本身零分支：
+  // 滚动模式下浏览器接管单指平移时发 pointercancel，管线按 S5 原样中止
+  const [boxSelectMode, setBoxSelectMode] = useState(false)
 
   // 跨 render 的最新值镜像：原生监听只挂一次，回调经 ref 读最新 props/几何
   const settingsRef = useRef({ selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady, transposeByMeasure })
@@ -479,6 +564,35 @@ export default function OsmdNotation({
       }, 200)
     })
     observer.observe(container)
+    return () => {
+      observer.disconnect()
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [rerender])
+
+  // 手机竖屏（phone-compat P9）：OSMD 自绘的谱内大标题在 ~330px 容器里左右溢出被裁
+  // （卡片头部 ScoreInfo 已有同源标题），跨过 640 断点时切换绘制并重排。挂载即对齐
+  // 当前宽度；与上面的 ResizeObserver 互不依赖（OSMD 标题绘制不改变容器宽度）
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return
+    const container = containerRef.current
+    const stage = stageRef.current
+    if (container === null || stage === null) return
+    let timer: number | null = null
+    let lastCompact: boolean | null = null
+    const apply = (): void => {
+      const compact = container.clientWidth < 640
+      if (compact === lastCompact) return
+      lastCompact = compact
+      rendererRef.current?.setDrawTitles(!compact)
+      void rerender()
+    }
+    apply()
+    const observer = new ResizeObserver(() => {
+      if (timer !== null) window.clearTimeout(timer)
+      timer = window.setTimeout(apply, 200)
+    })
+    observer.observe(stage)
     return () => {
       observer.disconnect()
       if (timer !== null) window.clearTimeout(timer)
@@ -1000,32 +1114,51 @@ export default function OsmdNotation({
 
   return (
     <>
-      <div
-        ref={stageRef}
-        data-osmd-stage=""
-        {...stylex.props(styles.stage, rawContent !== undefined && styles.stageLoaded)}
-      >
-        {rawContent === undefined ? (
-          <p {...stylex.props(styles.placeholder)}>{t.notationPlaceholder}</p>
-        ) : (
-          <div {...stylex.props(styles.sheetBox)} ref={sheetBoxRef}>
-            <div ref={containerRef} {...stylex.props(styles.osmdContainer)} />
-            {geometry !== null && (
-              <ScoreSelectionOverlay
-                positions={geometry.positions}
-                rows={geometry.rows}
-                pendingNoteIndex={pendingNoteIndex}
-                selection={selection}
-                previewSelection={boxPreview}
-                playingNoteIndex={playingNoteIndex}
-                dragLayerRef={dragLayerRef}
-              />
-            )}
-          </div>
+      <div {...stylex.props(styles.stageWrap)}>
+        <div
+          ref={stageRef}
+          data-osmd-stage=""
+          data-touch-mode={rawContent === undefined ? undefined : boxSelectMode ? 'box' : 'scroll'}
+          {...stylex.props(
+            styles.stage,
+            rawContent !== undefined && styles.stageLoaded,
+            rawContent !== undefined && !boxSelectMode && styles.stageScrollMode,
+          )}
+        >
+          {rawContent === undefined ? (
+            <p {...stylex.props(styles.placeholder)}>{t.notationPlaceholder}</p>
+          ) : (
+            <div {...stylex.props(styles.sheetBox)} ref={sheetBoxRef}>
+              <div ref={containerRef} {...stylex.props(styles.osmdContainer)} />
+              {geometry !== null && (
+                <ScoreSelectionOverlay
+                  positions={geometry.positions}
+                  rows={geometry.rows}
+                  pendingNoteIndex={pendingNoteIndex}
+                  selection={selection}
+                  previewSelection={boxPreview}
+                  playingNoteIndex={playingNoteIndex}
+                  dragLayerRef={dragLayerRef}
+                />
+              )}
+            </div>
+          )}
+        </div>
+        {rawContent !== undefined && (
+          <button
+            type="button"
+            aria-pressed={boxSelectMode}
+            title={t.notationBoxSelectHint}
+            onClick={() => setBoxSelectMode((on) => !on)}
+            {...stylex.props(styles.boxToggle, boxSelectMode && styles.boxToggleOn)}
+          >
+            <span aria-hidden {...stylex.props(styles.boxGlyph)} />
+            {t.notationBoxSelect}
+          </button>
         )}
       </div>
       <div {...stylex.props(styles.footer)}>
-        <span>{t.notationFootInfo}</span>
+        <span {...stylex.props(styles.footInfo)}>{t.notationFootInfo}</span>
         <div {...stylex.props(styles.zoomRow)}>
           <button
             type="button"

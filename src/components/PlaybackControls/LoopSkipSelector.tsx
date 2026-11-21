@@ -5,19 +5,46 @@ import { useI18n } from '../../locales/useI18n'
 const styles = stylex.create({
   row: {
     display: 'flex',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: '12px',
+    // 手机竖屏（phone-compat P5）：独占控制条一整行，网格化为
+    // 「标签 · 状态」一行 + 8 键等分一行；键宽随可用宽伸缩（360 视口亦不溢出）
+    '@media (max-width: 639px)': {
+      display: 'grid',
+      flexBasis: '100%',
+      gridTemplateColumns: 'minmax(0, 1fr) auto',
+      gridTemplateAreas: '"label info" "beats beats"',
+      columnGap: '12px',
+      rowGap: '6px',
+    },
+  },
+  label: {
+    '@media (max-width: 639px)': {
+      gridArea: 'label',
+    },
   },
   group: {
     display: 'flex',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: '10px',
+    '@media (max-width: 639px)': {
+      display: 'contents',
+    },
   },
   beatGroup: {
     display: 'flex',
+    flexWrap: 'wrap',
     gap: '3px',
     '@media (pointer: coarse)': {
       gap: '5px',
+    },
+    '@media (max-width: 639px)': {
+      display: 'grid',
+      gridArea: 'beats',
+      gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+      gap: '4px',
     },
   },
   beatBtn: {
@@ -37,6 +64,11 @@ const styles = stylex.create({
       width: '36px',
       fontSize: '13px',
     },
+    // 手机：宽度交给网格等分（≥32px），高度保持触屏 36px
+    '@media (max-width: 639px)': {
+      width: 'auto',
+      minWidth: 0,
+    },
   },
   beatOn: {
     backgroundColor: 'var(--color-verm)',
@@ -47,9 +79,11 @@ const styles = stylex.create({
     backgroundColor: 'transparent',
     color: 'var(--color-fg-2)',
     boxShadow: 'inset 0 0 0 1px var(--color-line-strong)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
-      color: 'var(--color-fg)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+        color: 'var(--color-fg)',
+      },
     },
   },
   info: {
@@ -57,6 +91,11 @@ const styles = stylex.create({
     fontSize: '12px',
     lineHeight: '16px',
     color: 'var(--color-fg-3)',
+    '@media (max-width: 639px)': {
+      gridArea: 'info',
+      minWidth: 0,
+      textAlign: 'end',
+    },
   },
   infoValue: {
     fontWeight: 600,
@@ -78,7 +117,7 @@ export default function LoopSkipSelector({ value, onChange }: LoopSkipSelectorPr
 
   return (
     <div {...stylex.props(styles.row)}>
-      <span {...stylex.props(ctlLabel.base)}>{t.skipLabel}</span>
+      <span {...stylex.props(ctlLabel.base, styles.label)}>{t.skipLabel}</span>
       <div {...stylex.props(styles.group)}>
         <div {...stylex.props(styles.beatGroup)} role="group" aria-label={t.skipLabel}>
           {SKIP_BEAT_OPTIONS.map((beats) => (

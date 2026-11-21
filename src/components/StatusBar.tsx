@@ -27,6 +27,13 @@ const styles = stylex.create({
     '@media (min-width: 640px)': {
       paddingInline: '22px',
     },
+    // 手机竖屏（phone-compat P6）：收紧行距压低吸底高度
+    '@media (max-width: 639px)': {
+      rowGap: '4px',
+      paddingTop: '7px',
+      paddingBottom: 'max(7px, calc(env(safe-area-inset-bottom) + 7px))',
+      fontSize: '12px',
+    },
   },
   group: {
     display: 'flex',
@@ -34,11 +41,21 @@ const styles = stylex.create({
     alignItems: 'center',
     columnGap: '18px',
     rowGap: '8px',
+    '@media (max-width: 639px)': {
+      columnGap: '12px',
+      rowGap: '4px',
+    },
   },
   cell: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '7px',
+  },
+  /** 手机隐藏：BPM 与紧贴其上的吸底速度滑杆大字重复，省一行 */
+  phoneHidden: {
+    '@media (max-width: 639px)': {
+      display: 'none',
+    },
   },
   muted: {
     color: 'var(--color-fg-3)',
@@ -132,7 +149,7 @@ export default function StatusBar({ playing, skipBeats, instrument, tempo, selec
         ) : (
           <span {...stylex.props(styles.muted)}>{t.statusStopped}</span>
         )}
-        <span {...stylex.props(styles.cell)}>
+        <span {...stylex.props(styles.cell, styles.phoneHidden)}>
           <span aria-hidden {...stylex.props(styles.noteGlyph)}>♩</span>
           <b {...stylex.props(styles.strong)}>{tempo} {t.bpmUnit}</b>
         </span>

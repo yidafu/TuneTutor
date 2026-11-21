@@ -58,7 +58,7 @@ TuneTutor（仓库 `note-slice`，包名 `tune-tutor`）是一款网页版乐谱
 | 进阶自学者 / 扒谱者 | 对照原曲抠细节 | 原曲音频切片循环、空拍留白反应训练 | 音频本地处理，不上传服务器 |
 | 音乐教师 | 课堂片段示范 | 快速加载任意 MusicXML、乐句循环展示 | 浏览器即开即用，无需账号 |
 
-通用约束：桌面浏览器优先（移动端布局可用但未专门优化，触控专项 = G12）；所有数据存本地（IndexedDB + localStorage），无后端、无账号体系。
+通用约束：桌面浏览器优先，触屏等价（iPad）与手机竖屏布局（≤639px）已专项交付（G12 / G18，规格见 [selection.md](./selection.md) §4.6–4.7 与 [features/phone-compat.md](./features/phone-compat.md)）；所有数据存本地（IndexedDB + localStorage），无后端、无账号体系。
 
 ## 6. 价值主张
 
@@ -140,7 +140,7 @@ App（Header 导航 + 共享速度值 tempo）
 - IndexedDB `tune-tutor-db`（v2）：`files`（乐谱历史）、`audioFiles`（原曲音频，取最新一条恢复）；
 - localStorage：`note-slice-language`、`note-slice-preferred-instrument`、`note-slice-metronome-sound`、`note-slice-metronome-strong-volume`、`note-slice-metronome-weak-volume`、`note-slice-audio-slice`、`note-slice-audio-gap`。
 
-#### 7.2.2 规划功能（G1–G17，v1.1 补录）
+#### 7.2.2 规划功能（G1–G18，v1.1 补录；G18 v1.2 补录）
 
 各域技术规格（[audio.md](./audio.md) §8、[selection.md](./selection.md) §10）记录的后续候选，按产品价值收拢如下；实现路径与官方播放器逆向对照见对应规格文档，不在重写初始范围。
 
@@ -163,6 +163,7 @@ App（Header 导航 + 共享速度值 tempo）
 | G15 | 录音回放对比 | 录制自身演奏与原曲 / 谱面播放对照 | 长期 |
 | G16 | MIDI 键盘输入跟练评分 | MIDI 接入后对弹奏正确性评分 | 长期 |
 | G17 | 乐谱云同步 | 跨设备同步文件历史与练习数据；与 A3「本地优先」假设冲突，届时需重估（含账号体系） | 远期 |
+| G18 | 手机端布局兼容 | 360–430px 竖屏完整可用：断点/弹层钳制/弹窗内滚/单指滚动与框选模式开关（规格 [features/phone-compat.md](./features/phone-compat.md)）；G12 解决触控等价性，本项解决窄视口布局 | 二期（2026-11-09 交付） |
 
 ### 7.3 技术
 
@@ -182,7 +183,7 @@ React 19 + TypeScript（strict，`verbatimModuleSyntax` / `erasableSyntaxOnly`�
 - L2：播放中按钮文案为「暂停」，实际行为是停止——短期如实标注「停止」；真暂停 / 续播 = G1；
 - L3：`FileLoaderModal` 部分文案硬编码英文，未走 i18n——短期修复；
 - L4：`.mxl` 解析层支持但文件选择器 accept 与文案未开放——短期开放；
-- L5：移动端为桌面布局自适应，未做触控专项优化（双击、拖选在触屏上的体验未验证）——G12；
+- L5：~~移动端为桌面布局自适应，未做触控专项优化~~——G12 触控专项已交付（2026-11-02）；窄视口布局由 G18 补齐（2026-11-09，手机竖屏完整可用，横屏不破但未专项优化）；
 - L6：乐谱页与原曲页的速度共享为单向约定（原曲页不回写），无原曲速度自动探测——G10；
 - L7：仓库样例 `刻在我心底的名字.mxl` 已损坏（文本转存污染 zip，tech §13-V4），不能作为 `.mxl` 手测样例——短期补一个合法 `.mxl` 样例并覆盖损坏 zip 的错误提示；
 - L8：旧实现曲名误读 `movementTitle`（实际 `workTitle`）、附点误读 `dot`（实际 `dots`）——重写修复（tech §13-V2/V3）。

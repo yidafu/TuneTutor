@@ -20,8 +20,10 @@ const styles = stylex.create({
     fontSize: '15px',
     color: 'var(--color-cream)',
     boxShadow: 'var(--shadow-btn-gold)',
-    ':hover': {
-      filter: 'brightness(1.05)',
+    '@media (hover: hover)': {
+      ':hover': {
+        filter: 'brightness(1.05)',
+      },
     },
   },
   pulseRing: {

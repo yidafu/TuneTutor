@@ -685,3 +685,112 @@ describe('OsmdNotation 播放光标带与播放数据（docs/audio.md §3.8）',
     await waitFor(() => expect(playheadElement()).toBeNull())
   })
 })
+
+/**
+ * 手机触屏单指语义（selection.md §4.7）。jsdom 不注入 StyleX 样式表、也无法模拟
+ * (pointer: coarse)，这里断言接线：dev 模式类名带「文件__styles.键」调试标记，
+ * 以此判定模式样式是否挂上；样式值本身（复合媒体下 pan-x pan-y、不含 zoom 关键字）
+ * 由构建产物与真机手测（test-cases TC-MAN-05）兜底，句柄 touch-action 由 e2e 读实算值。
+ */
+describe('OsmdNotation 手机滚动模式（selection.md §4.7，phone-compat P2）', () => {
+  afterEach(() => {
+    FakeOsmdRender.spec = null
+    FakeOsmdRender.last = null
+  })
+
+  const SCROLL_MODE = 'OsmdNotation__styles.stageScrollMode'
+
+  function toggleButton(): HTMLElement {
+    return screen.getByRole('button', { name: enUS.notationBoxSelect })
+  }
+
+  function stageElement(): HTMLElement {
+    return document.querySelector('[data-osmd-stage]') as HTMLElement
+  }
+
+  it('未加载乐谱：不渲染框选开关，舞台无触控模式标记', () => {
+    renderWithProviders(
+      <OsmdNotation selection={null} onSelectionChange={vi.fn()} onSelectionInvalid={vi.fn()} />,
+    )
+
+    expect(screen.queryByRole('button', { name: enUS.notationBoxSelect })).toBeNull()
+    expect(stageElement()).not.toHaveAttribute('data-touch-mode')
+    expect(stageElement().classList.contains(SCROLL_MODE)).toBe(false)
+  })
+
+  it('装载后默认滚动模式：舞台挂滚动模式样式，开关未按下', async () => {
+    setup()
+    await waitForGeometry()
+
+    expect(stageElement()).toHaveAttribute('data-touch-mode', 'scroll')
+    expect(stageElement().classList.contains(SCROLL_MODE)).toBe(true)
+    expect(toggleButton()).toHaveAttribute('aria-pressed', 'false')
+    expect(toggleButton().title).toBe(enUS.notationBoxSelectHint)
+  })
+
+  it('框选开关切换模式：开启撤掉滚动放行（单指回归框选），再点回到滚动', async () => {
+    setup()
+    await waitForGeometry()
+    const stage = stageElement()
+    const scrollClassName = stage.className
+
+    fireEvent.click(toggleButton())
+    expect(toggleButton()).toHaveAttribute('aria-pressed', 'true')
+    expect(toggleButton().classList.contains('OsmdNotation__styles.boxToggleOn')).toBe(true)
+    expect(stage).toHaveAttribute('data-touch-mode', 'box')
+    expect(stage.classList.contains(SCROLL_MODE)).toBe(false)
+
+    fireEvent.click(toggleButton())
+    expect(toggleButton()).toHaveAttribute('aria-pressed', 'false')
+    expect(toggleButton().classList.contains('OsmdNotation__styles.boxToggleOn')).toBe(false)
+    expect(stage).toHaveAttribute('data-touch-mode', 'scroll')
+    expect(stage.className).toBe(scrollClassName)
+  })
+
+  it('模式只经 touch-action 生效、指针管线零分支：滚动模式下鼠标框选照常提交', async () => {
+    const { onSelectionChange } = setup()
+    await waitForGeometry()
+    const stage = stageElement()
+    expect(stage).toHaveAttribute('data-touch-mode', 'scroll')
+
+    pointerDown(stage, 90, 30)
+    pointerMove(stage, 130, 30)
+    pointerMove(stage, 130, 190)
+    pointerUp(stage, 130, 190)
+
+    await waitFor(() => expect(onSelectionChange).toHaveBeenCalled())
+    expect(lastCall(onSelectionChange.mock.calls)[0]).toMatchObject({ kind: 'box', startIndex: 1, endIndex: 7 })
+  })
+
+  it('浏览器接管单指平移（pointercancel）不残留手势：随后单击音符照常选小节', async () => {
+    const { onSelectionChange } = setup()
+    const notes = await waitForGeometry()
+    const stage = stageElement()
+
+    // 滚动模式真机序列：down → 浏览器判定为平移 → pointercancel（S5 中止）
+    pointerDown(stage, 90, 30)
+    pointerMove(stage, 92, 60)
+    fireEvent.pointerCancel(stage, { pointerId: 1 })
+    expect(onSelectionChange).not.toHaveBeenCalled()
+
+    pointerDown(notes[0]!, 60, 40)
+    pointerUp(notes[0]!, 60, 40)
+    await waitFor(() => expect(onSelectionChange).toHaveBeenCalled())
+    expect(lastCall(onSelectionChange.mock.calls)[0]).toMatchObject({ kind: 'measure', startIndex: 0 })
+  })
+
+  it('换谱不重置模式（会话态，与选择同属不持久化）', async () => {
+    const { rerender } = renderWithProviders(
+      <OsmdNotation rawContent="<fake-score/>" selection={null} onSelectionChange={vi.fn()} onSelectionInvalid={vi.fn()} />,
+    )
+    await waitForGeometry()
+    fireEvent.click(toggleButton())
+    expect(stageElement()).toHaveAttribute('data-touch-mode', 'box')
+
+    rerender(
+      <OsmdNotation rawContent="<fake-score-2/>" selection={null} onSelectionChange={vi.fn()} onSelectionInvalid={vi.fn()} />,
+    )
+    await waitForGeometry()
+    expect(stageElement()).toHaveAttribute('data-touch-mode', 'box')
+  })
+})

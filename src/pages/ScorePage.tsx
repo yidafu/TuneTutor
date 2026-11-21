@@ -46,13 +46,12 @@ const styles = stylex.create({
     flex: 1,
     flexDirection: 'column',
     overflowY: 'auto',
-    // 触控专项（PRD G12）：safe-area 让出 iPad 圆角/主屏指示器（浏览器模式 env()=0 不变）
-    paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
-    paddingLeft: 'max(16px, env(safe-area-inset-left))',
-    paddingRight: 'max(16px, env(safe-area-inset-right))',
+    // 左右安全区已由 App main 统一让出（phone-compat P4，不再叠加 env()）；
+    // 本区之下还有控制条/状态栏，底部安全区归吸底的 StatusBar
+    paddingBottom: '16px',
+    paddingInline: '16px',
     '@media (min-width: 640px)': {
-      paddingLeft: 'max(22px, env(safe-area-inset-left))',
-      paddingRight: 'max(22px, env(safe-area-inset-right))',
+      paddingInline: '22px',
     },
   },
   toolRow: {
@@ -63,6 +62,10 @@ const styles = stylex.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '12px',
+    '@media (max-width: 639px)': {
+      marginBottom: '10px',
+      gap: '8px',
+    },
   },
   libraryTitle: {
     display: 'inline-flex',
@@ -100,8 +103,10 @@ const styles = stylex.create({
     color: 'var(--color-cream)',
     backgroundColor: 'var(--color-ink)',
     boxShadow: 'var(--shadow-btn-ink)',
-    ':hover': {
-      backgroundColor: 'var(--color-ink-hover)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-ink-hover)',
+      },
     },
   },
   scoreCard: {
@@ -118,6 +123,12 @@ const styles = stylex.create({
     paddingTop: '28px',
     color: 'var(--color-ink)',
     boxShadow: 'var(--shadow-paper)',
+    // 手机竖屏让宽给谱面（phone-compat P9）：390 视口下渲染宽 ≈300 → ≈328px
+    '@media (max-width: 639px)': {
+      paddingInline: '14px',
+      paddingTop: '18px',
+      paddingBottom: '12px',
+    },
   },
 })
 

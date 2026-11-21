@@ -8,6 +8,9 @@ const styles = stylex.create({
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    '@media (max-width: 639px)': {
+      gap: '10px',
+    },
   },
   sliderWrap: {
     display: 'flex',
@@ -15,6 +18,11 @@ const styles = stylex.create({
     flex: 1,
     alignItems: 'center',
     gap: '12px',
+    // 手机竖屏（phone-compat P6）：让速度与走带钮同排放得下（360 视口亦然）
+    '@media (max-width: 639px)': {
+      minWidth: '140px',
+      gap: '10px',
+    },
   },
   range: {
     minWidth: 0,

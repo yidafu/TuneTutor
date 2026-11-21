@@ -2,12 +2,18 @@ import { Fragment, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import * as stylex from '@stylexjs/stylex'
 import { useClickOutside } from '../hooks/useClickOutside'
+import { clampTransform, usePopoverClamp } from '../hooks/usePopoverClamp'
 import { useTheme } from '../hooks/useTheme'
 import { LANGUAGES, LANGUAGE_NAMES } from '../locales/languages'
 import { useI18n } from '../locales/useI18n'
 import { THEME_EN_NAMES, THEME_GROUPS, THEME_SWATCHES } from '../themes'
 import { menuPop, menuItem, menuTrigger } from './menu.styles'
 import { ThemeGlyph, ThemeIcon } from './icons/ThemeIcon'
+
+/** 语言弹层宽度（menuPop 基线宽，钳制计算用；须与 menu.styles.ts 一致） */
+const LANG_POP_WIDTH = 176
+/** 皮肤弹层宽度（themePop 覆盖值，钳制计算用） */
+const THEME_POP_WIDTH = 272
 
 const styles = stylex.create({
   anchor: {
@@ -34,7 +40,7 @@ const styles = stylex.create({
   },
   themePop: {
     top: 'calc(100% + 8px)',
-    width: '272px',
+    width: `${THEME_POP_WIDTH}px`,
     paddingBlock: '6px',
     paddingInline: '6px',
     borderRadius: 'var(--radius-card)',
@@ -119,12 +125,29 @@ const styles = stylex.create({
     borderBottomStyle: 'solid',
     borderBottomColor: 'var(--color-line)',
     backgroundColor: 'var(--color-header)',
-    paddingInline: '22px',
+    // 页头贴屏幕顶缘：安全区由它自己让（phone-compat P4；此前误挂在其下方的 main 上，
+    // 刘海/灵动岛会压住页头）。浏览器模式 env()=0，与改前一致
+    paddingTop: 'env(safe-area-inset-top)',
+    paddingLeft: 'max(22px, env(safe-area-inset-left))',
+    paddingRight: 'max(22px, env(safe-area-inset-right))',
+    // 手机竖屏：品牌+导航一行、切换器一行（≈96px），边距与各页 16px 对齐
+    '@media (max-width: 639px)': {
+      minHeight: '52px',
+      columnGap: '10px',
+      rowGap: '2px',
+      paddingTop: 'calc(env(safe-area-inset-top) + 6px)',
+      paddingBottom: '6px',
+      paddingLeft: 'max(16px, env(safe-area-inset-left))',
+      paddingRight: 'max(16px, env(safe-area-inset-right))',
+    },
   },
   brandRow: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    '@media (max-width: 639px)': {
+      gap: '9px',
+    },
   },
   brandBox: {
     display: 'grid',
@@ -153,10 +176,17 @@ const styles = stylex.create({
     marginTop: '1px',
     fontSize: '11px',
     color: 'var(--color-fg-3)',
+    // 手机竖屏让出横向空间给导航（品牌名本身已足够标识）
+    '@media (max-width: 639px)': {
+      display: 'none',
+    },
   },
   nav: {
     display: 'flex',
     gap: '22px',
+    '@media (max-width: 639px)': {
+      gap: '16px',
+    },
   },
   navLink: {
     paddingInline: '2px',
@@ -174,8 +204,10 @@ const styles = stylex.create({
   },
   navLinkIdle: {
     color: 'var(--color-fg-2)',
-    ':hover': {
-      color: 'var(--color-fg)',
+    '@media (hover: hover)': {
+      ':hover': {
+        color: 'var(--color-fg)',
+      },
     },
   },
   switcherRow: {
@@ -189,6 +221,7 @@ function LangSwitcher() {
   const { language, setLanguage } = useI18n()
   const [open, setOpen] = useState(false)
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
+  const offsetX = usePopoverClamp(ref, open, LANG_POP_WIDTH)
 
   return (
     <div {...stylex.props(styles.anchor)} ref={ref}>
@@ -207,6 +240,7 @@ function LangSwitcher() {
           role="listbox"
           aria-label={LANGUAGE_NAMES[language]}
           {...stylex.props(menuPop.base)}
+          style={clampTransform(offsetX)}
         >
           {LANGUAGES.map((lang) => (
             <li key={lang}>
@@ -247,6 +281,7 @@ function ThemeSwitcher() {
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
+  const offsetX = usePopoverClamp(ref, open, THEME_POP_WIDTH)
 
   useEffect(() => {
     if (!open) return
@@ -271,7 +306,7 @@ function ThemeSwitcher() {
         <span aria-hidden {...stylex.props(styles.chevron)}>▼</span>
       </button>
       {open && (
-        <div {...stylex.props(menuPop.base, styles.themePop)}>
+        <div {...stylex.props(menuPop.base, styles.themePop)} style={clampTransform(offsetX)}>
           <div {...stylex.props(styles.themePopHead)}>
             <b {...stylex.props(styles.popTitle)}>{t.theme.label}</b>
             <span {...stylex.props(styles.popHint)}>{t.theme.appliedHint}</span>

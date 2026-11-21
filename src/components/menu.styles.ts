@@ -21,9 +21,12 @@ export const menuTrigger = stylex.create({
     fontSize: '13px',
     fontWeight: 500,
     color: 'var(--color-fg-2)',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
-      color: 'var(--color-fg)',
+    // 悬停门控（phone-compat P11）：触屏点按后 :hover 会粘滞，只给真悬停设备
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+        color: 'var(--color-fg)',
+      },
     },
     // 触控专项（PRD G12）：触屏下拉钮命中面加大
     '@media (pointer: coarse)': {
@@ -32,7 +35,11 @@ export const menuTrigger = stylex.create({
   },
 })
 
-/** 弹层容器：右对齐挂在触发钮下方（ul 自带的列表样式一并清掉） */
+/**
+ * 弹层容器：右对齐挂在触发钮下方（ul 自带的列表样式一并清掉）。
+ * 手机窄屏（phone-compat P3）：宽高双向钳到视口内、超高内滚；水平位置的
+ * 左溢由调用方 usePopoverClamp 算 translateX 偏移补偿。
+ */
 export const menuPop = stylex.create({
   base: {
     position: 'absolute',
@@ -40,11 +47,15 @@ export const menuPop = stylex.create({
     top: 'calc(100% + 6px)',
     zIndex: 40,
     width: '176px',
+    maxWidth: 'calc(100vw - 24px)',
+    maxHeight: 'calc(100dvh - 140px)',
     margin: 0,
     paddingBlock: '4px',
     paddingInline: 0,
     listStyle: 'none',
-    overflow: 'hidden',
+    overflowX: 'hidden',
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: 'var(--color-line-strong)',
@@ -64,8 +75,10 @@ export const menuItem = stylex.create({
     paddingBlock: '8px',
     textAlign: 'left',
     fontSize: '13px',
-    ':hover': {
-      backgroundColor: 'var(--color-surface-3)',
+    '@media (hover: hover)': {
+      ':hover': {
+        backgroundColor: 'var(--color-surface-3)',
+      },
     },
     // 触控专项（PRD G12）：触屏选项行加高（下拉整行可点）
     '@media (pointer: coarse)': {
