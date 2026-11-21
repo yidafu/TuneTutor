@@ -52,6 +52,11 @@ describe('SW 源码契约(src/sw.ts)', () => {
     expect(swSource).toContain('installPrecacheEntries(')
   })
 
+  it('依赖注入的 fetch 必须绑定全局(裸引用经 deps.fetch 属性调用 = Illegal invocation,SW 安装静默失败)', () => {
+    expect(swSource).toContain('fetch.bind(self)')
+    expect(swSource).not.toMatch(/^\s+fetch,$/m)
+  })
+
   it('CDN 采样走 runtime 缓存分支(A20):sw.ts 引用 runtime 服务函数与缓存名', () => {
     expect(swSource).toContain('serveFromRuntimeCacheOrNetwork(')
     expect(swSource).toContain('RUNTIME_CACHE_NAME')

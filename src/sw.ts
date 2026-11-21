@@ -50,6 +50,11 @@ interface SWScope {
 
 declare const self: SWScope
 
+// WorkerGlobalScope.fetch 的 receiver 必须是全局:裸引用经依赖对象属性调用
+// (deps.fetch(...))会抛 Illegal invocation(2026-11-21 线上实证:precache install
+// 一直失败、SW 从未激活,页面侧静默降级)。绑定一次,三处依赖注入共用。
+const workerFetch = fetch.bind(self)
+
 const manifest = self.__WB_MANIFEST
 const index = buildPrecacheIndex(manifest)
 const scope = self.registration.scope
@@ -58,7 +63,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     installPrecacheEntries(manifest, {
       baseUrl: scope,
-      fetch,
+      fetch: workerFetch,
       openCache: () => self.caches.open(PRECACHE_CACHE_NAME),
     }).then(() => self.skipWaiting()),
   )
@@ -97,7 +102,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       serveFromRuntimeCacheOrNetwork(event.request, {
         openCache: () => self.caches.open(RUNTIME_CACHE_NAME),
-        fetch,
+        fetch: workerFetch,
       }),
     )
     return
@@ -105,7 +110,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     serveFromPrecacheOrNetwork(decision, event.request, {
       openCache: () => self.caches.open(PRECACHE_CACHE_NAME),
-      fetch,
+      fetch: workerFetch,
     }),
   )
 })
