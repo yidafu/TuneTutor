@@ -1,6 +1,6 @@
 import type { Measure as IoMeasure, MeasureAttributes, NoteEntry, Score } from 'musicxml-io'
 
-import type { Measure, Note, ParsedScore } from '../../types/notation'
+import type { Measure, Note, ParsedScore, Transposition } from '../../types/notation'
 
 /**
  * musicxml-io Score → ParsedScore 映射（docs/musicxml.md §2/§4）。
@@ -159,18 +159,31 @@ function multipleRestOf(attributes: MeasureAttributes | undefined): number | und
   return attributes?.measureStyle?.find((style) => style.multipleRest !== undefined)?.multipleRest
 }
 
+/** attributes/transpose → 契约形状（io 产出 transpose 与 transposes[] 双形态，取首个） */
+function transpositionOf(attributes: MeasureAttributes): Transposition | undefined {
+  const declared = attributes.transpose ?? attributes.transposes?.[0]
+  if (declared === undefined) return undefined
+  return {
+    diatonic: declared.diatonic,
+    chromatic: declared.chromatic,
+    ...(declared.octaveChange !== undefined ? { octaveChange: declared.octaveChange } : {}),
+  }
+}
+
 /** 解析单小节：按 entries 顺序应用属性变更（divisions/time/key 覆写或继承，M4），direction dynamics 挂到其后第一条 note（§4.7） */
 function convertMeasure(ioMeasure: IoMeasure, index: number, state: {
   divisions?: number
   time?: string
   key?: string
   tempo?: number
+  transpose?: Transposition
   /** 顶层契约取首个声明（docs/musicxml.md §2：首个 attributes.time / 首小节有效 divisions / 首调号） */
   firsts: { divisions?: number; time?: string; key?: string }
 }): Measure {
   const timeAtStart = state.time
   const keyAtStart = state.key
   let declaredDivisions: number | undefined
+  let declaredTranspose: Transposition | undefined
   let pendingDynamics: string[] = []
   const notes: Note[] = []
 
@@ -188,6 +201,11 @@ function convertMeasure(ioMeasure: IoMeasure, index: number, state: {
       const key = fifthsToKeySignature(attributes.key.fifths, attributes.key.mode)
       state.firsts.key ??= key
       state.key = key
+    }
+    const transpose = transpositionOf(attributes)
+    if (transpose !== undefined) {
+      state.transpose = transpose
+      declaredTranspose = transpose
     }
   }
 
@@ -220,6 +238,7 @@ function convertMeasure(ioMeasure: IoMeasure, index: number, state: {
     ...(state.time !== undefined && state.time !== timeAtStart ? { timeSignature: state.time } : {}),
     ...(state.key !== undefined && state.key !== keyAtStart ? { keySignature: state.key } : {}),
     ...(declaredDivisions !== undefined ? { divisions: declaredDivisions } : {}),
+    ...(declaredTranspose !== undefined ? { transpose: declaredTranspose } : {}),
     ...(multipleRestOf(ioMeasure.attributes) !== undefined
       ? { multipleRest: multipleRestOf(ioMeasure.attributes) }
       : {}),
@@ -246,4 +265,19 @@ export function scoreToParsedScore(score: Score): ParsedScore {
       ? { divisions: state.firsts.divisions }
       : { divisions: 1 }),
   }
+}
+
+/**
+ * 逐小节有效移调半音表（记谱 → 实际发声，半音 = chromatic + 12×octaveChange）。
+ * 声明覆写并向前继承（divisions 的 M4 同款继承规则）；曲首缺省 0（C 调乐器谱原样播）。
+ * 播放域唯一消费点 = buildPlaybackData 的 transposeByMeasure（docs/audio.md §2.2-5）——
+ * ParsedScore 仍不承载音符序列/索引（tech.md D1），此处只映射小节号 → 半音量。
+ */
+export function transposeSemitonesByMeasure(parsedScore: ParsedScore): number[] {
+  let semitones = 0
+  return parsedScore.measures.map((measure) => {
+    const declared = measure.transpose
+    if (declared !== undefined) semitones = declared.chromatic + 12 * (declared.octaveChange ?? 0)
+    return semitones
+  })
 }

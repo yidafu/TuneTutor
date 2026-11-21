@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parse } from 'musicxml-io'
 
-import { FALLBACK_TEMPO, fifthsToKeySignature, scoreToParsedScore } from '@/utils/notation/musicXMLParser'
+import { FALLBACK_TEMPO, fifthsToKeySignature, scoreToParsedScore, transposeSemitonesByMeasure } from '@/utils/notation/musicXMLParser'
 
 /** 最小 score-partwise 骨架（spike 实测 io 要求 part-list + part）；head 默认带 work-title */
 function scoreXml(measures: string, head = '<work><work-title>Fixture</work-title></work>'): string {
@@ -371,5 +371,48 @@ describe('scoreToParsedScore 小节属性变更', () => {
   it('小节 index 从 0 连续编号', () => {
     const measures = scoreToParsedScore(parse(scoreXml(`${measure('1', ATTRS_44 + QUARTER_C4)}${measure('2', QUARTER_C4)}`))).measures
     expect(measures.map((m) => m.index)).toEqual([0, 1])
+  })
+})
+
+describe('移调 attributes/transpose（docs/musicxml.md §3 行 19，决策 M11）', () => {
+  const SAX_TRANSPOSE = '<transpose><diatonic>-5</diatonic><chromatic>-9</chromatic></transpose>'
+  // transpose 是 attributes 的子元素：须拼在 </attributes> 之内（measure 直下 io 不认）
+  const SAX_ATTRS =
+    '<attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time>' +
+    SAX_TRANSPOSE +
+    '</attributes>'
+
+  it('transpose 声明入 Measure（中音萨克斯 -5/-9）；未声明小节 undefined = 继承', () => {
+    const parsed = scoreToParsedScore(
+      parse(scoreXml(`${measure('1', SAX_ATTRS + QUARTER_C4)}${measure('2', QUARTER_C4)}`)),
+    )
+    expect(parsed.measures[0]!.transpose).toEqual({ diatonic: -5, chromatic: -9 })
+    expect(parsed.measures[1]!.transpose).toBeUndefined()
+  })
+
+  it('octave-change 原样透传；io 产出双 transpose 时只留首个（0.2.11 实测）', () => {
+    const attrs = '<attributes><divisions>4</divisions>' +
+      '<transpose><diatonic>-1</diatonic><chromatic>-2</chromatic><octave-change>-1</octave-change></transpose>' +
+      '<transpose><diatonic>-2</diatonic><chromatic>-3</chromatic></transpose></attributes>'
+    const parsed = scoreToParsedScore(parse(scoreXml(measure('1', attrs + QUARTER_C4))))
+    expect(parsed.measures[0]!.transpose).toEqual({ diatonic: -1, chromatic: -2, octaveChange: -1 })
+  })
+
+  it('transposeSemitonesByMeasure：覆写继承（M4 同款），半音 = chromatic + 12×octaveChange', () => {
+    const octaveDown = '<transpose><diatonic>-1</diatonic><chromatic>-2</chromatic><octave-change>-1</octave-change></transpose>'
+    const parsed = scoreToParsedScore(
+      parse(scoreXml(
+        measure('1', SAX_ATTRS + QUARTER_C4) +
+        measure('2', QUARTER_C4) +
+        measure('3', '<attributes>' + octaveDown + '</attributes>' + QUARTER_C4) +
+        measure('4', QUARTER_C4),
+      )),
+    )
+    expect(transposeSemitonesByMeasure(parsed)).toEqual([-9, -9, -14, -14])
+  })
+
+  it('无 transpose 声明的谱：全 0（C 调乐器原样播放）', () => {
+    const parsed = scoreToParsedScore(parse(scoreXml(`${measure('1', ATTRS_44 + QUARTER_C4)}${measure('2', QUARTER_C4)}`)))
+    expect(transposeSemitonesByMeasure(parsed)).toEqual([0, 0])
   })
 })

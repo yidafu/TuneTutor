@@ -31,6 +31,7 @@ import {
   saveStoredFile,
 } from '../utils/storage/indexedDB'
 import { ImportFileError, processFile, type ImportErrorCode } from '../utils/notation/processFile'
+import { transposeSemitonesByMeasure } from '../utils/notation/musicXMLParser'
 
 const styles = stylex.create({
   page: {
@@ -296,6 +297,8 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
   // Esc = 停止并清除（tech.md §6.3）；Stop 按钮只停不走清除。
   const parsed = score.parsedScore
   const handlePlaybackDataReady = useCallback((next: PlaybackEntry[]) => setEntries(next), [])
+  // 移调乐器谱（中音萨克斯等）播放折算：逐小节记谱→发声半音表（audio.md 决策 A18）
+  const transposeByMeasure = useMemo(() => transposeSemitonesByMeasure(parsed), [parsed])
   const metronomeSettings = useMemo<MetronomeSettings>(() => {
     const { beatsPerMeasure, beatValue } = parseTimeSignature(parsed.timeSignature)
     return {
@@ -363,6 +366,7 @@ export default function ScorePage({ tempo, onTempoChange }: ScorePageProps) {
             clearPendingSignal={clearPendingSignal}
             engine={playback.engine}
             onPlaybackDataReady={handlePlaybackDataReady}
+            transposeByMeasure={transposeByMeasure}
           />
         </div>
 

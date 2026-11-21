@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { parse } from 'musicxml-io'
 import type { Cursor, Note, VoiceEntry } from 'opensheetmusicdisplay'
 import { buildPlaybackData, halfToneToNoteName } from '@/audio/playbackData'
+import { scoreToParsedScore, transposeSemitonesByMeasure } from '@/utils/notation/musicXMLParser'
 import { dataEndRv } from '@/utils/notation/selection'
 
 interface MockNoteSpec {
@@ -398,6 +400,47 @@ describe('buildPlaybackData（OSMD 光标 → 乐谱时域条目，docs/audio.md
   })
 })
 
+describe('buildPlaybackData 移调折算（docs/audio.md 决策 A18）', () => {
+  it('transposeByMeasure 逐小节平移 noteName：中音萨克斯 −9 半音（记谱 C5 → 发声 D#4）', () => {
+    const cursor = buildMockCursor([
+      { measureIndex: 0, notes: [{ halfTone: 60, lengthRv: 0.25 }] },
+      { measureIndex: 1, notes: [{ halfTone: 62, lengthRv: 0.25 }] },
+    ])
+    expect(buildPlaybackData(cursor, [-9, -9]).map((entry) => entry.noteName)).toEqual(['D#4', 'F4'])
+    // 缺省 = 全谱原样（C 调乐器谱回归，行为不变）
+    expect(buildPlaybackData(cursor).map((entry) => entry.noteName)).toEqual(['C5', 'D5'])
+  })
+
+  it('表长不足的小节回落 0，不越界不抛错', () => {
+    const cursor = buildMockCursor([
+      { measureIndex: 0, notes: [{ halfTone: 60, lengthRv: 0.25 }] },
+      { measureIndex: 1, notes: [{ halfTone: 60, lengthRv: 0.25 }] },
+    ])
+    expect(buildPlaybackData(cursor, [-9]).map((entry) => entry.noteName)).toEqual(['D#4', 'C5'])
+    expect(buildPlaybackData(cursor, []).map((entry) => entry.noteName)).toEqual(['C5', 'C5'])
+  })
+
+  it('倚音与装饰音邻音同源平移：mordent 切片整体落发声域，音程结构不变', () => {
+    // 记谱域：E5 倚音 + C4 主音（mordent 下邻 B3）；−9 半音后 G4 / D#3 / D3
+    const cursor = buildMockCursor([
+      {
+        measureIndex: 0,
+        graceNotes: [{ halfTone: 64, lengthRv: 0, grace: true }],
+        ornament: 5, // Mordent
+        notes: [{ halfTone: 48, lengthRv: 0.25, pitch: { fundamental: 0, octave: 4 } }],
+      },
+    ])
+    expect(
+      buildPlaybackData(cursor, [-9]).map((entry) => [entry.noteName, entry.startRv, entry.durationRv]),
+    ).toEqual([
+      ['G4', 0, 0.0625],
+      ['D#3', 0.0625, 0.046875],
+      ['D3', 0.109375, 0.046875],
+      ['D#3', 0.15625, 0.09375],
+    ])
+  })
+})
+
 describe('buildPlaybackData × 真实 OSMD 光标（marks-tie 漂移回归，jsdom 加载不渲染）', () => {
   /** 真实迭代器按 Cursor 协议包装（Cursor = iterator + 视觉层，数据构建只碰前者） */
   async function loadRealCursor(fixture: string): Promise<Cursor> {
@@ -531,5 +574,20 @@ describe('buildPlaybackData × 真实 OSMD 光标（marks-tie 漂移回归，jsd
       ['G5', 1.46875, 0.03125, 3],
       ['G5', 1.5, 0.5, 4],
     ])
+  })
+
+  it('连音符（中音萨克斯 transpose −5/−9）：播放音名整体下移大六度，索引/时间不变（A18 端到端）', async () => {
+    const fixture = '连音符.musicxml'
+    const xml = readFileSync(path.resolve(process.cwd(), 'musicxml', fixture), 'utf-8')
+    const shifts = transposeSemitonesByMeasure(scoreToParsedScore(parse(xml)))
+    expect(shifts).toEqual([-9, -9])
+    const written = buildPlaybackData(await loadRealCursor(fixture))
+    const entries = buildPlaybackData(await loadRealCursor(fixture), shifts)
+    // 折算只动 noteName：条目数/noteIndex/startRv 与记谱域构建完全一致（索引对齐不受影响）
+    expect(entries.map((entry) => [entry.noteIndex, entry.startRv]))
+      .toEqual(written.map((entry) => [entry.noteIndex, entry.startRv]))
+    // 首个发音音符：记谱 B4 → 发声 D4（大六度下行）
+    expect(written[0]).toMatchObject({ noteName: 'B4' })
+    expect(entries[0]).toMatchObject({ noteName: 'D4' })
   })
 })

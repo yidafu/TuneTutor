@@ -48,6 +48,21 @@ export interface Measure {
   divisions?: number
   /** 多小节休止小节数（measure-style/multiple-rest） */
   multipleRest?: number
+  /** 该小节声明的移调（attributes/transpose）；undefined = 继承上一小节（docs/musicxml.md 决策 M11） */
+  transpose?: Transposition
+}
+
+/**
+ * 移调声明（MusicXML `attributes/transpose` 原样，docs/musicxml.md §3 行 19）。
+ * 语义 = 记谱音高 → 实际发声音高的下行/上行量：发声半音 = chromatic + 12×octaveChange；
+ * diatonic 是字母步数，仅移调拼写用（v2 播放只消费半音，音名恒升号记法）。
+ * 移调乐器谱（如中音萨克斯 -5/-9：记谱比实际高大六度）由此按实际音高播放，
+ * OSMD 渲染不受影响（它读 rawContent，照记谱展示）。
+ */
+export interface Transposition {
+  diatonic: number
+  chromatic: number
+  octaveChange?: number
 }
 
 export interface ParsedScore {

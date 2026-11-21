@@ -142,6 +142,11 @@ interface OsmdNotationProps {
   engine?: PlaybackEngine | null
   /** 新谱装载完成后上报播放数据（乐谱时域条目）与谱键 rawContent（P3 接线 §3.2） */
   onPlaybackDataReady?: (entries: PlaybackEntry[], scoreKey: string) => void
+  /**
+   * 逐小节有效移调半音表（transposeSemitonesByMeasure 产物，audio.md 决策 A18）：
+   * 播放 noteName 按小节平移到实际发声音高（移调乐器谱）；缺省/undefined = 全谱原样。
+   */
+  transposeByMeasure?: readonly number[]
 }
 
 type Gesture =
@@ -232,6 +237,7 @@ export default function OsmdNotation({
   clearPendingSignal = 0,
   engine = null,
   onPlaybackDataReady,
+  transposeByMeasure,
 }: OsmdNotationProps) {
   const { t } = useI18n()
   const { theme } = useTheme()
@@ -264,9 +270,9 @@ export default function OsmdNotation({
   const [boxPreview, setBoxPreview] = useState<ScoreSelection | null>(null)
 
   // 跨 render 的最新值镜像：原生监听只挂一次，回调经 ref 读最新 props/几何
-  const settingsRef = useRef({ selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady })
+  const settingsRef = useRef({ selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady, transposeByMeasure })
   useEffect(() => {
-    settingsRef.current = { selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady }
+    settingsRef.current = { selection, onSelectionChange, onSelectionInvalid, onPlaybackDataReady, transposeByMeasure }
   })
   const geometryRef = useRef(geometry)
   useEffect(() => {
@@ -313,7 +319,7 @@ export default function OsmdNotation({
     const report = settingsRef.current.onPlaybackDataReady
     if (report === undefined) return
     const cursor = renderer.instance.cursor
-    const built = buildPlaybackData(cursor)
+    const built = buildPlaybackData(cursor, settingsRef.current.transposeByMeasure)
     cursor.reset()
     report(built, scoreKey)
   }, [])

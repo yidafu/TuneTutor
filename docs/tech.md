@@ -112,7 +112,7 @@ OSMD 光标 ──buildPlaybackData──▶ PlaybackEntry[]（乐谱时域，�
 interface ParsedScore {
   title: string;                  // 取 metadata.workTitle，回落 movementTitle（spike §13-V2）
   composer?: string;              // 取 metadata.creators 中 type=composer 的 value
-  measures: Measure[];            // Measure { index, notes, timeSignature?, keySignature?, divisions?, multipleRest? }
+  measures: Measure[];            // Measure { index, notes, timeSignature?, keySignature?, divisions?, multipleRest?, transpose? }（transpose = attributes/transpose 声明，docs/musicxml.md 决策 M11）
   tempo: number;                  // MusicXML <sound tempo>；样例谱普遍缺失，必须兜底 60
   timeSignature: string;          // "4/4"
   keySignature?: string;          // 五度圈 → 调名

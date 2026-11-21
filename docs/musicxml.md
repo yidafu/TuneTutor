@@ -1,9 +1,9 @@
 # TuneTutor MusicXML 导入解析技术规格
 
-**版本**: 1.2
-**日期**: 2026-10-28
+**版本**: 1.3
+**日期**: 2026-11-02
 **状态**: Ready for Re-implementation
-**变更**: 1.2——装饰音/倚音实测补全（§2 文法枚举改 io 0.2.11 可产出 13 种、§3 行 10、§4.5 倚音和弦与 steal-time 丢弃、§4.6 播放消费对齐 audio.md A17、§7-I1/I9 补记），解析/播放域单测补全覆盖同步落地。1.1——夹具谱实测补记（§7-I9/I10）、keySignature「首个」语义澄清（§2，同步修复解析器顶层取值）、测试策略补夹具集成层（§8）。初版自 [tech.md](./tech.md) v2.3 §2.2（数据流）/§3（数据契约）的导入解析域拆分扩写；成文前以 `musicxml-io` 0.2.11 对仓库三份样例谱逐标记实测（§7），给出五线谱**连线符（连结线 tie / 连线 slur）、停顿（休止系）、连音（tuplet）、装饰音（ornament）、倚音（grace note）等全部标记**的解析映射、契约承载与播放/渲染职责边界，含决策 M1–M10。本文生效后 tech.md 对应章节降为摘要。
+**变更**: 1.3——移调入契约（决策 M11）：`attributes/transpose` 逐小节声明入 `Measure.transpose`（覆写/继承同 divisions，M4），`transposeSemitonesByMeasure` 给出逐小节有效半音表供播放折算实际音高（消费规则与 OSMD 渲染边界见 audio.md 决策 A18）；行 19/§4.9/§8/§9 同步，concert-pitch 从后续候选注销。1.2——装饰音/倚音实测补全（§2 文法枚举改 io 0.2.11 可产出 13 种、§3 行 10、§4.5 倚音和弦与 steal-time 丢弃、§4.6 播放消费对齐 audio.md A17、§7-I1/I9 补记），解析/播放域单测补全覆盖同步落地。1.1——夹具谱实测补记（§7-I9/I10）、keySignature「首个」语义澄清（§2，同步修复解析器顶层取值）、测试策略补夹具集成层（§8）。初版自 [tech.md](./tech.md) v2.3 §2.2（数据流）/§3（数据契约）的导入解析域拆分扩写；成文前以 `musicxml-io` 0.2.11 对仓库三份样例谱逐标记实测（§7），给出五线谱**连线符（连结线 tie / 连线 slur）、停顿（休止系）、连音（tuplet）、装饰音（ornament）、倚音（grace note）等全部标记**的解析映射、契约承载与播放/渲染职责边界，含决策 M1–M11。本文生效后 tech.md 对应章节降为摘要。
 
 ---
 
@@ -91,6 +91,12 @@ interface Measure {
   keySignature?: string;
   divisions?: number;             // 该小节声明的 divisions；undefined = 继承上一小节（M4）
   multipleRest?: number;          // 多小节休止小节数（measure-style/multiple-rest，§4.3）
+  transpose?: Transposition;      // 该小节声明的移调；undefined = 继承上一小节（M11，§4.9）
+}
+interface Transposition {
+  diatonic: number;               // 记谱→实际：字母步数（仅拼写语义，v2 播放不消费）
+  chromatic: number;              // 记谱→实际：半音数（不含 octave-change）
+  octaveChange?: number;          // 记谱→实际：额外整八度数；播放半音 = chromatic + 12×octaveChange
 }
 interface Note {
   pitch: string;                  // "C4"；休止为 "rest"；unpitched 取 displayStep/Octave（§4.8）
@@ -138,7 +144,7 @@ interface Note {
 | 16 | 和弦 | `note/chord` | `NoteEntry.chord` | `isChord` | 同刻同触发（播放域保证） | OSMD |
 | 17 | 符杆/符头/歌词 | `beam/notehead/lyric` | `BeamInfo/NoteheadInfo/Lyric` | **不入 ParsedScore** | 无 | OSMD 全权 |
 | 18 | 反复/跳房子/Segno/Coda | `barline/repeat`、`ending`、`sound dacapo/segno/tocoda` | `Barline.repeat/.ending`；`SoundEntry`；`getRepeatStructure/getEndings` | **不入 ParsedScore** | **不展开**，随光标线性走（M7） | OSMD 渲染记号 |
-| 19 | 移调 | `attributes/transpose` | `MeasureAttributes.transpose` | 不入（v2） | 按记谱音高播（与光标一致，无 concert pitch 折算） | OSMD 记谱 |
+| 19 | 移调 | `attributes/transpose` | `MeasureAttributes.transpose`（io 0.2.11 只留首个 `<transpose>`） | `Measure.transpose`（M11） | 按实际音高播：播放半音 = chromatic + 12×octaveChange（audio.md A18）；OSMD 渲染仍记谱 | OSMD 记谱 |
 | 20 | 无音高 unpitched | `note/unpitched` | `unpitched{displayStep,displayOctave}` | `pitch`=display + `markings+"unpitched"` | 占索引、播放跳过（开放点，样例无打击乐） | OSMD |
 | 21 | 多声部 | `note/voice`、`attributes/staves` | `voice/staff` | `voice/staff` 保留 | 多声部取 max RealValue（audio.md §2.2-3） | OSMD |
 | 22 | 拍号/调号/速度 | `attributes/time/key`、`sound tempo` | `MeasureAttributes`；`DirectionSound.tempo` | `Measure/ParsedScore` 顶层 | BPM 一律用户设定（audio.md A2） | OSMD |
@@ -206,6 +212,7 @@ interface Note {
 - tempo：取全曲首个 `<sound tempo>`（`SoundEntry.tempo` 或 `DirectionSound.tempo`）作 `ParsedScore.tempo` 展示值，缺失兜底 60（spike §13-V5 是必须路径）；谱面 tempo 与中途变速**不参与播放**——播放数据是乐谱时域（与 BPM 解耦，audio.md A12），BPM 由用户设定、引擎时钟边界生效（audio.md A2）。
 - timeSignature：`"beats/beatType"`；**composite 拍受 io 0.2.11 限制退化**——实测 `<beats>3+2</beats>` 解析为 `beats:"3"`（beatsList 亦缺），v2 按 io 实际输出记录（`3/8`），composite 还原需绕过 io 读原文、记为后续候选；节拍器分母取 beatType（audio.md §3.7）。
 - keySignature：fifths（−7…7）→ 调名；mode=minor 用关系小调。数据层存英文调名（"G major"/"E minor"），展示层 i18n。
+- **移调（M11，v1.3 新增）**：`attributes/transpose` 逐小节声明，覆写/继承规则与 divisions 同款（M4）；同一 `<attributes>` 内 io 0.2.11 只保留首个 `<transpose>`（实测，其余丢弃），小节内多次 attributes 声明取末次。契约存 `{diatonic, chromatic, octaveChange?}` 原样；`transposeSemitonesByMeasure` 折算逐小节有效半音 = `chromatic + 12×octaveChange`（曲首缺省 0）。消费边界：**播放域按实际音高**（audio.md 决策 A18，buildPlaybackData 对 noteName 统一平移——主音/倚音/装饰音邻音同源），**OSMD 渲染仍记谱音高**（其解析器不读 transpose 元素，min.js 无 octaveChange 符号，实测 2026-11-02），diatonic 仅为拼写语义、v2 不消费（播放音名恒升号记法）。移调乐器谱（中音萨克斯 −5/−9：记谱比实际高大六度）由此按实际音高播放。常见声明值速查：中音萨克斯 `{diatonic:-5, chromatic:-9}`、单簧管（B♭）`{diatonic:-1, chromatic:-2}`、圆号（F）`{diatonic:-4, chromatic:-7}`、古典吉他 `{chromatic:0, octaveChange:-1}`（高八度记谱）。折算数据**只来自谱面声明**，与所选乐器音色无关：移调谱配任何音色都按实际音高播，C 调乐器谱配移调乐器音色也不移位（音色选择只是换采样，2026-11 十二乐器增补时复核）。ParsedScore 因此新增的唯一播放消费点——仍不承载音符序列/索引，D1 不破。
 - 多声部：`voice` 全保留（audio.md §2.2-3 多声部取 max）；`staff` 透传；**只取 `parts[0]`**（M3，tech.md §3 既定的单一练习主奏）。
 
 ---
@@ -259,7 +266,8 @@ interface Note {
 | 纯函数 | `musicXMLParser`（fixture XML 片段） | 逐标记最小片段：tie continue、嵌套 tuplet、无 slash 倚音、多小节休止、direction dynamics 挂载、composite 拍号；divisions 变更小节的 realValue 换算 |
 | 纯函数 | 错误分类 | timewise/非 XML → E2；损坏 zip → E1；GB2312 声明 → E4 |
 | 集成 | 三样例谱断言基准 | 刻谱：title=workTitle、73 小节、tie 组 32、tuplet 组 4（3:2）、倚音 4（duration 0）、slur 2、multipleRest 3、divisions 12；连音符谱：tie 组 2、tuplet 组 0；twinkle：无任何标记 |
-| 集成 | 夹具谱全量导入（v1.1，`musicxml/marks-*`、`rhythm-*`、`keys-*` + 连音符） | 每份走完整 `processFile` 管线（`tests/utils/notation/fixtures.test.ts`）：tie start/continue/stop 与跨小节链、slur 嵌套编号/continue、长短倚音、装饰音标签、附点/复附点/连音 realValue、拍号/调号逐段变更与 fifths ±7 边界 |
+| 集成 | 夹具谱全量导入（v1.1，`musicxml/marks-*`、`rhythm-*`、`keys-*` + 连音符） | 每份走完整 `processFile` 管线（`tests/utils/notation/fixtures.test.ts`）：tie start/continue/stop 与跨小节链、slur 嵌套编号/continue、长短倚音、装饰音标签、附点/复附点/连音 realValue、拍号/调号逐段变更与 fifths ±7 边界；连音符 transpose 声明（−5/−9）入契约、有效半音表全谱 −9（M11） |
+| 纯函数 | 移调映射（`musicXMLParser`） | transpose 入契约/继承/末次声明、octave-change 透传、双 transpose 取首个（io 0.2.11 实测）；`transposeSemitonesByMeasure` 覆写继承与无声明全 0；播放折算端到端（连音符真实 OSMD：记谱 B4 → 发声 D4）见 audio.md §7 |
 | 回归 | 索引对齐 | §5-3 四类计数（387/43/32/4）+ selection.md §8 的 V-S 系列偏移归零 |
 | 手动 | 浏览器 | 三样例谱导入（含 .mxl 正向样本）、损坏 .mxl 报 E1、过 F1–F2 |
 
@@ -279,8 +287,9 @@ interface Note {
 | M8 | 标记域 capture-only：逐音符扁平标签；结构性配对（slur/tuplet 组、wedge 起止）不入契约，需要时经 `musicxml-io/query` 由 rawContent 重析 | 标签零成本可序列化；rawContent 已持久化，重析是廉价路径；v2 播放零消费但后续候选（力度链/表情/建议乐句）落地时免重解析 |
 | M9 | v2 只承诺 UTF-8；XML 声明非 UTF-8 报错不静默转码 | TextDecoder 单编码解码；静默 mojibake 比明确报错更糟；GB2312 老谱为已知边界 |
 | M10 | 错误四分类（E1–E4）各自独立 i18n 键；任何错误不入库、不留半成品 | 用户可行动的提示（V4 损坏样例是真实场景）；tech.md §8 四语言硬约束 |
+| M11 | （v1.3 新增）移调入契约：`Measure.transpose` 存声明原样、逐小节覆写/继承（M4 同款）；播放按 `chromatic + 12×octaveChange` 折算实际音高（消费细则 audio.md A18） | v1.2 前按记谱音高播的决策被真实曲库证伪：中音萨克斯谱（移调记谱）播放整曲高大六度，练习者无法对照乐器校音（2026-11-02 用户实测反馈）；OSMD 不解析 transpose 元素，`ParsedScore.transpose` 是折算数据的唯一载体（小节号 → 半音映射，不承载音符序列/索引，D1 不破）；diatonic 拼写折算与「记谱/实际音高切换 UI」不在 v2 |
 
-**后续候选（不在 v2 范围）**：按 slur 建议乐句（数据源 §4.2）；力度链 velocity（audio.md §8，数据源 = `markings` dynamics）；fermata 表情放慢（audio.md §8）；多 part/打击乐与 concert pitch；GB2312 等非 UTF-8 编码支持；反复展开播放（需先复核光标模型）。
+**后续候选（不在 v2 范围）**：按 slur 建议乐句（数据源 §4.2）；力度链 velocity（audio.md §8，数据源 = `markings` dynamics）；fermata 表情放慢（audio.md §8）；多 part/打击乐；记谱/实际音高播放切换 UI（M11 已按实际音高播、无开关）；GB2312 等非 UTF-8 编码支持；反复展开播放（需先复核光标模型）。
 
 ---
 

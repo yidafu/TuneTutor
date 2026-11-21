@@ -6,6 +6,8 @@
  * （audio.md §2.4 / tech.md §3；任何一侧改动计数必须双侧同改 + 重跑镜像回归）。
  * 装饰音域（倚音发音/波音颤音回音展开，决策 A17）：切片子条目共享主音 noteIndex，
  * 纯展开逻辑在 ornaments.ts，本文件只做 OSMD 数据提取（OrnamentContainer/调号/音级）。
+ * 移调折算（决策 A18）：OSMD 光标恒记谱音高（其解析器不读 attributes/transpose），
+ * 移调乐器谱由 transposeByMeasure 逐小节平移 noteName 按实际音高播放（主音/倚音/邻音同源）。
  */
 import type { Cursor, Note, SourceMeasure, VoiceEntry } from 'opensheetmusicdisplay'
 import type { PlaybackEntry } from '../types/playback'
@@ -39,8 +41,8 @@ function effectiveRealValue(note: Note): number {
   return tie !== undefined && tie !== null ? tie.Duration.RealValue : note.Length.RealValue
 }
 
-function midiNoteName(note: Note): string {
-  return halfToneToNoteName(note.halfTone + OSMD_HALF_TONE_TO_MIDI)
+function midiNoteName(note: Note, transposeSemitones = 0): string {
+  return halfToneToNoteName(note.halfTone + OSMD_HALF_TONE_TO_MIDI + transposeSemitones)
 }
 
 /** NoteEnum 音级表（半音值）：C D E F G A B（OSMD NoteEnum 即半音数） */
@@ -73,12 +75,15 @@ function activeKey(measure: SourceMeasure | undefined): OrnamentKey | null {
  * key.getAlterationForPitch）。八度从 halfTone 推导（floor = sounding MIDI 八度）——
  * OSMD `Pitch.Octave` 是内部相对八度（C5 返回 2，差 3），直用会低三个八度（实测踩坑）；
  * 音级异常（微分音）或 Pitch 缺失时回落主音自身（交替退化为原音）。
+ * 邻音在**记谱域**解析（音级/调号都是记谱事实），再整体平移 transposeSemitones 落到
+ * 发声域——颤音/波音的音程结构在移调乐器谱上保持不变（docs/audio.md 决策 A18）。
  */
 function ornamentNeighbors(
   note: Note,
   key: OrnamentKey | null,
+  transposeSemitones = 0,
 ): { upper: string; lower: string } {
-  const base = midiNoteName(note)
+  const base = midiNoteName(note, transposeSemitones)
   const pitch = (note as { Pitch?: { FundamentalNote?: number } | undefined }).Pitch
   const fundamental = pitch?.FundamentalNote
   const octave = Math.floor(note.halfTone / 12)
@@ -92,9 +97,11 @@ function ornamentNeighbors(
   const upLetter = DIATONIC_LETTERS[upIndex]!
   const downLetter = DIATONIC_LETTERS[downIndex]!
   // 标准 MIDI 公式 12×(octave+1)+音级+变化音（非 OSMD halfTone 记法，不再 +12）
-  const upper = halfToneToNoteName(12 * (upOctave + 1) + upLetter + keyAlterationFor(key, upLetter))
+  const upper = halfToneToNoteName(
+    12 * (upOctave + 1) + upLetter + keyAlterationFor(key, upLetter) + transposeSemitones,
+  )
   const lower = halfToneToNoteName(
-    12 * (downOctave + 1) + downLetter + keyAlterationFor(key, downLetter),
+    12 * (downOctave + 1) + downLetter + keyAlterationFor(key, downLetter) + transposeSemitones,
   )
   return { upper, lower }
 }
@@ -123,8 +130,13 @@ function lastEndRv(entries: readonly PlaybackEntry[]): number {
  * ⑥ 倚音（IsGrace VoiceEntry，与主音同时间戳步）发声：挤压式插在前一发音与主音之间
  * （§2.2-8），共享主音 noteIndex；⑦ 带装饰音的主音展开为切片子条目（§2.2-9），共享
  * 主音 noteIndex——noteIndex 计数不因 ⑥⑦ 变化（occupiesPlaybackSlot 硬约束不动）。
+ *
+ * 移调折算（决策 A18）：transposeByMeasure[measureIndex] = 该小节记谱→发声半音量
+ * （transposeSemitonesByMeasure 产物，musicxml-io attributes/transpose 声明、逐小节继承）。
+ * OSMD 不解析 transpose 元素（光标 halfTone 恒记谱音高），折算只能在此对 noteName 统一
+ * 施加——主音、倚音、装饰音邻音三处同源平移，音程结构不变；缺省/越界小节 = 0（原样）。
  */
-export function buildPlaybackData(cursor: Cursor): PlaybackEntry[] {
+export function buildPlaybackData(cursor: Cursor, transposeByMeasure?: readonly number[]): PlaybackEntry[] {
   const entries: PlaybackEntry[] = []
   cursor.reset()
   let noteIndex = 0
@@ -134,13 +146,14 @@ export function buildPlaybackData(cursor: Cursor): PlaybackEntry[] {
     const voiceEntries = cursor.iterator.CurrentVoiceEntries
     if (voiceEntries.length > 0) {
       const startRv = cursor.iterator.currentTimeStamp.RealValue
+      const shift = transposeByMeasure?.[cursor.iterator.CurrentMeasureIndex] ?? 0
       const stepEntries: PlaybackEntry[] = []
       let graceSpecs: PlaybackEntry[] = []
       let mainHandled = false
       for (const voiceEntry of voiceEntries) {
         if (voiceEntry.IsGrace) {
           for (const note of voiceEntry.Notes) {
-            if (!note.isRest()) pendingGraces.push(midiNoteName(note))
+            if (!note.isRest()) pendingGraces.push(midiNoteName(note, shift))
           }
           continue
         }
@@ -181,10 +194,10 @@ export function buildPlaybackData(cursor: Cursor): PlaybackEntry[] {
               durationRv: effectiveDuration,
               measureIndex: cursor.iterator.CurrentMeasureIndex,
               noteIndex,
-              noteName: midiNoteName(note),
+              noteName: midiNoteName(note, shift),
             }
             if (kind !== null) {
-              const { upper, lower } = ornamentNeighbors(note, key)
+              const { upper, lower } = ornamentNeighbors(note, key, shift)
               stepEntries.push(...graceSpecs, ...realizeOrnament(base, kind, upper, lower))
               graceSpecs = []
             } else {

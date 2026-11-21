@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Note, ParsedScore } from '@/types/notation'
 import { processFile } from '@/utils/notation/processFile'
+import { transposeSemitonesByMeasure } from '@/utils/notation/musicXMLParser'
 
 /**
  * 标记域/节奏型/调号夹具的集成测试（docs/musicxml.md §8 集成层）：
@@ -293,5 +294,12 @@ describe('全量夹具导入回归（musicxml/ 下所有 .musicxml）', () => {
         if (note.isGrace === true) expect(note.realValue).toBe(0)
       }
     }
+  })
+
+  it('连音符：中音萨克斯 transpose 声明入契约，有效半音表全谱 −9（决策 M11）', async () => {
+    const parsed = await importFixture('连音符.musicxml')
+    expect(parsed.measures[0]!.transpose).toEqual({ diatonic: -5, chromatic: -9 })
+    expect(parsed.measures[1]!.transpose).toBeUndefined() // 未再声明 = 继承（M4 同款）
+    expect(transposeSemitonesByMeasure(parsed)).toEqual([-9, -9])
   })
 })
