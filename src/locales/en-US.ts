@@ -108,7 +108,7 @@ export const enUS = {
   loopChipLabel: (seconds: number) => `LOOP ${seconds}s`,
   loopRange: (start: string, end: string) => `Loop ${start} → ${end}`,
   gapInfo: (beats: number, duration: string) => `+${beats} beats of silence per round (≈ ${duration})`,
-  waveHint: 'Drag on the waveform to create a slice · drag its edges to adjust · double-click to remove',
+  waveHint: 'Drag on the waveform to create a slice · drag its body to move · drag its edges to fine-tune · double-click to remove · two-finger pan & pinch to zoom',
   audioDropOverlay: 'Drop to load audio',
   zoomOut: 'Zoom out waveform',
   zoomIn: 'Zoom in waveform',

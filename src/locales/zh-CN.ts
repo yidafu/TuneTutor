@@ -98,7 +98,7 @@ export const zhCN: TranslationSet = {
   loopChipLabel: (seconds: number) => `循环 ${seconds} 秒`,
   loopRange: (start: string, end: string) => `循环区间 ${start} → ${end}`,
   gapInfo: (beats: number, duration: string) => `每轮 +${beats} 拍静音（约 ${duration}）`,
-  waveHint: '拖拽波形新建切片 · 拖动边界微调 · 双击移除',
+  waveHint: '拖拽波形新建切片 · 拖动切片移位 · 拖动边界微调 · 双击移除 · 双指平移/捏合缩放',
   audioDropOverlay: '松开导入音频',
   zoomOut: '缩小波形',
   zoomIn: '放大波形',

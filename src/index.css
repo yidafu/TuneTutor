@@ -131,6 +131,44 @@ a {
   -webkit-touch-callout: none;
 }
 
+/* 波形切片把手（v2.10）：wavesurfer 把手默认 6px 宽 + rgba(0,0,0,.5) 边线——夜曲蓝/玄漆
+   等深色皮肤上完全隐形（用户实测「无法微调」），触屏 6px 命中也远低于可用下限。
+   ::part() 从外部穿透 shadow DOM（CSS Shadow Parts）：朱砂深色竖条（皮肤 token，与切片
+   同色系）、加宽命中区，coarse 触点再加一档；把手本体透明、视觉条收在切口内侧 */
+[data-wave-stage] > div::part(region-handle-left),
+[data-wave-stage] > div::part(region-handle-right) {
+  width: 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+[data-wave-stage] > div::part(region-handle-left) {
+  border-left: 3px solid var(--color-verm-deep);
+}
+
+[data-wave-stage] > div::part(region-handle-right) {
+  border-right: 3px solid var(--color-verm-deep);
+}
+
+/* 悬停提亮只给真悬停设备（phone-compat P11：触屏点按后 :hover 会粘滞） */
+@media (hover: hover) {
+  [data-wave-stage] > div::part(region-handle-left):hover,
+  [data-wave-stage] > div::part(region-handle-right):hover {
+    opacity: 1;
+  }
+}
+
+@media (pointer: coarse) {
+  [data-wave-stage] > div::part(region-handle-left),
+  [data-wave-stage] > div::part(region-handle-right) {
+    width: 22px; /* 触屏命中 22px；视觉条仍是最内侧 3px 朱砂 */
+    opacity: 0.85;
+  }
+}
+
 body {
   margin: 0;
   min-width: 320px;

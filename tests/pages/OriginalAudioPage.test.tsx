@@ -517,6 +517,50 @@ describe('OriginalAudioPage 波形缩放', () => {
     expect(ws.zoomCalls.at(-1)).toBe(ZOOM_MAX_PX_PER_SEC)
     expect(zoomIn).toBeDisabled()
   })
+
+  it('双指平移（v2.10）：双指中心位移推动 scrollLeft（跟手反向），单指不动作，抬起复位基准', async () => {
+    const { ws } = await loadWithSlice()
+    const scrollEl = ws.scrollEl
+    scrollEl.scrollLeft = 0
+
+    // 首帧只记基准中心（x=500），不平移
+    fireEvent.touchMove(scrollEl, {
+      touches: [
+        { clientX: 450, identifier: 1 },
+        { clientX: 550, identifier: 2 },
+      ],
+    })
+    expect(scrollEl.scrollLeft).toBe(0)
+
+    // 双指同向右移 60px（中心 500 → 560）：内容随手右移 = scrollLeft 减少 60
+    fireEvent.touchMove(scrollEl, {
+      touches: [
+        { clientX: 510, identifier: 1 },
+        { clientX: 610, identifier: 2 },
+      ],
+    })
+    expect(scrollEl.scrollLeft).toBe(-60)
+
+    // 单指触摸：重置基准（不产生平移）
+    fireEvent.touchMove(scrollEl, { touches: [{ clientX: 300, identifier: 1 }] })
+    expect(scrollEl.scrollLeft).toBe(-60)
+
+    // 抬起后再落双指：从新基准起算，不叠加跳变
+    fireEvent.touchEnd(scrollEl)
+    fireEvent.touchMove(scrollEl, {
+      touches: [
+        { clientX: 400, identifier: 3 },
+        { clientX: 500, identifier: 4 },
+      ],
+    })
+    fireEvent.touchMove(scrollEl, {
+      touches: [
+        { clientX: 415, identifier: 3 },
+        { clientX: 515, identifier: 4 },
+      ],
+    })
+    expect(scrollEl.scrollLeft).toBe(-75)
+  })
 })
 
 describe('OriginalAudioPage 进度高亮域（A15）', () => {
@@ -580,15 +624,67 @@ describe('OriginalAudioPage 进度高亮域（A15）', () => {
     expect(played[0]!.element.style.pointerEvents).toBe('none')
   })
 
-  it('已播段：播放头越过切片终点钳到终点；回卷到起点（循环回卷）即移除', async () => {
+  it('已播段：播放头越过切片终点（容差内，region-out/空拍停留）钳到终点；回卷到起点即移除', async () => {
     stubThemeTokens()
     const { ws, playedRegions } = await loadWithSlice()
 
-    act(() => ws.emit('timeupdate', 100))
+    // 65.3s = 终点 65 + 0.3s < PLAYED_TAIL_TOLERANCE_SEC(0.5)：循环出界的正常停留
+    act(() => ws.emit('timeupdate', 65.3))
     expect(playedRegions.getRegions()[0]!.end).toBe(65)
 
     act(() => ws.emit('timeupdate', 42))
     expect(playedRegions.getRegions()).toHaveLength(0)
+  })
+
+  it('已播段越位（v2.10）：播放头越过切片尾超过容差（seek 远处）不再整段深红', async () => {
+    stubThemeTokens()
+    const { ws, playedRegions } = await loadWithSlice()
+
+    act(() => ws.emit('timeupdate', 50))
+    expect(playedRegions.getRegions()).toHaveLength(1)
+
+    // seek 到 100s（> 65 + 0.5）：新选区从未播放，整段深红会被误读为非选区高亮 → 移除
+    act(() => ws.emit('timeupdate', 100))
+    expect(playedRegions.getRegions()).toHaveLength(0)
+  })
+
+  it('已播段越位（v2.10）：新拖选的切片与播放头无关（起点在播放头之前远处）不出现整段已播', async () => {
+    stubThemeTokens()
+    renderAudioPage()
+    await importViaInput(importAudioFile())
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
+    const { ws, regions, playedRegions } = latestPage()
+    ws.emitReady(204)
+    await screen.findByText(/3:24/)
+
+    // 播放头停在 150s（播放过全曲后暂停），再拖选 [5, 20]：与新切片无关，不建已播段
+    act(() => ws.setTime(150))
+    act(() => regions.addRegion({ start: 5, end: 20 }))
+
+    expect(playedRegions.getRegions()).toHaveLength(0)
+  })
+
+  it('拖选替换零中间态（v2.10）：新 region 顶替旧 region 不经 updateSlice(null)，进度色不闪回朱砂', async () => {
+    stubThemeTokens()
+    renderAudioPage()
+    await importViaInput(importAudioFile())
+    await waitFor(() => expect(FakeWaveSurfer.all).toHaveLength(1))
+    const { ws, regions } = latestPage()
+    ws.emitReady(204)
+    await screen.findByText(/3:24/)
+
+    const callsBeforeReplace = ws.setOptionsCalls.length
+    act(() => {
+      regions.addRegion({ start: 30, end: 60 })
+      regions.addRegion({ start: 5, end: 20 })
+    })
+
+    // 替换路径上不允许出现无切片态参数（autoScroll:true 即进度色恢复朱砂的信号）
+    const replaceCalls = ws.setOptionsCalls.slice(callsBeforeReplace)
+    expect(replaceCalls.some((call) => call.autoScroll === true)).toBe(false)
+    // 最终态：仍以新切片为准
+    expect(ws.options.autoScroll).toBe(false)
+    expect(screen.getByText(enUS.loopChipLabel(15))).toBeInTheDocument()
   })
 
   it('已播段：播放头未进切片不出现', async () => {

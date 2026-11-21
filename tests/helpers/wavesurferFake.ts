@@ -153,11 +153,25 @@ export class FakeWaveSurfer extends FakeEmitter {
   time = 0
   zoomCalls: number[] = []
   registeredPlugins: unknown[] = []
+  /** 真实 v7 的 DOM 层级：container(host) > shadow > scroll > wrapper；替身建等价的
+   *  scroll/wrapper 二层（游离节点，事件可派发），页面代码经 getWrapper().parentElement
+   *  拿 scroll 容器挂双指平移监听（v2.10） */
+  readonly scrollEl: HTMLDivElement
+  private readonly wrapperEl: HTMLDivElement
 
   constructor(options: Record<string, unknown>) {
     super()
     this.options = options
+    const wrapper = document.createElement('div')
+    const scroll = document.createElement('div')
+    scroll.appendChild(wrapper)
+    this.wrapperEl = wrapper
+    this.scrollEl = scroll
     FakeWaveSurfer.all.push(this)
+  }
+
+  getWrapper(): HTMLDivElement {
+    return this.wrapperEl
   }
 
   static create(options: Record<string, unknown>): FakeWaveSurfer {

@@ -139,3 +139,29 @@ describe('StyleX 组件样式皮肤契约（T1：颜色一律 var(--color-*)）'
     expect(offenders, `以下文件写死了色值：${offenders.join(', ')}`).toEqual([])
   })
 })
+
+describe('波形切片把手皮肤契约（v2.10，::part 穿透 wavesurfer shadow DOM）', () => {
+  it('两侧把手规则存在、色值走 verm token（深色皮肤可见）、默认把手黑边被覆盖', () => {
+    expect(css).toContain('[data-wave-stage] > div::part(region-handle-left)')
+    expect(css).toContain('[data-wave-stage] > div::part(region-handle-right)')
+    // 视觉条朱砂深色（token 化），不写死色值
+    expect(css).toMatch(/region-handle-left\)\s*\{\s*border-left: 3px solid var\(--color-verm-deep\)/)
+    expect(css).toMatch(/region-handle-right\)\s*\{\s*border-right: 3px solid var\(--color-verm-deep\)/)
+    // 覆盖官方默认的透明把手底与黑色边线（background/border 显式重置）
+    expect(css).toMatch(/::part\(region-handle-(left|right)\),\s*\n\[data-wave-stage\] > div::part\(region-handle-right\)\s*\{\s*width: 14px;\s*background: transparent/)
+  })
+
+  it('coarse 触点命中区加宽（>= 20px）', () => {
+    const coarse = css.match(/@media \(pointer: coarse\)\s*\{[\s\S]*?region-handle[\s\S]*?\n {2}\}/)
+    expect(coarse, '缺 coarse 媒体查询的把手加宽规则').not.toBeNull()
+    expect(coarse!.at(0)).toMatch(/width: 2[0-9]px/)
+  })
+
+  it('悬停提亮门控在 (hover: hover) 内：触屏点按不粘滞（phone-compat P11）', () => {
+    const gated = css.match(/@media \(hover: hover\)\s*\{[\s\S]*?region-handle-left\):hover[\s\S]*?\n\}/)
+    expect(gated, '把手 :hover 必须包在 (hover: hover) 媒体查询内').not.toBeNull()
+    // 门控外不得残留裸 :hover 规则（逐行扫描：:hover 规则行必须缩进在 @media 块内）
+    const bare = css.split('\n').filter((line) => /^\[data-wave-stage\].*:hover/.test(line))
+    expect(bare).toEqual([])
+  })
+})

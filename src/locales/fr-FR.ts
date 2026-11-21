@@ -99,7 +99,7 @@ export const frFR: TranslationSet = {
   loopChipLabel: (seconds: number) => `BOUCLE ${seconds}s`,
   loopRange: (start: string, end: string) => `Boucle de ${start} à ${end}`,
   gapInfo: (beats: number, duration: string) => `+${beats} temps de silence par tour (≈ ${duration})`,
-  waveHint: 'Glissez sur la forme d’onde pour créer un extrait · ajustez les bords · double-cliquez pour supprimer',
+  waveHint: 'Glissez sur la forme d’onde pour créer un extrait · déplacez-le en le faisant glisser · ajustez les bords · double-cliquez pour supprimer · deux doigts pour naviguer et zoomer',
   audioDropOverlay: 'Déposez pour charger l’audio',
   zoomOut: 'Zoom arrière de la forme d’onde',
   zoomIn: 'Zoom avant de la forme d’onde',

@@ -342,6 +342,11 @@ interface AudioSlice {
   endTime: number
 }
 
+/** 已播段越位容差（秒）：播放头越过切片尾 0.05s（region-out 触发容差）后停在尾部属循环空拍的
+ *  正常停留，已播段保持整段；越过超过本容差（seek 到远处、或新拖选的切片与播放头无关）视为
+ *  非循环残留，整段深红会被误读为「没播过的区域也高亮」，直接移除（v2.10） */
+export const PLAYED_TAIL_TOLERANCE_SEC = 0.5
+
 /** 切片键按音频归属（A16）：`note-slice-audio-slice:<audioId>`；多音频互不串切片，切回即恢复。
  * 旧全局键（v2.3 及前单音频时代）无归属信息，默认属于启动恢复的最新一条——首次读取时迁移。 */
 const SLICE_KEY_PREFIX = 'note-slice-audio-slice'
@@ -479,7 +484,11 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       region.remove()
     }
     const slice = sliceRef.current
-    if (slice === null || playhead <= slice.startTime) {
+    if (
+      slice === null ||
+      playhead <= slice.startTime ||
+      playhead > slice.endTime + PLAYED_TAIL_TOLERANCE_SEC
+    ) {
       removePlayed()
       return
     }
@@ -552,16 +561,45 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
       dragToSeek: false,
       ...waveColors(false),
     })
+    const subscriptions: (() => void)[] = []
+    let unsubscribeDrag: (() => void) | null = null
     const regions = ws.registerPlugin(RegionsPlugin.create())
     // 已播段容器（A15 补强）：第二实例只用来挂一条 pointerEvents:none 的已播 region，
     // 不订阅其事件——与第一实例的切片约束/循环判定互不干扰
     playedRegionsRef.current = ws.registerPlugin(RegionsPlugin.create())
     // 官方 ZoomPlugin：波形上滚轮/双指捏合缩放（指针锚定）；步进控件走同一 ws.zoom()（A13）
     ws.registerPlugin(ZoomPlugin.create({ maxZoom: ZOOM_MAX_PX_PER_SEC }))
-    wsRef.current = ws
 
-    const subscriptions: (() => void)[] = []
-    let unsubscribeDrag: (() => void) | null = null
+    // 双指平移（触屏专属，v2.10）：ZoomPlugin 只消费双指「距离变化」（捏合），同向移动是
+    // preventDefault 掉的死区——A14 关闭 autoScroll 后的「原生平移」（触控板横扫/横向滚轮）
+    // 在 iPad 上不存在，单指拖动又归拖选，放大后视图无平移手段（用户实测反馈）。监听挂
+    // scroll 容器且晚于 ZoomPlugin 注册：每次 touchmove 先让 ZoomPlugin 按距离比缩放并
+    // 锚定捏合中心，本监听后跑、在其 scrollLeft 之上叠加双指中心位移 → pan+pinch 复合手势
+    const scrollEl = ws.getWrapper().parentElement
+    if (scrollEl !== null) {
+      let lastPanCenterX: number | null = null
+      const handlePanTouchMove = (event: TouchEvent): void => {
+        if (event.touches.length !== 2) {
+          lastPanCenterX = null
+          return
+        }
+        const center = (event.touches[0]!.clientX + event.touches[1]!.clientX) / 2
+        if (lastPanCenterX !== null) scrollEl.scrollLeft -= center - lastPanCenterX
+        lastPanCenterX = center
+      }
+      const resetPanCenter = (): void => {
+        lastPanCenterX = null
+      }
+      scrollEl.addEventListener('touchmove', handlePanTouchMove)
+      scrollEl.addEventListener('touchend', resetPanCenter)
+      scrollEl.addEventListener('touchcancel', resetPanCenter)
+      subscriptions.push(() => {
+        scrollEl.removeEventListener('touchmove', handlePanTouchMove)
+        scrollEl.removeEventListener('touchend', resetPanCenter)
+        scrollEl.removeEventListener('touchcancel', resetPanCenter)
+      })
+    }
+    wsRef.current = ws
 
     subscriptions.push(
       ws.on('ready', (readyDuration: number) => {
@@ -619,12 +657,16 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
 
     // 单切片约束：新 region 出现即移除旧 region；切片状态与持久化在创建时即同步——
     // 拖选新建的 region 只发 region-created，插件的 update-end 仅在拖移/resize 结束时发
-    // （7.12.11 源码核实），等 update-end 会让首次拖选的切片悬空、播放键拿不到起点（§5.1）
+    // （7.12.11 源码核实），等 update-end 会让首次拖选的切片悬空、播放键拿不到起点（§5.1）。
+    // 先换 sliceRegionRef 再 remove 旧 region（v2.10）：remove 同步触发 region-removed，
+    // 若 ref 尚指旧 region 会先走一遭 updateSlice(null)（进度色恢复朱砂 + reRender）再被
+    // 新切片的 updateSlice 覆盖——两次异步分片重渲染竞速，朱砂进度层可能残留出「非选区
+    // 高亮」；换 ref 在前使 region-removed 回调的 current 比对为假，替换路径零中间态
     subscriptions.push(
       regions.on('region-created', (region: Region) => {
         const previous = sliceRegionRef.current
-        if (previous !== null && previous !== region) previous.remove()
         sliceRegionRef.current = region
+        if (previous !== null && previous !== region) previous.remove()
         updateSlice({ startTime: region.start, endTime: region.end })
         subscriptions.push(
           region.on('update', () => {
