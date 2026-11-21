@@ -2,7 +2,8 @@
  * Tone.js 边界层（docs/audio.md §4 + §3.7 节拍器音色 + §3.2 接线默认件）：
  * 12 种 tonejs-instrument 采样器加载与缓存（决策 A6：不用 minify，全量采样静态打包 +
  * PWA 缓存；同类型并发请求共享同一实例）、4 种节拍器合成器声部、真实引擎组装
- * （LinearTimingSource 锚定 Tone 音频时钟 + Draw + Tone.start + 预载钢琴）。
+ * （LinearTimingSource 锚定 Tone 音频时钟 + Draw + Tone.start + 预载钢琴）；
+ * 采样失败经 onerror 上抛（ready reject），失败条目下次加载自动重建。
  * 本文件是 src/audio/ 中唯一 import Tone 的模块：核心（playbackData / TimingSource /
  * PlaybackEngine）保持可注入、可在无音频环境单测。
  */
@@ -33,7 +34,10 @@ import GuitarAcousticMp3 from 'tonejs-instrument-guitar-acoustic-mp3'
 import GuitarNylonMp3 from 'tonejs-instrument-guitar-nylon-mp3'
 import BassElectricMp3 from 'tonejs-instrument-bass-electric-mp3'
 
-type InstrumentConstructor = new (options?: { onload?: () => void }) => Sampler
+type InstrumentConstructor = new (options?: {
+  onload?: () => void
+  onerror?: (error: Error) => void
+}) => Sampler
 
 const INSTRUMENT_CONSTRUCTORS: Record<InstrumentType, InstrumentConstructor> = {
   piano: PianoMp3,
@@ -54,8 +58,11 @@ const INSTRUMENT_CONSTRUCTORS: Record<InstrumentType, InstrumentConstructor> = {
 export interface LoadedInstrument {
   readonly type: InstrumentType
   readonly sampler: PlaybackSampler
+  /** 采样全部就绪时 resolve；任一采样加载失败时 reject（UI 据此显示加载失败/重试） */
   readonly ready: Promise<void>
   isReady(): boolean
+  /** 加载失败标记：失败条目不缓存复用，下次 loadInstrument 重建 */
+  hasError(): boolean
   /** 释放底层采样器并移出缓存（disposeInstruments / 单个卸载用） */
   dispose(): void
 }
@@ -65,15 +72,22 @@ const instrumentCache = new Map<InstrumentType, LoadedInstrument>()
 function createLoadedInstrument(type: InstrumentType): LoadedInstrument {
   const Constructor = INSTRUMENT_CONSTRUCTORS[type]!
   let readySettled = false
+  let errored = false
   let resolveReady!: () => void
-  const ready = new Promise<void>((resolve) => {
+  let rejectReady!: (reason?: unknown) => void
+  const ready = new Promise<void>((resolve, reject) => {
     resolveReady = () => {
       readySettled = true
       resolve()
     }
+    rejectReady = () => {
+      errored = true
+      reject(new Error(`instrument samples failed to load: ${type}`))
+    }
   })
   // 包族只 extends Sampler 不接输出，Tone 节点也不自动连 destination：连接由本层负责
-  const toneSampler = new Constructor({ onload: resolveReady }).toDestination()
+  // onerror 兜住网络失败：否则 onload 永不到达，加载态悬挂、音符静默丢弃无解释
+  const toneSampler = new Constructor({ onload: resolveReady, onerror: rejectReady }).toDestination()
   // 统一 release 改善尾音、收紧空拍开头渗音（audio.md §3.4 已知瑕疵 / §4 可选优化）
   toneSampler.release = 0.8
   const loaded: LoadedInstrument = {
@@ -81,16 +95,21 @@ function createLoadedInstrument(type: InstrumentType): LoadedInstrument {
     sampler: {
       triggerAttackRelease: (note, durationSeconds, whenSeconds, velocity) => {
         // ready 前静默丢弃：Tone 对未加载 buffer 抛「No available buffers for note」，
-        // 异常发生在引擎 tick 内会打死自调度循环（§3.1 单飞纪律）
+        // 异常发生在引擎 tick 内会打死自调度循环（§3.1 单飞纪律）。
+        // 该守卫同时覆盖「失败后已 dispose」的旧 wrapper：永不触达底层节点
         if (!readySettled) return
         toneSampler.triggerAttackRelease(note, durationSeconds, whenSeconds, velocity)
       },
       releaseAll: () => {
+        // ready 前不可能有已发声声部（trigger 全被丢弃），此处 no-op 即可；
+        // 也避免对失败后已 dispose 的底层节点调 releaseAll 抛「disposed」
+        if (!readySettled) return
         toneSampler.releaseAll()
       },
     },
     ready,
     isReady: () => readySettled,
+    hasError: () => errored,
     dispose: () => {
       toneSampler.dispose()
       instrumentCache.delete(type)
@@ -99,12 +118,17 @@ function createLoadedInstrument(type: InstrumentType): LoadedInstrument {
   return loaded
 }
 
-/** 缓存获取/加载：构造是同步的（缓冲在内部异步取），并发请求经缓存天然单飞（§4） */
+/**
+ * 缓存获取/加载：构造是同步的（缓冲在内部异步取），并发请求经缓存天然单飞（§4）。
+ * 失败条目不缓存复用：先建新条目换入缓存再释放旧条目（引擎在 setSampler 落地前
+ * 仍持旧 wrapper，其 trigger/releaseAll 已被 readySettled 守卫拦下，无 disposed 风险）。
+ */
 export function loadInstrument(type: InstrumentType): Promise<LoadedInstrument> {
   const cached = instrumentCache.get(type)
-  if (cached !== undefined) return Promise.resolve(cached)
+  if (cached !== undefined && !cached.hasError()) return Promise.resolve(cached)
   const loaded = createLoadedInstrument(type)
   instrumentCache.set(type, loaded)
+  if (cached !== undefined) cached.dispose()
   return Promise.resolve(loaded)
 }
 

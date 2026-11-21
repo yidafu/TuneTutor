@@ -175,12 +175,13 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | 编号 | 用例 | 关键验证点 / 预期 | 落点 |
 | --- | --- | --- | --- |
 | TC-INS-01 | 视觉对齐 | `drawWhenSeconds` 叠加 outputLatency；API 缺失/非法原样返回 | `tests/audio/InstrumentLoader.test.ts` |
-| TC-INS-02 | 采样器缓存与守卫（§4） | 同类型并发单飞；十二种乐器各构造对应包；**构造即接 destination**（漏接 = 全程无声）；ready 前 triggerAttackRelease 静默丢弃；统一 release 尾音；onload 后 isReady；dispose 全量释放清缓存 | 同上 |
+| TC-INS-02 | 采样器缓存与守卫（§4） | 同类型并发单飞；十二种乐器各构造对应包；**构造即接 destination**（漏接 = 全程无声）；ready 前 triggerAttackRelease 静默丢弃、releaseAll no-op；统一 release 尾音；onload 后 isReady；onerror → ready reject + hasError（UI 加载失败态依据）；失败条目不缓存复用（再加载重建并 dispose 旧实例）；dispose 全量释放清缓存 | 同上 |
 | TC-INS-03 | 节拍器音色 | classic/digital/kick/click 四款强/弱拍映射与调用签名 | 同上 |
 | TC-INS-04 | 真实接线默认件（§3.2/§3.9） | 构造即预载钢琴、时钟锚定注入音频钟；节拍器声部经注入工厂创建 | 同上 |
 | TC-HPB-01 | 循环范围优先级（§3.4） | 有选择交 `computeLoopRange`（含 skipBeats）；无选择空拍 >0 循环全曲、否则 null 顺序播放 | `tests/hooks/usePlayback.test.tsx` |
 | TC-HPB-02 | 引擎接线与生命周期 | 就绪后按接线序列挂播放数据、换谱重挂；tempo 即时传播（A2）；节拍器设置传播、卸载 dispose；乐器切换经 loadInstrument → setSampler；playing 随状态事件翻转、进度相对区间归一 | 同上 |
 | TC-HPB-03 | 选择热更新 | 播放中改选择只写循环状态不停止（下一轮生效，selection.md §4.5）；空拍循环不自动停 vs 顺序播放自动停 | 同上 |
+| TC-HPB-04 | 采样加载窗口（UI 三态） | 工厂挂起/乐器切换未就绪 → `samplesLoading`；工厂失败/音色 ready reject → `samplesFailed`；`retrySamples` 重跑引擎创建或音色加载；未就绪 `play()`/`toggle()` 守住不发车（与禁用按钮同源），就绪后恢复 | `tests/hooks/usePlayback.test.tsx` |
 
 ## 7. 原曲页用例（F10）
 
@@ -253,7 +254,7 @@ G1–G17 规划功能不入用例范围（PRD §7.2.2）；落地时按域增补
 | 编号 | 用例 | 关键验证点 / 预期 | 落点 |
 | --- | --- | --- | --- |
 | TC-CMP-01 | 展示组件 | Header 品牌/副标题/双页导航/语言菜单（展开、选中态、切换持久化即时生效、外点关闭）；ScoreInfo 曲名 + 元信息行、可选字段缺省不出分隔符；SelectionInfo 空态/朱砂 chip（乐句·小节范围·音符数）/kind 区分/无效选择提示；StatusBar 停止态乐器 BPM、播放指示、空拍拍数简称与单数文案 | `Header/ScoreInfo/SelectionInfo/StatusBar.test.tsx` |
-| TC-CMP-02 | 播放控制族 | PlaybackControls 四区块渲染 + 回调透传；TempoSlider 范围/BPM 大字/拖动回调/disabled 只读；TransportButtons 单按钮 Play↔Stop 语义切换；LoopSkipSelector 1–8 拍、点当前归零、aria-pressed 与说明文案；MetronomeToggle 开关回调、On 文案、设置面板（音色四选一 + 强/弱音量）、Esc/外点关闭 | `PlaybackControls/*.test.tsx` |
+| TC-CMP-02 | 播放控制族 | PlaybackControls 四区块渲染 + 回调透传；TempoSlider 范围/BPM 大字/拖动回调/disabled 只读；TransportButtons 单按钮 Play↔Stop 语义切换、采样加载中禁用走带 + spinner + `role=status`「音色加载中」chip（播放中不拦停止）、加载失败提示 + 重试按钮回调 `onRetrySamples`；LoopSkipSelector 1–8 拍、点当前归零、aria-pressed 与说明文案；MetronomeToggle 开关回调、On 文案、设置面板（音色四选一 + 强/弱音量）、Esc/外点关闭 | `PlaybackControls/*.test.tsx` |
 | TC-CMP-03 | 乐器选择 | 触发按钮显当前乐器；展开列 12 种并标选中；选择回调收起；点非当前值不误触发 onChange；instrumentMeta 四语言非空标签、en-US 映射正确 | `InstrumentSelect/instrumentMeta.test.ts` |
 | TC-CMP-04 | 文件弹窗族 | FileLoaderModal / AudioLibraryModal：open=false 不渲染；对话框结构（标题/上传区 accept/最近计数/隐藏 input）；历史条目回调与 data-active 高亮；Esc/✕/遮罩关闭、内部点击不关；上传区键盘操作（Enter/Space）；文件回调双入口（change + drop）；导入中文案 aria-busy 且键盘不触发；错误横幅 role=alert；空态文案；拖拽悬停高亮；FileHistoryList 逐条渲染/删除可访问名/点选回调/缺省不触发/icon 换图/activeId 标记 | `FileLoaderModal/AudioLibraryModal/FileLoader/FileHistoryList.test.tsx` |
 

@@ -1167,7 +1167,14 @@ export default function OriginalAudioPage({ tempo }: { tempo: number }) {
             )}
 
             <div {...stylex.props(styles.controlsRow)}>
-              <TransportButtons playing={playing} onPlayToggle={handlePlayToggle} />
+              {/* 原曲页走 wavesurfer 缓冲，无 Tone 采样加载窗口：加载三态恒不可用 */}
+              <TransportButtons
+                playing={playing}
+                onPlayToggle={handlePlayToggle}
+                samplesLoading={false}
+                samplesFailed={false}
+                onRetrySamples={() => {}}
+              />
               <LoopSkipSelector value={gapBeats} onChange={setGapBeats} />
               <div {...stylex.props(styles.tempoCell)}>
                 {/* 原曲页速度只读，与乐谱页共享（docs/tech.md §2.3） */}

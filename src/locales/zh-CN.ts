@@ -50,6 +50,9 @@ export const zhCN: TranslationSet = {
   // 走带
   play: '播放',
   stop: '停止',
+  samplesLoading: '音色加载中…',
+  samplesFailed: '音色加载失败',
+  retryLoad: '重试',
 
   // 速度
   tempoLabel: '速度',

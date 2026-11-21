@@ -51,6 +51,9 @@ export const frFR: TranslationSet = {
   // Transport
   play: 'Lire',
   stop: 'Arrêter',
+  samplesLoading: 'Chargement de l’instrument…',
+  samplesFailed: 'Échec du chargement de l’instrument',
+  retryLoad: 'Réessayer',
 
   // Tempo
   tempoLabel: 'Tempo',

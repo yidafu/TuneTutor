@@ -34,7 +34,18 @@ vi.mock('@/hooks/usePlayback', async () => {
       const stop = useCallback((): void => {
         setPlaying(false)
       }, [])
-      return { ready: true, playing, progress: 0, play: toggle, stop, toggle, engine: null }
+      return {
+        ready: true,
+        playing,
+        progress: 0,
+        samplesLoading: false,
+        samplesFailed: false,
+        play: toggle,
+        stop,
+        toggle,
+        retrySamples: () => {},
+        engine: null,
+      }
     },
     parseTimeSignature: (timeSignature: string) => {
       const [beats, beatType] = timeSignature.split('/')

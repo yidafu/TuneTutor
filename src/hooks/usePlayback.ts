@@ -5,6 +5,7 @@
  * 引擎时钟并相对当前播放区间（全曲或循环区间）归一。
  * 接线序列（audio.md §3.2，引擎就绪或新播放数据装载时）：stop → load → setLoop → reset；
  * 播放中改选择/空拍只写循环状态、回跳时按新边界执行（§3.4）。
+ * 采样加载窗口对 UI 暴露：samplesLoading / samplesFailed / retrySamples（就绪前 play 守住）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createScorePlaybackEngine, loadInstrument } from '../audio/InstrumentLoader'
@@ -46,9 +47,16 @@ export interface PlaybackController {
   playing: boolean
   /** 相对当前播放区间归一的进度 0–1；停止态归零 */
   progress: number
+  /** 当前乐器采样加载中（首次为钢琴预载窗口；切换乐器后为新音色加载窗口）：
+   * 未就绪期间音符会被引擎静默丢弃，UI 需显示加载态并把 play 守住 */
+  samplesLoading: boolean
+  /** 采样加载失败（网络等）：ready 以 reject 上报，UI 显示失败 + 重试 */
+  samplesFailed: boolean
   play(): void
   stop(): void
   toggle(): void
+  /** 重试采样加载（引擎创建失败时重建引擎；乐器失败时重建采样器） */
+  retrySamples(): void
   /** 引擎实例（OsmdNotation 光标跟随订阅用）；未就绪为 null */
   engine: PlaybackEngine | null
 }
@@ -70,30 +78,47 @@ export function usePlayback(options: UsePlaybackOptions): PlaybackController {
   const [engine, setEngine] = useState<PlaybackEngine | null>(null)
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
+  // 采样就绪状态：engine null（钢琴预载窗口）或当前乐器缓冲未就绪都算加载中；
+  // ready 前 triggerAttackRelease 被静默丢弃 → play 必须守住，否则「点击播放无声」无解释
+  const [samplerReady, setSamplerReady] = useState(false)
+  const [samplerFailed, setSamplerFailed] = useState(false)
+  // 重试计数：retrySamples 递增以重跑引擎创建/乐器加载 effect
+  const [retrySeq, setRetrySeq] = useState(0)
   const engineRef = useRef<PlaybackEngine | null>(null)
   const loopRangeRef = useRef<LoopRange | null>(null)
+  const samplerReadyRef = useRef(false)
 
   // 工厂取首次提供的（测试注入 inline 箭头不会反复重建引擎）；tempo 初值即工厂入参
   const createEngineRef = useRef(options.createEngine ?? createScorePlaybackEngine)
   const initialTempoRef = useRef(tempo)
 
-  // 挂载创建引擎（构造即预载钢琴，§3.6）；卸载 dispose（内含全停，tech.md §2.3）
+  // 挂载创建引擎（构造即预载钢琴，§3.6）；卸载 dispose（内含全停，tech.md §2.3）。
+  // 创建失败（钢琴采样加载 reject）：置失败态交 UI 重试；retrySeq 重跑本 effect
   useEffect(() => {
     let cancelled = false
-    void createEngineRef.current(initialTempoRef.current).then((created) => {
-      if (cancelled) {
-        created.dispose()
-        return
-      }
-      engineRef.current = created
-      setEngine(created)
-    })
+    void createEngineRef.current(initialTempoRef.current)
+      .then((created) => {
+        if (cancelled) {
+          created.dispose()
+          return
+        }
+        engineRef.current = created
+        setEngine(created)
+      })
+      .catch(() => {
+        if (!cancelled) setSamplerFailed(true)
+      })
     return () => {
       cancelled = true
       engineRef.current?.dispose()
       engineRef.current = null
     }
-  }, [])
+  }, [retrySeq])
+
+  // samplerReady 镜像进 ref：play/toggle 回调零依赖，守卫读到的是最新值
+  useEffect(() => {
+    samplerReadyRef.current = samplerReady
+  }, [samplerReady])
 
   // 循环区间推导
   const loopRange = useMemo(
@@ -128,18 +153,34 @@ export function usePlayback(options: UsePlaybackOptions): PlaybackController {
     engineRef.current?.setBpm(tempo)
   }, [engine, tempo])
 
-  // 乐器切换仅停止态生效（§3.6）：播放中引擎忽略 setSampler，停止后（playing 翻转）重新应用
+  // 乐器切换仅停止态生效（§3.6）：播放中引擎忽略 setSampler，停止后（playing 翻转）重新应用。
+  // 就绪跟踪：缓存命中即时就绪；新加载则挂 ready——resolve 置就绪、reject 置失败（retrySamples 重跑）
   useEffect(() => {
     const current = engineRef.current
     if (current === null) return
     let cancelled = false
-    void loadInstrument(instrument).then((loaded) => {
-      if (!cancelled) current.setSampler(loaded.sampler)
-    })
+    void loadInstrument(instrument)
+      .then((loaded) => {
+        if (cancelled) return
+        current.setSampler(loaded.sampler)
+        setSamplerReady(loaded.isReady())
+        if (!loaded.isReady()) {
+          void loaded.ready
+            .then(() => {
+              if (!cancelled) setSamplerReady(true)
+            })
+            .catch(() => {
+              if (!cancelled) setSamplerFailed(true)
+            })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSamplerFailed(true)
+      })
     return () => {
       cancelled = true
     }
-  }, [engine, instrument, playing])
+  }, [engine, instrument, playing, retrySeq])
 
   // 节拍器（§3.7 生命周期在引擎内：音色/开关变化重建声部、音量只改字段）
   useEffect(() => {
@@ -187,7 +228,10 @@ export function usePlayback(options: UsePlaybackOptions): PlaybackController {
     }
   }, [engine, playing])
 
+  // 采样未就绪时 play 守住（按钮禁用 + 键盘走带同源，避免「点了没声」无解释）；
+  // 播放中不拦 stop（toggle 的停止分支永远可达）
   const play = useCallback(() => {
+    if (!samplerReadyRef.current) return
     void engineRef.current?.play()
   }, [])
 
@@ -198,9 +242,31 @@ export function usePlayback(options: UsePlaybackOptions): PlaybackController {
   const toggle = useCallback(() => {
     const current = engineRef.current
     if (current === null) return
-    if (current.getState() === 'PLAYING') current.stop()
-    else void current.play()
+    if (current.getState() === 'PLAYING') {
+      current.stop()
+      return
+    }
+    if (!samplerReadyRef.current) return
+    void current.play()
   }, [])
 
-  return { ready: engine !== null, playing, progress, play, stop, toggle, engine }
+  // 重试：清失败态并递增计数，引擎创建（钢琴失败）与乐器加载两个 effect 随之重跑
+  const retrySamples = useCallback(() => {
+    setSamplerFailed(false)
+    setSamplerReady(false)
+    setRetrySeq((seq) => seq + 1)
+  }, [])
+
+  return {
+    ready: engine !== null,
+    playing,
+    progress,
+    samplesLoading: !samplerReady,
+    samplesFailed: samplerFailed,
+    play,
+    stop,
+    toggle,
+    retrySamples,
+    engine,
+  }
 }

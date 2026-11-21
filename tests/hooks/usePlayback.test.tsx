@@ -150,6 +150,7 @@ beforeEach(() => {
     sampler: new FakeSampler(),
     ready: Promise.resolve(),
     isReady: () => true,
+    hasError: () => false,
     dispose: () => {},
   }))
 })
@@ -242,6 +243,7 @@ describe('usePlayback（引擎生命周期与接线，docs/audio.md §3.2/§3.8�
       sampler: replacement,
       ready: Promise.resolve(),
       isReady: () => true,
+      hasError: () => false,
       dispose: () => {},
     }))
     rig.rerenderProps({ instrument: 'flute' })
@@ -265,5 +267,160 @@ describe('usePlayback（引擎生命周期与接线，docs/audio.md §3.2/§3.8�
     })
     expect(rig.result.current.playing).toBe(false)
     expect(rig.result.current.progress).toBe(0)
+  })
+})
+
+describe('usePlayback（采样加载窗口：samplesLoading/samplesFailed/retrySamples）', () => {
+  /** 手工延迟的引擎工厂：resolve/reject 由测试控制（替身装配同主 describe） */
+  function buildDeferredFactory(): {
+    createEngine: (bpm: number) => Promise<PlaybackEngine>
+    resolve: () => void
+    reject: (reason?: unknown) => void
+  } {
+    const timing = new FakeTimingSource(60)
+    const sampler = new FakeSampler()
+    const draw = new FakeDraw()
+    const timers = new ManualTimers()
+    let resolveFactory: (() => void) | null = null
+    let rejectFactory: ((reason?: unknown) => void) | null = null
+    const createEngine = vi.fn((bpm: number): Promise<PlaybackEngine> => {
+      return new Promise<PlaybackEngine>((resolve, reject) => {
+        resolveFactory = () =>
+          resolve(
+            new PlaybackEngine({
+              bpm,
+              timingSource: timing,
+              sampler,
+              drawScheduler: draw,
+              timers,
+              metronomeFactory: (sound) => new FakeMetronomeVoice(sound),
+            }),
+          )
+        rejectFactory = reject
+      })
+    })
+    return {
+      createEngine,
+      resolve: () => resolveFactory?.(),
+      reject: (reason?: unknown) => rejectFactory?.(reason),
+    }
+  }
+
+  it('引擎工厂挂起（钢琴预载窗口）：samplesLoading=true；落地且采样就绪后转 false', async () => {
+    const deferred = buildDeferredFactory()
+    const rig = renderUsePlayback({ createEngine: deferred.createEngine })
+    expect(rig.result.current.samplesLoading).toBe(true)
+    expect(rig.result.current.ready).toBe(false)
+    await act(async () => {
+      deferred.resolve()
+    })
+    await waitFor(() => expect(rig.result.current.samplesLoading).toBe(false))
+    expect(rig.result.current.ready).toBe(true)
+    expect(rig.result.current.samplesFailed).toBe(false)
+  })
+
+  it('引擎创建失败（钢琴采样 reject）：samplesFailed=true；retrySamples 重跑工厂', async () => {
+    const deferred = buildDeferredFactory()
+    const rig = renderUsePlayback({ createEngine: deferred.createEngine })
+    await act(async () => {
+      deferred.reject(new Error('piano samples failed'))
+    })
+    await waitFor(() => expect(rig.result.current.samplesFailed).toBe(true))
+    expect(rig.result.current.ready).toBe(false)
+
+    act(() => {
+      rig.result.current.retrySamples()
+    })
+    expect(deferred.createEngine).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      deferred.resolve()
+    })
+    await waitFor(() => expect(rig.result.current.ready).toBe(true))
+    expect(rig.result.current.samplesFailed).toBe(false)
+    expect(rig.result.current.samplesLoading).toBe(false)
+  })
+
+  it('乐器切换采样未就绪：samplesLoading=true 且 play() 守住不发车；就绪后恢复', async () => {
+    const rig = renderUsePlayback({ entries: melody([[0], [0.25], [0.5], [0.75]]) })
+    await waitFor(() => expect(rig.result.current.ready).toBe(true))
+    let resolveReady!: () => void
+    vi.mocked(loadInstrument).mockImplementation(async (type: InstrumentType) => ({
+      type,
+      sampler: new FakeSampler(),
+      ready: new Promise<void>((resolve) => {
+        resolveReady = resolve
+      }),
+      isReady: () => false,
+      hasError: () => false,
+      dispose: () => {},
+    }))
+    rig.rerenderProps({ instrument: 'flute' })
+    await waitFor(() => expect(rig.result.current.samplesLoading).toBe(true))
+    expect(rig.result.current.samplesFailed).toBe(false)
+
+    act(() => {
+      rig.result.current.play()
+    })
+    expect(rig.result.current.playing).toBe(false) // 未就绪不发车（与禁用按钮同源守卫）
+
+    act(() => {
+      resolveReady()
+    })
+    await waitFor(() => expect(rig.result.current.samplesLoading).toBe(false))
+    await playRig(rig)
+    expect(rig.result.current.playing).toBe(true)
+  })
+
+  it('音色采样加载失败：samplesFailed=true；retrySamples 重新加载音色并恢复', async () => {
+    const rig = renderUsePlayback()
+    await waitFor(() => expect(rig.result.current.ready).toBe(true))
+    let rejectReady!: (reason?: unknown) => void
+    let fluteCalls = 0
+    const replacement = new FakeSampler()
+    vi.mocked(loadInstrument).mockImplementation(async (type: InstrumentType) => {
+      if (type !== 'flute') {
+        return {
+          type,
+          sampler: new FakeSampler(),
+          ready: Promise.resolve(),
+          isReady: () => true,
+          hasError: () => false,
+          dispose: () => {},
+        }
+      }
+      fluteCalls += 1
+      if (fluteCalls === 1) {
+        return {
+          type,
+          sampler: new FakeSampler(),
+          ready: new Promise<void>((_resolve, reject) => {
+            rejectReady = reject
+          }),
+          isReady: () => false,
+          hasError: () => false,
+          dispose: () => {},
+        }
+      }
+      return {
+        type,
+        sampler: replacement,
+        ready: Promise.resolve(),
+        isReady: () => true,
+        hasError: () => false,
+        dispose: () => {},
+      }
+    })
+    rig.rerenderProps({ instrument: 'flute' })
+    await act(async () => {
+      rejectReady(new Error('network'))
+    })
+    await waitFor(() => expect(rig.result.current.samplesFailed).toBe(true))
+
+    act(() => {
+      rig.result.current.retrySamples()
+    })
+    await waitFor(() => expect(rig.result.current.samplesFailed).toBe(false))
+    await waitFor(() => expect(rig.result.current.samplesLoading).toBe(false))
+    expect(fluteCalls).toBeGreaterThanOrEqual(2) // 重试确实重新加载了音色
   })
 })

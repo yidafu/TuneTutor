@@ -54,6 +54,9 @@ export const enUS = {
   // 走带
   play: 'Play',
   stop: 'Stop',
+  samplesLoading: 'Loading instrument…',
+  samplesFailed: 'Instrument load failed',
+  retryLoad: 'Retry',
 
   // 速度
   tempoLabel: 'Tempo',

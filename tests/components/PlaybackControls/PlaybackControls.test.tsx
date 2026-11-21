@@ -8,6 +8,7 @@ function renderControls() {
   const handlers = {
     onTempoChange: vi.fn(),
     onPlayToggle: vi.fn(),
+    onRetrySamples: vi.fn(),
     onMetronomeToggle: vi.fn(),
     onMetroSoundChange: vi.fn(),
     onStrongVolumeChange: vi.fn(),
@@ -18,6 +19,8 @@ function renderControls() {
     <PlaybackControls
       tempo={90}
       playing={false}
+      samplesLoading={false}
+      samplesFailed={false}
       metronomeOn={false}
       metroSound="classic"
       strongVolume={0.8}

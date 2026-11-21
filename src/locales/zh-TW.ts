@@ -50,6 +50,9 @@ export const zhTW: TranslationSet = {
   // 走帶
   play: '播放',
   stop: '停止',
+  samplesLoading: '音色載入中…',
+  samplesFailed: '音色載入失敗',
+  retryLoad: '重試',
 
   // 速度
   tempoLabel: '速度',

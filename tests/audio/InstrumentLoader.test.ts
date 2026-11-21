@@ -22,6 +22,7 @@ interface MockTarget {
   disposed: number
   toDestinationCount: number
   onload: (() => void) | undefined
+  onerror: ((error: Error) => void) | undefined
 }
 
 const pkgState = vi.hoisted(() => ({
@@ -34,17 +35,21 @@ const toneState = vi.hoisted(() => ({
   synths: [] as Array<{ kind: string; oscType?: string; calls: unknown[][]; disposed: number }>,
 }))
 
-function instrumentPackageMock(pkg: string): { default: new (options?: { onload?: () => void }) => unknown } {
+function instrumentPackageMock(pkg: string): {
+  default: new (options?: { onload?: () => void; onerror?: (error: Error) => void }) => unknown
+} {
   class MockInstrument {
     calls: unknown[][] = []
     releaseAllCount = 0
     disposed = 0
     toDestinationCount = 0
     onload: (() => void) | undefined
+    onerror: ((error: Error) => void) | undefined
     release = 0
 
-    constructor(options?: { onload?: () => void }) {
+    constructor(options?: { onload?: () => void; onerror?: (error: Error) => void }) {
       this.onload = options?.onload
+      this.onerror = options?.onerror
       pkgState.created.push({ pkg, target: this })
     }
 
@@ -220,6 +225,49 @@ describe('InstrumentLoader 采样器缓存（docs/audio.md §4）', () => {
     await loaded.ready
     expect(loaded.isReady()).toBe(true)
     expect(isInstrumentLoaded('flute')).toBe(true)
+  })
+
+  it('onerror → ready reject + hasError：视图调用依旧丢弃/不触底层（UI 加载失败态的依据）', async () => {
+    const loaded = await loadInstrument('piano')
+    const target = createdOf('piano')[0]!.target
+    expect(loaded.hasError()).toBe(false)
+    expect(loaded.isReady()).toBe(false)
+    target.onerror?.(new Error('net down'))
+    expect(loaded.hasError()).toBe(true)
+    expect(loaded.isReady()).toBe(false)
+    await expect(loaded.ready).rejects.toThrow('failed to load')
+    loaded.sampler.triggerAttackRelease('C4', 1, 2, 0.7)
+    expect(target.calls).toHaveLength(0)
+    loaded.sampler.releaseAll()
+    expect(target.releaseAllCount).toBe(0)
+  })
+
+  it('失败条目不缓存复用：再次加载构造新实例并释放旧实例', async () => {
+    const failed = await loadInstrument('cello')
+    const oldTarget = createdOf('cello')[0]!.target
+    oldTarget.onerror?.(new Error('net down'))
+    await expect(failed.ready).rejects.toThrow()
+
+    const fresh = await loadInstrument('cello')
+    expect(fresh).not.toBe(failed)
+    expect(oldTarget.disposed).toBe(1)
+    expect(createdOf('cello')).toHaveLength(2)
+
+    createdOf('cello')[1]!.target.onload?.()
+    await fresh.ready
+    fresh.sampler.triggerAttackRelease('C3', 0.5, 0, 0.8)
+    expect(createdOf('cello')[1]!.target.calls).toHaveLength(1)
+  })
+
+  it('ready 前 releaseAll 为 no-op（无已发声声部；也避免对 disposed 节点抛错）', async () => {
+    const loaded = await loadInstrument('piano')
+    const target = createdOf('piano')[0]!.target
+    loaded.sampler.releaseAll()
+    expect(target.releaseAllCount).toBe(0)
+    target.onload?.()
+    await loaded.ready
+    loaded.sampler.releaseAll()
+    expect(target.releaseAllCount).toBe(1)
   })
 
   it('disposeInstruments 全量释放并清缓存，再次加载构造新实例', async () => {

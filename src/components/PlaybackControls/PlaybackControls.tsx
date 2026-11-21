@@ -45,6 +45,11 @@ interface PlaybackControlsProps {
   onTempoChange: (tempo: number) => void
   playing: boolean
   onPlayToggle: () => void
+  /** 采样加载中（usePlayback 样本就绪状态透传，走带按钮加载态） */
+  samplesLoading: boolean
+  /** 采样加载失败（走带按钮失败提示 + 重试） */
+  samplesFailed: boolean
+  onRetrySamples: () => void
   metronomeOn: boolean
   onMetronomeToggle: () => void
   metroSound: MetronomeSoundType
@@ -64,7 +69,13 @@ export default function PlaybackControls(props: PlaybackControlsProps) {
       <div {...stylex.props(styles.sliderCell)}>
         <TempoSlider value={props.tempo} onChange={props.onTempoChange} />
       </div>
-      <TransportButtons playing={props.playing} onPlayToggle={props.onPlayToggle} />
+      <TransportButtons
+        playing={props.playing}
+        onPlayToggle={props.onPlayToggle}
+        samplesLoading={props.samplesLoading}
+        samplesFailed={props.samplesFailed}
+        onRetrySamples={props.onRetrySamples}
+      />
       <MetronomeToggle
         on={props.metronomeOn}
         onToggle={props.onMetronomeToggle}
