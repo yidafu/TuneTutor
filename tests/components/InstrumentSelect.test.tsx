@@ -15,7 +15,7 @@ describe('InstrumentSelect', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
-  it('展开列出全部 7 种乐器并标记选中项', () => {
+  it('展开列出全部 12 种乐器并标记选中项', () => {
     renderWithProviders(<InstrumentSelect value="piano" onChange={() => {}} />)
     fireEvent.click(screen.getByRole('button'))
 

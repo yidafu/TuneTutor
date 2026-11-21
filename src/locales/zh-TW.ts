@@ -13,11 +13,16 @@ export const zhTW: TranslationSet = {
   // 樂器
   instrumentPiano: '鋼琴',
   instrumentSaxophone: '薩克斯風',
-  instrumentGuitar: '吉他',
-  instrumentBass: '貝斯',
-  instrumentViolin: '小提琴',
+  instrumentClarinet: '單簧管',
   instrumentFlute: '長笛',
   instrumentTrumpet: '小號',
+  instrumentFrenchHorn: '圓號',
+  instrumentTrombone: '長號',
+  instrumentViolin: '小提琴',
+  instrumentCello: '大提琴',
+  instrumentGuitar: '民謠吉他',
+  instrumentGuitarNylon: '古典吉他',
+  instrumentBass: '貝斯',
 
   // 示範曲資訊
   untitledScore: '未命名樂譜',

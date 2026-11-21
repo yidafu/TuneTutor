@@ -78,14 +78,19 @@ export function ThemeGlyph({ themeId, style }: { themeId: ThemeId; style?: Style
 const INSTRUMENT_ICONS: Record<InstrumentType, ThemeIconName> = {
   piano: 'piano',
   saxophone: 'sax',
-  guitar: 'guitar',
-  bass: 'bass',
-  violin: 'violin',
+  clarinet: 'clarinet',
   flute: 'flute',
   trumpet: 'trumpet',
+  frenchHorn: 'horn',
+  trombone: 'trombone',
+  violin: 'violin',
+  cello: 'cello',
+  guitar: 'guitar',
+  guitarNylon: 'classical',
+  bass: 'bass',
 }
 
-/** 乐器字形：全部 SVG 化（v1.2 §①-02 全量替换清单，乐器 7 枚专形专绘） */
+/** 乐器字形：全部 SVG 化（v1.2 §①-02 全量替换清单，乐器 12 枚专形专绘） */
 export function InstrumentGlyph({
   instrument,
   style,

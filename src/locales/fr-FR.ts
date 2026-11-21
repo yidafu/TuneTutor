@@ -13,11 +13,16 @@ export const frFR: TranslationSet = {
   // Instruments
   instrumentPiano: 'Piano',
   instrumentSaxophone: 'Saxophone',
-  instrumentGuitar: 'Guitare',
-  instrumentBass: 'Basse',
-  instrumentViolin: 'Violon',
+  instrumentClarinet: 'Clarinette',
   instrumentFlute: 'Flûte',
   instrumentTrumpet: 'Trompette',
+  instrumentFrenchHorn: 'Cor d\'harmonie',
+  instrumentTrombone: 'Trombone',
+  instrumentViolin: 'Violon',
+  instrumentCello: 'Violoncelle',
+  instrumentGuitar: 'Guitare folk',
+  instrumentGuitarNylon: 'Guitare classique',
+  instrumentBass: 'Basse',
 
   // Morceau de démonstration
   untitledScore: 'Partition sans titre',

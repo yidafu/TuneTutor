@@ -13,11 +13,16 @@ export const zhCN: TranslationSet = {
   // 乐器
   instrumentPiano: '钢琴',
   instrumentSaxophone: '萨克斯',
-  instrumentGuitar: '吉他',
-  instrumentBass: '贝斯',
-  instrumentViolin: '小提琴',
+  instrumentClarinet: '单簧管',
   instrumentFlute: '长笛',
   instrumentTrumpet: '小号',
+  instrumentFrenchHorn: '圆号',
+  instrumentTrombone: '长号',
+  instrumentViolin: '小提琴',
+  instrumentCello: '大提琴',
+  instrumentGuitar: '民谣吉他',
+  instrumentGuitarNylon: '古典吉他',
+  instrumentBass: '贝斯',
 
   // 示范曲信息
   untitledScore: '未命名乐谱',

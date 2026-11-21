@@ -10,7 +10,7 @@
 
 ## 1. 摘要
 
-TuneTutor（仓库 `note-slice`，包名 `tune-tutor`）是一款网页版乐谱练习播放器（PWA）：用户加载 MusicXML 乐谱，浏览器内渲染五线谱，通过**单击选小节、双击选乐句**圈定练习范围，以**可调速度（40–240 BPM）**、**7 种乐器采样音色**和**可定制节拍器**进行循环跟练；特有的「空拍循环」在每轮循环之间留出 1–8 拍静音间隔，训练节奏反应。配套「原曲」页支持导入音频（mp3/wav/ogg/m4a），在波形上拖选片段做同样的带空拍循环，用于对照原曲扒谱练习。
+TuneTutor（仓库 `note-slice`，包名 `tune-tutor`）是一款网页版乐谱练习播放器（PWA）：用户加载 MusicXML 乐谱，浏览器内渲染五线谱，通过**单击选小节、双击选乐句**圈定练习范围，以**可调速度（40–240 BPM）**、**12 种乐器采样音色**和**可定制节拍器**进行循环跟练；特有的「空拍循环」在每轮循环之间留出 1–8 拍静音间隔，训练节奏反应。配套「原曲」页支持导入音频（mp3/wav/ogg/m4a），在波形上拖选片段做同样的带空拍循环，用于对照原曲扒谱练习。
 
 ## 2. 联系人
 
@@ -68,7 +68,7 @@ TuneTutor（仓库 `note-slice`，包名 `tune-tutor`）是一款网页版乐谱
 
 - 零安装、零费用的乐谱播放器（对比商业制谱软件）；
 - 乐句级精确定位循环（对比「整曲重放」的通用播放器）；
-- 7 种乐器采样音色替换试听（钢琴 / 萨克斯 / 吉他 / 贝斯 / 小提琴 / 长笛 / 小号）；
+- 12 种乐器采样音色替换试听（钢琴 / 萨克斯 / 单簧管 / 长笛 / 小号 / 圆号 / 长号 / 小提琴 / 大提琴 / 民谣吉他 / 古典吉他 / 贝斯）；
 - 独创性的**空拍循环**：每轮循环之间插入 1–8 拍静音，迫使用户在间隔中预唱 / 预奏下一轮，训练内在节奏感；
 - 原曲音频 + 乐谱双轨练习：同一速度值在两页间共享，空拍换算一致。
 
@@ -128,7 +128,7 @@ App（Header 导航 + 共享速度值 tempo）
 | F6 | 速度调节 | 40–240 BPM，滑杆 + 数字输入（非法值回落），变更即时生效（引擎时钟重锚定，audio.md A2/v2.0，不停止零重建）；两页共享（原曲页只读，L6） | `TempoSlider.tsx`, `PlaybackEngine.ts` |
 | F7 | 循环跳过（空拍循环） | 1–8 拍轮间静音，再次点击当前值归零；范围优先级乐句 > 小节区间 > 全曲（无选择且空拍 > 0 循环全曲）；空拍以拍定义、随 BPM 现算秒（A3）；状态栏显示「跳过: N」 | `LoopSkipSelector.tsx`, `usePlayback.ts` |
 | F8 | 节拍器 | 4 种音色（经典 / 电子 / 底鼓 / 敲击），强 / 弱拍独立音量 0–1，按拍号分子自动强弱循环；拍点随引擎 tick 逐拍调度，与主播放同速轴（audio.md §3.7） | `MetronomeToggle.tsx`, `PlaybackEngine.ts` |
-| F9 | 乐器音色 | 7 种 tonejs-instrument 采样（钢琴默认；全量采样自托管 + PWA 缓存，不用 minify，A6）；仅停止态切换；选择持久化到 localStorage | `InstrumentLoader.ts`, `types/audio.ts` |
+| F9 | 乐器音色 | 12 种 tonejs-instrument 采样（钢琴默认；全量采样自托管 + PWA 缓存，不用 minify，A6）；仅停止态切换；选择持久化到 localStorage | `InstrumentLoader.ts`, `types/audio.ts` |
 | F10 | 原曲切片循环 | 音频导入（mp3/wav/ogg/m4a，点击与页面拖放两条入口，MIME + 解码双重校验）；wavesurfer v7 波形（内建 canvas 管线渲染，A9；波形缩放：滚轮/捏合 + －/%/＋ 步进控件，audio.md A13），拖选 / 拖动 / 边界微调，双击移除；切片过短（<0.05s）拒绝循环；空拍 0–8 拍轮间静音（region-out 驱动，A5）；后台标签页隐藏即暂停循环（A8）；音频、切片、空拍全部持久化 | `OriginalAudioPage.tsx`, `sliceUtils.ts` |
 | F11 | 多语言 | 简体中文 / 繁體中文 / English / Français，即时切换并持久化（`note-slice-language`），测试强制四语言键一致 | `locales/`, `Header.tsx` |
 | F12 | PWA 与部署 | 可安装、离线可用；HashRouter 路由 + GitHub Pages（base 与 scope 为 `/TuneTutor/`） | `vite.config.ts`, `vite-plugin-pwa` |

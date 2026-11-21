@@ -27,11 +27,16 @@ import { WALNUT_ICON_SET } from './sets/walnut'
 export type ThemeIconName =
   | 'piano'
   | 'sax'
-  | 'guitar'
-  | 'bass'
-  | 'violin'
+  | 'clarinet'
   | 'flute'
   | 'trumpet'
+  | 'horn'
+  | 'trombone'
+  | 'violin'
+  | 'cello'
+  | 'guitar'
+  | 'classical'
+  | 'bass'
   | 'play'
   | 'stop'
   | 'metro'
@@ -52,7 +57,7 @@ export interface IconGeometry {
   solid?: boolean
 }
 
-/** 一套完整的 17 枚主题图标（类型层面强制每集全量定义） */
+/** 一套完整的 22 枚主题图标（类型层面强制每集全量定义；乐器 12 枚 + 功能 10 枚） */
 export type IconSet = Record<ThemeIconName, IconGeometry>
 
 export const THEME_ICON_SETS: Record<ThemeId, IconSet> = {

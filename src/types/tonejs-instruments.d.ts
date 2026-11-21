@@ -45,3 +45,33 @@ declare module 'tonejs-instrument-trumpet-mp3' {
   const TrumpetMp3: new (options?: { minify?: boolean; onload?: () => void }) => Sampler
   export default TrumpetMp3
 }
+
+declare module 'tonejs-instrument-clarinet-mp3' {
+  import type { Sampler } from 'tone'
+  const ClarinetMp3: new (options?: { minify?: boolean; onload?: () => void }) => Sampler
+  export default ClarinetMp3
+}
+
+declare module 'tonejs-instrument-french-horn-mp3' {
+  import type { Sampler } from 'tone'
+  const FrenchHornMp3: new (options?: { minify?: boolean; onload?: () => void }) => Sampler
+  export default FrenchHornMp3
+}
+
+declare module 'tonejs-instrument-trombone-mp3' {
+  import type { Sampler } from 'tone'
+  const TromboneMp3: new (options?: { minify?: boolean; onload?: () => void }) => Sampler
+  export default TromboneMp3
+}
+
+declare module 'tonejs-instrument-cello-mp3' {
+  import type { Sampler } from 'tone'
+  const CelloMp3: new (options?: { minify?: boolean; onload?: () => void }) => Sampler
+  export default CelloMp3
+}
+
+declare module 'tonejs-instrument-guitar-nylon-mp3' {
+  import type { Sampler } from 'tone'
+  const GuitarNylonMp3: new (options?: { minify?: boolean; onload?: () => void }) => Sampler
+  export default GuitarNylonMp3
+}

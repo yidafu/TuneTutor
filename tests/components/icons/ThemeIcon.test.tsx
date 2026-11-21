@@ -24,7 +24,8 @@ function ThemeTargetButton({ target }: { target: ThemeId }) {
 }
 
 const ICON_NAMES: ThemeIconName[] = [
-  'piano', 'sax', 'guitar', 'bass', 'violin', 'flute', 'trumpet',
+  'piano', 'sax', 'clarinet', 'flute', 'trumpet', 'horn', 'trombone',
+  'violin', 'cello', 'guitar', 'classical', 'bass',
   'play', 'stop', 'metro', 'loop', 'gear', 'folder', 'note', 'trash', 'phones', 'palette',
 ]
 
@@ -61,7 +62,7 @@ function serializeGeometry({ paths, accents, solid }: IconGeometry): string {
 }
 
 describe('ThemeIcon（每主题专形专绘一套图标）', () => {
-  it('九款皮肤各注册一整套 17 枚图标（无遗漏、无多余）', () => {
+  it('九款皮肤各注册一整套 22 枚图标（无遗漏、无多余）', () => {
     expect([...THEMES].sort()).toEqual(Object.keys(THEME_ICON_SETS).sort())
     for (const theme of THEMES) {
       const set = THEME_ICON_SETS[theme]
@@ -146,7 +147,7 @@ describe('ThemeIcon（每主题专形专绘一套图标）', () => {
     expect(icon).toHaveAttribute('stroke-linejoin', THEME_ICON_STYLES.palace.linejoin)
   })
 
-  it('全部 17 枚图标 × 9 款皮肤均可渲染', () => {
+  it('全部 22 枚图标 × 9 款皮肤均可渲染', () => {
     for (const theme of THEMES) {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme)
       for (const name of ICON_NAMES) {
@@ -161,7 +162,7 @@ describe('ThemeIcon（每主题专形专绘一套图标）', () => {
     }
   })
 
-  it('InstrumentGlyph：7 种乐器全部 SVG 化，无 emoji 字形残留', () => {
+  it('InstrumentGlyph：12 种乐器全部 SVG 化，无 emoji 字形残留', () => {
     for (const instrument of INSTRUMENT_TYPES) {
       const { container, unmount } = render(
         <ThemeProvider>

@@ -51,7 +51,7 @@ src/
 │   ├── PlaybackEngine.ts     # look-ahead 窗口调度、节拍器、循环状态机、事件（官方 PlaybackManager 同构）
 │   ├── TimingSource.ts       # 锚点时钟（可注入；实时实现锚定 AudioContext.currentTime）
 │   ├── playbackData.ts       # 由 OSMD 光标构建播放数据（乐谱时域，单一事实来源）
-│   ├── InstrumentLoader.ts   # 7 种采样器加载与缓存
+│   ├── InstrumentLoader.ts   # 12 种采样器加载与缓存
 │   ├── TempoConverter.ts     # RealValue ↔ 秒 换算（纯函数）
 │   └── sliceUtils.ts         # 音频切片钳制/循环计划（纯函数，可单测）
 ├── utils/
@@ -141,7 +141,8 @@ interface LoopRange { startRv: number; endRv: number; skipBeats: number; }  // �
 type MetronomeSoundType = 'classic' | 'digital' | 'kick' | 'click';
 
 // audio.ts —— 音色与切片
-type InstrumentType = 'piano'|'saxophone'|'guitar'|'bass'|'violin'|'flute'|'trumpet';
+type InstrumentType = 'piano'|'saxophone'|'clarinet'|'flute'|'trumpet'|'frenchHorn'|'trombone'
+  |'violin'|'cello'|'guitar'|'guitarNylon'|'bass';   // 12 种，guitar 恒指钢弦民谣
 interface AudioSlice { startTime: number; endTime: number; }   // 原曲页切片（秒）
 
 // storedFile.ts —— IndexedDB 行

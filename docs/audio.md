@@ -32,7 +32,7 @@
 | `TimingSource.ts` | 锚点时钟:乐谱时域时间戳 ↔ 毫秒(可注入;实时实现锚定 AudioContext.currentTime) | TempoConverter | fake 时钟可单测 |
 | `TempoConverter.ts` | RealValue→秒、拍→秒(纯函数) | — | 纯函数 |
 | `PlaybackEngine.ts` | look-ahead 窗口调度、节拍器、循环状态机、事件(官方 PlaybackManager 同构) | TimingSource、playbackData、InstrumentLoader | fake 时钟 + fake 采样器可单测 |
-| `InstrumentLoader.ts` | 7 种采样器加载与缓存 | tonejs-instrument-\* | mock 包 |
+| `InstrumentLoader.ts` | 12 种采样器加载与缓存 | tonejs-instrument-\* | mock 包 |
 | `sliceUtils.ts` | 原曲切片钳制/循环计划(纯函数) | — | 纯函数(已有单测) |
 
 ```
@@ -182,10 +182,12 @@ Tone Sampler `releaseAll` 可立即释放全部发声采样(官方 `stopSound` �
 
 ## 4. 乐器音色(InstrumentLoader)
 
-- 7 个 `tonejs-instrument-*-mp3` 包:piano / guitar-acoustic / bass-electric / violin / flute / saxophone / trumpet。包族源流:nbrosowsky/tonejs-instruments 采样库 → Makefully-Studios 打包发布;实现即 `class extends Sampler`,**无 release 定制**;`minify: true` 只加载 9 个采样靠 repitch 覆盖全音域。
+- 12 个 `tonejs-instrument-*-mp3` 包:piano / saxophone / clarinet / flute / trumpet / french-horn / trombone / violin / cello / guitar-acoustic / guitar-nylon / bass-electric。包族源流:nbrosowsky/tonejs-instruments 采样库 → Makefully-Studios 打包发布;实现即 `class extends Sampler`,**无 release 定制**;`minify: true` 只加载 9 个采样靠 repitch 覆盖全音域。
 - **不用 minify**(9 音 repitch 音质损失大,练习器听感优先);钢琴全量 85 个 mp3 ≈ 15.6MB,靠 Vite 静态打包 + PWA 缓存,不做运行时 CDN 加载(同类项目均自托管音源防 CDN 失效)。
 - 缓存:`Map<InstrumentType, Sampler>`;同类型并发请求共享同一加载 Promise(防重复构造);`dispose()` 全量释放(测试/卸载用)。
 - 包族 peerDeps 只声明 `tone ^14.7.77`,Tone 15 属实测兼容——**升级 Tone 大版本必须回归验证音色加载**(§6-5)。
+- **cello 包已 pnpm patch(2026-11)**:`tonejs-instrument-cello-mp3@1.1.1` 打包产物含非法标识符(采样文件名带空格生成 `import F2 v2 from './F2 v2.mp3'`),esbuild 预打包与 Rollup 构建均解析失败;`patches/tonejs-instrument-cello-mp3@1.1.1.patch` 删除 `"F2 v2"`/`"G2 v2"` 两条无效音名条目(非合法音名,常规 F2/G2 采样仍在,repitch 覆盖音域)。**升级该包版本必须重打补丁**。
+- **workbox 预缓存单文件上限**:主 JS bundle(含 12 乐器注册表)2.12 MiB 超过 workbox 默认 2 MiB,`vite.config.ts` 已上调 `maximumFileSizeToCacheInBytes` 至 3 MiB;乐器继续增补需留意此线。采样 mp3 不在预缓存 glob 内,运行时按乐器首次选中才拉取,不影响安装体积。
 - **接线(2026-10-18 实测补记)**:包族只 `extends Sampler`,**不接 destination**(Tone 节点亦不自动连输出,官方播放器为自行 `.toDestination()`);连接由 InstrumentLoader 负责,构造后 `.toDestination()`,漏接表现为播放状态正常推进但全程无声。采样异步加载,ready 前 `triggerAttackRelease` 会被 Tone 以 `No available buffers for note` 抛错、且异常落在引擎 tick 内会打死自调度——包装层 ready 前静默丢弃,引擎构造等 `piano.ready` 才返回(usePlayback 的 `ready` 即「钢琴预载完成」,§3.6)。
 - 可选优化:构造后统一 `sampler.release = 0.5~1` 改善钢琴尾音(官方暴露属性,非 hack;空拍渗音见 §3.4)。
 

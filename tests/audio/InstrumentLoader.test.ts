@@ -12,7 +12,7 @@ import type { InstrumentType } from '@/types/audio'
 
 /**
  * InstrumentLoader 单测（docs/audio.md §7「mock 包」层）：
- * vi.mock 'tone' 与 7 个采样包，验证缓存/单飞、ready 语义、释放与节拍器声部；
+ * vi.mock 'tone' 与 12 个采样包，验证缓存/单飞、ready 语义、释放与节拍器声部；
  * 真实采样加载为手动验收（样例谱过 F5–F9，tech.md §10）。
  */
 
@@ -117,20 +117,30 @@ vi.mock('tone', () => {
 
 vi.mock('tonejs-instrument-piano-mp3', () => instrumentPackageMock('piano'))
 vi.mock('tonejs-instrument-saxophone-mp3', () => instrumentPackageMock('saxophone'))
-vi.mock('tonejs-instrument-guitar-acoustic-mp3', () => instrumentPackageMock('guitar'))
-vi.mock('tonejs-instrument-bass-electric-mp3', () => instrumentPackageMock('bass'))
-vi.mock('tonejs-instrument-violin-mp3', () => instrumentPackageMock('violin'))
+vi.mock('tonejs-instrument-clarinet-mp3', () => instrumentPackageMock('clarinet'))
 vi.mock('tonejs-instrument-flute-mp3', () => instrumentPackageMock('flute'))
 vi.mock('tonejs-instrument-trumpet-mp3', () => instrumentPackageMock('trumpet'))
+vi.mock('tonejs-instrument-french-horn-mp3', () => instrumentPackageMock('frenchHorn'))
+vi.mock('tonejs-instrument-trombone-mp3', () => instrumentPackageMock('trombone'))
+vi.mock('tonejs-instrument-violin-mp3', () => instrumentPackageMock('violin'))
+vi.mock('tonejs-instrument-cello-mp3', () => instrumentPackageMock('cello'))
+vi.mock('tonejs-instrument-guitar-acoustic-mp3', () => instrumentPackageMock('guitar'))
+vi.mock('tonejs-instrument-guitar-nylon-mp3', () => instrumentPackageMock('guitarNylon'))
+vi.mock('tonejs-instrument-bass-electric-mp3', () => instrumentPackageMock('bass'))
 
 const INSTRUMENT_PACKAGES: Record<InstrumentType, string> = {
   piano: 'piano',
   saxophone: 'saxophone',
-  guitar: 'guitar',
-  bass: 'bass',
-  violin: 'violin',
+  clarinet: 'clarinet',
   flute: 'flute',
   trumpet: 'trumpet',
+  frenchHorn: 'frenchHorn',
+  trombone: 'trombone',
+  violin: 'violin',
+  cello: 'cello',
+  guitar: 'guitar',
+  guitarNylon: 'guitarNylon',
+  bass: 'bass',
 }
 
 function createdOf(pkg: string): Array<{ pkg: string; target: MockTarget }> {
@@ -163,7 +173,7 @@ describe('InstrumentLoader 采样器缓存（docs/audio.md §4）', () => {
     expect(createdOf('piano')).toHaveLength(1)
   })
 
-  it('七种乐器各自构造对应包，sampler 视图委托到底层', async () => {
+  it('十二种乐器各自构造对应包，sampler 视图委托到底层', async () => {
     for (const type of Object.keys(INSTRUMENT_PACKAGES) as InstrumentType[]) {
       const before = createdOf(INSTRUMENT_PACKAGES[type]).length
       const loaded = await loadInstrument(type)

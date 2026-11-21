@@ -1,0 +1,40 @@
+diff --git a/index.js b/index.js
+index 8d8a50616e4796cdc4babcc00d10b2c92cb12162..45385ef0507e3d16381a1fb5bbe7d6014d366e4d 100644
+--- a/index.js
++++ b/index.js
+@@ -25,13 +25,11 @@ import Ds4 from './Ds4.mp3';
+ import E2 from './E2.mp3';
+ import E3 from './E3.mp3';
+ import E4 from './E4.mp3';
+-import F2 v2 from './F2 v2.mp3';
+ import F2 from './F2.mp3';
+ import F3 from './F3.mp3';
+ import F4 from './F4.mp3';
+ import Fs3 from './Fs3.mp3';
+ import Fs4 from './Fs4.mp3';
+-import G2 v2 from './G2 v2.mp3';
+ import G2 from './G2.mp3';
+ import G3 from './G3.mp3';
+ import G4 from './G4.mp3';
+@@ -65,13 +63,11 @@ const
+     "E2": E2,
+     "E3": E3,
+     "E4": E4,
+-    "F2 v2": F2 v2,
+     "F2": F2,
+     "F3": F3,
+     "F4": F4,
+     "F#3": Fs3,
+     "F#4": Fs4,
+-    "G2 v2": G2 v2,
+     "G2": G2,
+     "G3": G3,
+     "G4": G4,
+@@ -86,7 +82,6 @@ const
+     "C5": C5,
+     "D3": D3,
+     "D#4": Ds4,
+-    "F2 v2": F2 v2,
+     "F#3": Fs3,
+     "G3": G3,
+     "G#4": Gs4

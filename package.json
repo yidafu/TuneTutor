@@ -26,10 +26,15 @@
     "standardized-audio-context": "^25.3.77",
     "tone": "^15.1.22",
     "tonejs-instrument-bass-electric-mp3": "^1.1.2",
+    "tonejs-instrument-cello-mp3": "^1.1.1",
+    "tonejs-instrument-clarinet-mp3": "^1.1.2",
     "tonejs-instrument-flute-mp3": "^1.1.2",
+    "tonejs-instrument-french-horn-mp3": "^1.1.2",
     "tonejs-instrument-guitar-acoustic-mp3": "^1.1.2",
+    "tonejs-instrument-guitar-nylon-mp3": "^1.1.1",
     "tonejs-instrument-piano-mp3": "^1.1.2",
     "tonejs-instrument-saxophone-mp3": "^1.1.2",
+    "tonejs-instrument-trombone-mp3": "^1.1.2",
     "tonejs-instrument-trumpet-mp3": "^1.1.2",
     "tonejs-instrument-violin-mp3": "^1.1.1",
     "wavesurfer.js": "^7.12.11",
@@ -64,5 +69,10 @@
     "vite": "^7.2.4",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.0.17"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "tonejs-instrument-cello-mp3@1.1.1": "patches/tonejs-instrument-cello-mp3@1.1.1.patch"
+    }
   }
 }

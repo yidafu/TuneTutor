@@ -12,14 +12,19 @@ export const enUS = {
   libraryTitle: 'My Scores',
   loadScore: 'Load Score',
 
-  // 乐器（7 种采样音色）
+  // 乐器（12 种采样音色）
   instrumentPiano: 'Piano',
   instrumentSaxophone: 'Saxophone',
-  instrumentGuitar: 'Guitar',
-  instrumentBass: 'Bass',
-  instrumentViolin: 'Violin',
+  instrumentClarinet: 'Clarinet',
   instrumentFlute: 'Flute',
   instrumentTrumpet: 'Trumpet',
+  instrumentFrenchHorn: 'French Horn',
+  instrumentTrombone: 'Trombone',
+  instrumentViolin: 'Violin',
+  instrumentCello: 'Cello',
+  instrumentGuitar: 'Acoustic Guitar',
+  instrumentGuitarNylon: 'Classical Guitar',
+  instrumentBass: 'Bass',
 
   // 示范曲信息（内置《小星星》回落）
   untitledScore: 'Untitled score',

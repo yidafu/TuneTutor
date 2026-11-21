@@ -1,6 +1,6 @@
 /**
  * Tone.js 边界层（docs/audio.md §4 + §3.7 节拍器音色 + §3.2 接线默认件）：
- * 7 种 tonejs-instrument 采样器加载与缓存（决策 A6：不用 minify，全量采样静态打包 +
+ * 12 种 tonejs-instrument 采样器加载与缓存（决策 A6：不用 minify，全量采样静态打包 +
  * PWA 缓存；同类型并发请求共享同一实例）、4 种节拍器合成器声部、真实引擎组装
  * （LinearTimingSource 锚定 Tone 音频时钟 + Draw + Tone.start + 预载钢琴）。
  * 本文件是 src/audio/ 中唯一 import Tone 的模块：核心（playbackData / TimingSource /
@@ -22,22 +22,32 @@ import type { DrawScheduler, MetronomeVoice, PlaybackSampler } from './PlaybackE
 
 import PianoMp3 from 'tonejs-instrument-piano-mp3'
 import SaxophoneMp3 from 'tonejs-instrument-saxophone-mp3'
-import GuitarAcousticMp3 from 'tonejs-instrument-guitar-acoustic-mp3'
-import BassElectricMp3 from 'tonejs-instrument-bass-electric-mp3'
-import ViolinMp3 from 'tonejs-instrument-violin-mp3'
+import ClarinetMp3 from 'tonejs-instrument-clarinet-mp3'
 import FluteMp3 from 'tonejs-instrument-flute-mp3'
 import TrumpetMp3 from 'tonejs-instrument-trumpet-mp3'
+import FrenchHornMp3 from 'tonejs-instrument-french-horn-mp3'
+import TromboneMp3 from 'tonejs-instrument-trombone-mp3'
+import ViolinMp3 from 'tonejs-instrument-violin-mp3'
+import CelloMp3 from 'tonejs-instrument-cello-mp3'
+import GuitarAcousticMp3 from 'tonejs-instrument-guitar-acoustic-mp3'
+import GuitarNylonMp3 from 'tonejs-instrument-guitar-nylon-mp3'
+import BassElectricMp3 from 'tonejs-instrument-bass-electric-mp3'
 
 type InstrumentConstructor = new (options?: { onload?: () => void }) => Sampler
 
 const INSTRUMENT_CONSTRUCTORS: Record<InstrumentType, InstrumentConstructor> = {
   piano: PianoMp3,
   saxophone: SaxophoneMp3,
-  guitar: GuitarAcousticMp3,
-  bass: BassElectricMp3,
-  violin: ViolinMp3,
+  clarinet: ClarinetMp3,
   flute: FluteMp3,
   trumpet: TrumpetMp3,
+  frenchHorn: FrenchHornMp3,
+  trombone: TromboneMp3,
+  violin: ViolinMp3,
+  cello: CelloMp3,
+  guitar: GuitarAcousticMp3,
+  guitarNylon: GuitarNylonMp3,
+  bass: BassElectricMp3,
 }
 
 /** 已加载音色：sampler 为引擎可注入视图（已接 destination），ready 前 triggerAttackRelease 静默丢弃 */

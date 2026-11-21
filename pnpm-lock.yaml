@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  tonejs-instrument-cello-mp3@1.1.1:
+    hash: p4bsiqvqtso7i5rpifj7bamrky
+    path: patches/tonejs-instrument-cello-mp3@1.1.1.patch
+
 importers:
 
   .:
@@ -47,16 +52,31 @@ importers:
       tonejs-instrument-bass-electric-mp3:
         specifier: ^1.1.2
         version: 1.1.2(tone@15.1.22)
+      tonejs-instrument-cello-mp3:
+        specifier: ^1.1.1
+        version: 1.1.1(patch_hash=p4bsiqvqtso7i5rpifj7bamrky)(tone@15.1.22)
+      tonejs-instrument-clarinet-mp3:
+        specifier: ^1.1.2
+        version: 1.1.2(tone@15.1.22)
       tonejs-instrument-flute-mp3:
+        specifier: ^1.1.2
+        version: 1.1.2(tone@15.1.22)
+      tonejs-instrument-french-horn-mp3:
         specifier: ^1.1.2
         version: 1.1.2(tone@15.1.22)
       tonejs-instrument-guitar-acoustic-mp3:
         specifier: ^1.1.2
         version: 1.1.2(tone@15.1.22)
+      tonejs-instrument-guitar-nylon-mp3:
+        specifier: ^1.1.1
+        version: 1.1.1(tone@15.1.22)
       tonejs-instrument-piano-mp3:
         specifier: ^1.1.2
         version: 1.1.2(tone@15.1.22)
       tonejs-instrument-saxophone-mp3:
+        specifier: ^1.1.2
+        version: 1.1.2(tone@15.1.22)
+      tonejs-instrument-trombone-mp3:
         specifier: ^1.1.2
         version: 1.1.2(tone@15.1.22)
       tonejs-instrument-trumpet-mp3:
@@ -3754,13 +3774,33 @@ packages:
     peerDependencies:
       tone: ^14.7.77
 
+  tonejs-instrument-cello-mp3@1.1.1:
+    resolution: {integrity: sha512-d9kSOJL5DEBFPnCovfEGkVPMnlEJmzGShbvJc+Ntpij8TMyX2DJ+2vVvdxheWMJg7j8uljO3aF2j+vnSunX+hg==}
+    peerDependencies:
+      tone: ^14.7.77
+
+  tonejs-instrument-clarinet-mp3@1.1.2:
+    resolution: {integrity: sha512-q88NKOFrIQ8ZuOyyAxCJQQLEN3VrPClFrb5VZNwfiD155rMCL+duc7To0wvArD1lxEBu5AXGv6Z44G4AKuc4Wg==}
+    peerDependencies:
+      tone: ^14.7.77
+
   tonejs-instrument-flute-mp3@1.1.2:
     resolution: {integrity: sha512-Uao4DCUYMjAiQHVDryjDT/hIn/zkVGNETwlyrojTGGVZhKBVv/2TzRFq8m/5H8Qj7OLUuBXTPYW1pQFfOj67Jg==}
     peerDependencies:
       tone: ^14.7.77
 
+  tonejs-instrument-french-horn-mp3@1.1.2:
+    resolution: {integrity: sha512-Qz5OebzWYpc4ape2kNKvIzYsLFVJWN63zeoVGvOw65p9cs5AtAGt+OeMqwoH6XI+v8SxP0gI7qJ8kMrYUqzgGQ==}
+    peerDependencies:
+      tone: ^14.7.77
+
   tonejs-instrument-guitar-acoustic-mp3@1.1.2:
     resolution: {integrity: sha512-+24Jd7q2IVeR+y0yxB9oaujXFv/1gpfzbbLn3FZBQ6Fw0AWDO1CI8qM0l4YCN/4w60/cZMIT5laQ3PYB/ZN6jQ==}
+    peerDependencies:
+      tone: ^14.7.77
+
+  tonejs-instrument-guitar-nylon-mp3@1.1.1:
+    resolution: {integrity: sha512-HXSTXWo+vXY9J20xoq4Z9gYpy6loZT0uj/WRzkMU5UP7WKjZC5pz0nQtDm2ySrtC9LpiGneSrX550a1FziUScw==}
     peerDependencies:
       tone: ^14.7.77
 
@@ -3771,6 +3811,11 @@ packages:
 
   tonejs-instrument-saxophone-mp3@1.1.2:
     resolution: {integrity: sha512-PR/BjxQN0FX4uuucSO4jdMLP3C3OCbiCTitHX2z4XzKbpl6b8God+B6nDxz9fKUKAMflUMOVwSHj2yAEwIr+dA==}
+    peerDependencies:
+      tone: ^14.7.77
+
+  tonejs-instrument-trombone-mp3@1.1.2:
+    resolution: {integrity: sha512-A3yww4+t5JctTYT5wTrJSy//XnjaMvIcqfh7FkToHjnTU+lN9lQvL8RgYnS3RgmC4NSwAJSpdEoFwuiVgRgT/w==}
     peerDependencies:
       tone: ^14.7.77
 
@@ -7988,11 +8033,27 @@ snapshots:
     dependencies:
       tone: 15.1.22
 
+  tonejs-instrument-cello-mp3@1.1.1(patch_hash=p4bsiqvqtso7i5rpifj7bamrky)(tone@15.1.22):
+    dependencies:
+      tone: 15.1.22
+
+  tonejs-instrument-clarinet-mp3@1.1.2(tone@15.1.22):
+    dependencies:
+      tone: 15.1.22
+
   tonejs-instrument-flute-mp3@1.1.2(tone@15.1.22):
     dependencies:
       tone: 15.1.22
 
+  tonejs-instrument-french-horn-mp3@1.1.2(tone@15.1.22):
+    dependencies:
+      tone: 15.1.22
+
   tonejs-instrument-guitar-acoustic-mp3@1.1.2(tone@15.1.22):
+    dependencies:
+      tone: 15.1.22
+
+  tonejs-instrument-guitar-nylon-mp3@1.1.1(tone@15.1.22):
     dependencies:
       tone: 15.1.22
 
@@ -8001,6 +8062,10 @@ snapshots:
       tone: 15.1.22
 
   tonejs-instrument-saxophone-mp3@1.1.2(tone@15.1.22):
+    dependencies:
+      tone: 15.1.22
+
+  tonejs-instrument-trombone-mp3@1.1.2(tone@15.1.22):
     dependencies:
       tone: 15.1.22
 

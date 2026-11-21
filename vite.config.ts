@@ -91,6 +91,9 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // 主 JS bundle 含 12 种乐器采样器的注册表代码，2.0→2.12 MiB（12 乐器）超过
+        // workbox 单文件预缓存默认上限（2 MiB）；app shell 必须进预缓存，故上调。
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
